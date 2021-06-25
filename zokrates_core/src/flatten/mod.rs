@@ -2020,7 +2020,13 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                     FlatExpression::Identifier(id)
                 };
 
-                FlatExpression::Sub(box new_left, box new_right)
+                // change a - b to:
+                // tmp = (-1) * b
+                // a + tmp
+                let id = self.use_sym();
+                let tmp = FlatExpression::Mult(box FlatExpression::Number(T::from(-1)), box new_right);
+                statements_flattened.push(FlatStatement::Definition(id, tmp));
+                FlatExpression::Add(box new_left, box FlatExpression::Identifier(id))
             }
             FieldElementExpression::Mult(box left, box right) => {
                 let left_flattened = self.flatten_field_expression(statements_flattened, left);
