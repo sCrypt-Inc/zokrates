@@ -173,6 +173,7 @@ impl<'ast, T> PartialEq<usize> for UExpression<'ast, T> {
     }
 }
 
+// uint in zir/uint.rs
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
 pub enum UExpressionInner<'ast, T> {
     Identifier(Identifier<'ast>),

@@ -5,6 +5,7 @@ use crate::ir::{Directive, Function, LinComb, Prog, QuadComb, Statement};
 use zokrates_field::Field;
 
 impl<T: Field> From<FlatFunction<T>> for Function<T> {
+    // "return" should be handled at the function level
     fn from(flat_function: FlatFunction<T>) -> Function<T> {
         let return_expressions: Vec<FlatExpression<T>> = flat_function
             .statements
@@ -61,12 +62,13 @@ impl<T: Field> QuadComb<T> {
     }
 }
 
+// FlatProg -> Prog
 impl<T: Field> From<FlatProg<T>> for Prog<T> {
     fn from(flat_prog: FlatProg<T>) -> Prog<T> {
         // get the main function
         let main = flat_prog.main;
 
-        // get the interface of the program, i.e. which inputs are private and public
+        //  get the interface of the program, i.e. which inputs are private and public
         let private = main.arguments.iter().map(|p| p.private).collect();
 
         let main = main.into();
@@ -75,6 +77,7 @@ impl<T: Field> From<FlatProg<T>> for Prog<T> {
     }
 }
 
+// FlatExpression -> LinComb
 impl<T: Field> From<FlatExpression<T>> for LinComb<T> {
     fn from(flat_expression: FlatExpression<T>) -> LinComb<T> {
         match flat_expression {
@@ -83,6 +86,7 @@ impl<T: Field> From<FlatExpression<T>> for LinComb<T> {
             FlatExpression::Identifier(id) => LinComb::from(id),
             FlatExpression::Add(box e1, box e2) => LinComb::from(e1) + LinComb::from(e2),
             FlatExpression::Sub(box e1, box e2) => LinComb::from(e1) - LinComb::from(e2),
+            // Mult also must be linear. No v1 * v2 here
             FlatExpression::Mult(
                 box FlatExpression::Number(n1),
                 box FlatExpression::Identifier(v1),
@@ -96,6 +100,7 @@ impl<T: Field> From<FlatExpression<T>> for LinComb<T> {
     }
 }
 
+// FlatStatement -> Statement
 impl<T: Field> From<FlatStatement<T>> for Statement<T> {
     fn from(flat_statement: FlatStatement<T>) -> Statement<T> {
         match flat_statement {
@@ -104,8 +109,10 @@ impl<T: Field> From<FlatStatement<T>> for Statement<T> {
                     QuadComb::from_linear_combinations(lhs.into(), rhs.into()),
                     linear.into(),
                 ),
+                // otherwise it is linear expr, if not Mult
                 e => Statement::Constraint(LinComb::from(e).into(), linear.into()),
             },
+            // Definition is also converted to a constraint, as Condition
             FlatStatement::Definition(var, quadratic) => match quadratic {
                 FlatExpression::Mult(box lhs, box rhs) => Statement::Constraint(
                     QuadComb::from_linear_combinations(lhs.into(), rhs.into()),

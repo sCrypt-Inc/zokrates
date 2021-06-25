@@ -77,6 +77,7 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
 }
 
 fn cli_compute<T: Field>(ir_prog: ir::Prog<T>, sub_matches: &ArgMatches) -> Result<(), String> {
+    // Computing witness
     println!("Computing witness...");
 
     let verbose = sub_matches.is_present("verbose");
@@ -114,7 +115,7 @@ fn cli_compute<T: Field>(ir_prog: ir::Prog<T>, sub_matches: &ArgMatches) -> Resu
 
     use zokrates_abi::Inputs;
 
-    // get arguments
+    //  get arguments
     let arguments = match is_stdin {
         // take inline arguments
         false => {
@@ -162,6 +163,7 @@ fn cli_compute<T: Field>(ir_prog: ir::Prog<T>, sub_matches: &ArgMatches) -> Resu
     }
     .map_err(|e| format!("Could not parse argument: {}", e))?;
 
+    // interpreter
     let interpreter = ir::Interpreter::default();
 
     let witness = interpreter

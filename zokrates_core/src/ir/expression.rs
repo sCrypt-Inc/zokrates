@@ -42,6 +42,7 @@ impl<T: Field> From<T> for LinComb<T> {
 }
 
 impl<T: Field, U: Into<LinComb<T>>> From<U> for QuadComb<T> {
+    // LinComb -> QuadComb
     fn from(x: U) -> QuadComb<T> {
         QuadComb::from_linear_combinations(LinComb::one(), x.into())
     }
@@ -53,6 +54,7 @@ impl<T: Field> fmt::Display for QuadComb<T> {
     }
 }
 
+// linear combo
 #[derive(Clone, Debug, Serialize, Deserialize, Hash, PartialEq, Eq)]
 pub struct LinComb<T>(pub Vec<(FlatVariable, T)>);
 
@@ -81,6 +83,7 @@ impl<T> From<CanonicalLinComb<T>> for LinComb<T> {
 }
 
 impl<T> LinComb<T> {
+    // item to be added
     pub fn summand<U: Into<T>>(mult: U, var: FlatVariable) -> LinComb<T> {
         let res = vec![(var, mult.into())];
 
@@ -195,6 +198,7 @@ impl<T: Field> QuadComb<T> {
     }
 }
 
+// e.g., (1 * ~one) * (3 * ~one + 1 * _1) == 1 * ~out_0
 impl<T: Field> fmt::Display for LinComb<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self.is_zero() {
@@ -214,6 +218,7 @@ impl<T: Field> fmt::Display for LinComb<T> {
 
 impl<T: Field> From<FlatVariable> for LinComb<T> {
     fn from(v: FlatVariable) -> LinComb<T> {
+        // x => (x, 1), e.g., x * 1
         let r = vec![(v, T::one())];
         LinComb(r)
     }
@@ -229,6 +234,7 @@ impl<T: Field> Add<LinComb<T>> for LinComb<T> {
     }
 }
 
+// operator overload
 impl<T: Field> Sub<LinComb<T>> for LinComb<T> {
     type Output = LinComb<T>;
 
@@ -285,6 +291,7 @@ mod tests {
         fn add() {
             let a: LinComb<Bn128Field> = FlatVariable::new(42).into();
             let b: LinComb<Bn128Field> = FlatVariable::new(42).into();
+            // "+" overloads vec "+"
             let c = a + b;
 
             let expected_vec = vec![
@@ -304,6 +311,8 @@ mod tests {
                 (FlatVariable::new(42), Bn128Field::from(1)),
                 (FlatVariable::new(42), Bn128Field::from(-1)),
             ];
+
+            assert_eq!(&c.to_string(), "1 * _42 + (-1) * _42");
 
             assert_eq!(c, LinComb(expected_vec));
         }

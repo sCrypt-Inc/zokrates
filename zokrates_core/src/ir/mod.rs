@@ -20,6 +20,7 @@ pub use self::serialize::ProgEnum;
 pub use self::interpreter::{Error, ExecutionResult, Interpreter};
 pub use self::witness::Witness;
 
+// final output statement
 #[derive(Debug, Serialize, Deserialize, Clone, Hash, PartialEq, Eq)]
 pub enum Statement<T> {
     Constraint(QuadComb<T>, LinComb<T>),
@@ -82,6 +83,7 @@ pub struct Function<T> {
 
 impl<T: Field> fmt::Display for Function<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        // final output
         write!(
             f,
             "def {}({}) -> ({}):\n{}\n\t return {}",
@@ -109,6 +111,7 @@ impl<T: Field> fmt::Display for Function<T> {
 #[derive(Serialize, Deserialize, Debug, Clone, Hash, PartialEq, Eq)]
 pub struct Prog<T> {
     pub main: Function<T>,
+    // vector of whether if each input is private
     pub private: Vec<bool>,
 }
 

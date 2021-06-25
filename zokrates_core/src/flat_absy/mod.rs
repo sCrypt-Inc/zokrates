@@ -16,6 +16,7 @@ use std::collections::HashMap;
 use std::fmt;
 use zokrates_field::Field;
 
+// flattener output: FlatProg
 #[derive(Clone, PartialEq)]
 pub struct FlatProg<T: Field> {
     /// FlatFunctions of the program
@@ -36,9 +37,9 @@ impl<T: Field> fmt::Debug for FlatProg<T> {
 
 #[derive(Clone, PartialEq)]
 pub struct FlatFunction<T: Field> {
-    /// Arguments of the function
+    ///  Arguments of the function
     pub arguments: Vec<FlatParameter>,
-    /// Vector of statements that are executed when running the function
+    ///  Vector of statements that are executed when running the function
     pub statements: Vec<FlatStatement<T>>,
 }
 
@@ -86,11 +87,14 @@ impl<T: Field> fmt::Debug for FlatFunction<T> {
 ///
 /// * r1cs - R1CS in standard JSON data format
 
+/// FlatStatement
+/// 
 #[derive(Clone, PartialEq)]
 pub enum FlatStatement<T: Field> {
     Return(FlatExpressionList<T>),
     Condition(FlatExpression<T>, FlatExpression<T>),
     Definition(FlatVariable, FlatExpression<T>),
+    // start w/ prefix "#", used for computing witness. Not in final r1cs
     Directive(FlatDirective<T>),
 }
 
@@ -155,6 +159,7 @@ impl<T: Field> FlatStatement<T> {
     }
 }
 
+// stmt: Directive(FlatDirective<T>)
 #[derive(Clone, Hash, Debug, PartialEq, Eq)]
 pub struct FlatDirective<T: Field> {
     pub inputs: Vec<FlatExpression<T>>,
@@ -233,9 +238,11 @@ impl<T: Field> FlatExpression<T> {
         }
     }
 
+    // is expr linear
     pub fn is_linear(&self) -> bool {
         match *self {
             FlatExpression::Number(_) | FlatExpression::Identifier(_) => true,
+            // _ => false,
             FlatExpression::Add(ref x, ref y) | FlatExpression::Sub(ref x, ref y) => {
                 x.is_linear() && y.is_linear()
             }

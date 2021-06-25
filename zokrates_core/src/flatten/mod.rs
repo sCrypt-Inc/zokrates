@@ -29,6 +29,7 @@ type FlatStatements<T> = Vec<FlatStatement<T>>;
 #[derive(Debug)]
 pub struct Flattener<'ast, T: Field> {
     config: &'ast CompileConfig,
+    // unique var id _0, _1
     /// Index of the next introduced variable while processing the program.
     next_var_idx: usize,
     /// `FlatVariable`s corresponding to each `Identifier`
@@ -974,6 +975,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         }
     }
 
+    // general expr
     /// Flattens an expression
     ///
     /// # Arguments
@@ -1718,6 +1720,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                         )
                     }));
 
+                    // expand into bits exp: _0 == ((((1 * _8) + (2 * _7)) + ((4 * _6) + (8 * _5))) + (((16 * _4) + (32 * _3)) + ((64 * _2) + (128 * _1))))
                     let sum = flat_expression_from_bits(bits.clone());
 
                     // sum check
@@ -1740,6 +1743,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         })
     }
 
+    /// field expr
     /// Flattens a field expression
     ///
     /// # Arguments
@@ -1757,6 +1761,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                 FlatExpression::Identifier(*self.layout.get(&x).unwrap_or_else(|| panic!("{}", x)))
             }
             FieldElementExpression::Add(box left, box right) => {
+                // recurse
                 let left_flattened = self.flatten_field_expression(statements_flattened, left);
                 let right_flattened = self.flatten_field_expression(statements_flattened, right);
                 let new_left = if left_flattened.is_linear() {
@@ -1776,6 +1781,10 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                 FlatExpression::Add(box new_left, box new_right)
             }
             FieldElementExpression::Sub(box left, box right) => {
+                // left - right
+                // -->
+                // _$n = -1 * right
+                // left + _$n
                 let left_flattened = self.flatten_field_expression(statements_flattened, left);
                 let right_flattened = self.flatten_field_expression(statements_flattened, right);
 
@@ -1816,13 +1825,24 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                 FlatExpression::Mult(box new_left, box new_right)
             }
             FieldElementExpression::Div(box left, box right) => {
+    // def main(private _0,_1):
+    //     _2 = _0
+    //     _3 = _1
+    //     # _4 = Div(1, _3)
+    //     1 == (_4 * _3)
+    //     # _5 = Div(_2, _3)
+    //     _2 == (_3 * _5)
+    //     return _5
+                // a / b
                 let left_flattened = self.flatten_field_expression(statements_flattened, left);
                 let right_flattened = self.flatten_field_expression(statements_flattened, right);
+                // a
                 let new_left: FlatExpression<T> = {
                     let id = self.use_sym();
                     statements_flattened.push(FlatStatement::Definition(id, left_flattened));
                     id.into()
                 };
+                // b
                 let new_right: FlatExpression<T> = {
                     let id = self.use_sym();
                     statements_flattened.push(FlatStatement::Definition(id, right_flattened));
@@ -1832,6 +1852,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                 let invb = self.use_sym();
                 let inverse = self.use_sym();
 
+                // directive??
                 // # invb = 1/b
                 statements_flattened.push(FlatStatement::Directive(FlatDirective::new(
                     vec![invb],
@@ -2134,6 +2155,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         }
     }
 
+    // step 0
     /// Flattens a program
     ///
     /// # Arguments
@@ -2198,6 +2220,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         }
     }
 
+    // increment _0, _1, ...
     /// Returns a fresh FlatVariable for a given Variable
     /// # Arguments
     ///
@@ -2222,6 +2245,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         self.layout.insert(variable.id.clone(), flat_variable);
     }
 
+    // Parameter -> FlatParameter
     fn use_parameter(
         &mut self,
         parameter: &Parameter<'ast>,
@@ -2248,6 +2272,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
             }
             Type::FieldElement => {
                 if self.config.allow_unconstrained_variables && parameter.private {
+                    // TODO
                     // we insert dummy condition statement for private field elements
                     // to avoid unconstrained variables
                     // translates to y == x * x
@@ -2271,6 +2296,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         var
     }
 
+    // intermediate var
     // create an internal variable. We do not register it in the layout
     fn use_sym(&mut self) -> FlatVariable {
         self.issue_new_variable()
@@ -3074,6 +3100,7 @@ mod tests {
 
     #[test]
     fn div() {
+        // b = 42
         // a = 5 / b / b
         let config = CompileConfig::default();
         let mut flattener = Flattener::new(&config);

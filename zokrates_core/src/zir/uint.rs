@@ -158,6 +158,7 @@ pub struct UExpression<'ast, T> {
     pub inner: UExpressionInner<'ast, T>,
 }
 
+// uint
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum UExpressionInner<'ast, T> {
     Identifier(Identifier<'ast>),

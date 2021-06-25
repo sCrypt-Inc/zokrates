@@ -167,12 +167,20 @@ pub fn compile<T: Field, E: Into<imports::Error>>(
 
     let (typed_ast, abi) = check_with_arena(source, location, resolver, &arena)?;
 
+    // main entry
     // flatten input program
+    // def main(private _0,_1):
+    //         _2 = (_0 * (_0 + 11))
+    //         _3 = (_1 * _0)
+    //         _4 = ((_2 - _3) + 12)
+    //         return _4
     let program_flattened = Flattener::flatten(typed_ast, config);
+    println!("flattern: {}", program_flattened);
 
     // analyse (constant propagation after call resolution)
     let program_flattened = program_flattened.analyse();
 
+    // IR is closer to final format
     // convert to ir
     let ir_prog = ir::Prog::from(program_flattened);
 

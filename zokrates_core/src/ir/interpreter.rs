@@ -37,9 +37,11 @@ impl Interpreter {
 }
 
 impl Interpreter {
+    // circuit/r1cs & inputs => witness/circuit wires
     pub fn execute<T: Field>(&self, program: &Prog<T>, inputs: &[T]) -> ExecutionResult<T> {
         let main = &program.main;
         self.check_inputs(&program, &inputs)?;
+        // hashmap
         let mut witness = BTreeMap::new();
         witness.insert(FlatVariable::one(), T::one());
         for (arg, value) in main.arguments.iter().zip(inputs.iter()) {
@@ -48,11 +50,27 @@ impl Interpreter {
 
         for statement in main.statements.iter() {
             match statement {
+/*
+def main(field a) -> field:
+    field b = a * a + 3
+    return b
+flattern: def main(_0):
+        _1 = (_0 * _0)
+        _2 = (_1 + 3)
+        return _2
+Compiled program:
+def main(_0) -> (1):
+        (1 * _0) * (1 * _0) == 1 * _1
+        (1 * ~one) * (3 * ~one + 1 * _1) == 1 * ~out_0
+         return ~out_0
+*/
                 Statement::Constraint(quad, lin) => match lin.is_assignee(&witness) {
+                    // calculate new variable, e.g., (1 * _0) * (1 * _0) == 1 * _1
                     true => {
                         let val = quad.evaluate(&witness).unwrap();
                         witness.insert(lin.0.get(0).unwrap().0, val);
                     }
+                    // validate constraint, e.g., (1 * ~one) * (3 * ~one + 1 * _1) == 1 * ~out_0
                     false => {
                         let lhs_value = quad.evaluate(&witness).unwrap();
                         let rhs_value = lin.evaluate(&witness).unwrap();
@@ -64,6 +82,26 @@ impl Interpreter {
                         }
                     }
                 },
+/*
+def main(field a) -> field:
+    field b = a / 3
+    return b
+flattern: def main(_0):
+    _1 = _0
+    _2 = 3
+    # _3 = Div(1, _2)
+    1 == (_3 * _2)
+    # _4 = Div(_1, _2)
+    _1 == (_2 * _4)
+    return _4
+Compiled program:
+def main(_0) -> (1):
+    # _4 = Div((1 * ~one) * (1 * _0), (1 * ~one) * (3 * ~one))
+    (1 * ~one) * (3 * _4) == 1 * _0
+    (1 * ~one) * (1 * _4) == 1 * ~out_0
+    return ~out_0
+*/
+                // Solver: inputs => outputs
                 Statement::Directive(ref d) => {
                     match (&d.solver, &d.inputs, self.should_try_out_of_range) {
                         (Solver::Bits(bitwidth), inputs, true)
@@ -74,14 +112,16 @@ impl Interpreter {
                             Self::try_solve_out_of_range(&d, &mut witness)
                         }
                         _ => {
+                            // eval inputs
                             let inputs: Vec<_> = d
                                 .inputs
                                 .iter()
                                 .map(|i| i.evaluate(&witness).unwrap())
                                 .collect();
+                            // compute outputs
                             match self.execute_solver(&d.solver, &inputs) {
                                 Ok(res) => {
-                                    for (i, o) in d.outputs.iter().enumerate() {
+                                    for (i /* index */, o /* output */) in d.outputs.iter().enumerate() {
                                         witness.insert(*o, res[i].clone());
                                     }
                                     continue;
@@ -147,6 +187,8 @@ impl Interpreter {
         assert!(inputs.len() == expected_input_count);
 
         let res = match solver {
+            // ConditionEq(x): (x == 0) ? (0, 1) : (1, 1 / x)
+            // e.g., directive # _2, _3 = ConditionEq((_4 - _1))
             Solver::ConditionEq => match inputs[0].is_zero() {
                 true => vec![T::zero(), T::one()],
                 false => vec![
@@ -172,6 +214,7 @@ impl Interpreter {
                 let x = inputs[0].clone();
                 let y = inputs[1].clone();
 
+                // boolean -> arithmetic
                 vec![x.clone() + y.clone() - T::from(2) * x * y]
             }
             Solver::Or => {
@@ -245,6 +288,7 @@ impl Interpreter {
 pub struct EvaluationError;
 
 impl<T: Field> LinComb<T> {
+    // eval
     fn evaluate(&self, witness: &BTreeMap<FlatVariable, T>) -> Result<T, EvaluationError> {
         self.0
             .iter()
@@ -258,6 +302,7 @@ impl<T: Field> LinComb<T> {
             .map(|v| v.iter().fold(T::from(0), |acc, t| acc + t)) // return the sum
     }
 
+    // is a new var being defined/assigned?
     fn is_assignee<U>(&self, witness: &BTreeMap<FlatVariable, U>) -> bool {
         self.0.iter().count() == 1
             && self.0.get(0).unwrap().1 == T::from(1)
@@ -266,6 +311,7 @@ impl<T: Field> LinComb<T> {
 }
 
 impl<T: Field> QuadComb<T> {
+    // eval
     pub fn evaluate(&self, witness: &BTreeMap<FlatVariable, T>) -> Result<T, EvaluationError> {
         let left = self.left.evaluate(&witness)?;
         let right = self.right.evaluate(&witness)?;
