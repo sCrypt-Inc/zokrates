@@ -2724,9 +2724,10 @@ mod tests {
         //     assert(x + 1 == y)
 
         // def main():
-        //     _0 = 42
-        //     _1 = 42
-        //     _1 == ((_0 + 1) * 1)
+        //     _0 = 1
+        //     _1 = 2
+        //     _2 = (_0 + 1)
+        //     _1 == _2 * 1
         let function = ZirFunction {
             arguments: vec![],
             statements: vec![
@@ -2767,13 +2768,17 @@ mod tests {
                     FlatVariable::new(1),
                     FlatExpression::Number(Bn128Field::from(2)),
                 ),
+                FlatStatement::Definition(
+                    FlatVariable::new(2),
+                    FlatExpression::Add(
+                        box FlatExpression::Identifier(FlatVariable::new(0)),
+                        box FlatExpression::Number(Bn128Field::from(1)),
+                    ),
+                ),
                 FlatStatement::Condition(
                     FlatExpression::Identifier(FlatVariable::new(1)),
                     FlatExpression::Mult(
-                        box FlatExpression::Add(
-                            box FlatExpression::Identifier(FlatVariable::new(0)),
-                            box FlatExpression::Number(Bn128Field::from(1)),
-                        ),
+                        box FlatExpression::Identifier(FlatVariable::new(2)),
                         box FlatExpression::Number(Bn128Field::from(1)),
                     ),
                     RuntimeError::Source,
