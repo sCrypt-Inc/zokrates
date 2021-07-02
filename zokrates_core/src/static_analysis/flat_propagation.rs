@@ -34,10 +34,10 @@ impl<T: Field> PropagateWithContext<T> for FlatExpression<T> {
             }
             FlatExpression::Sub(box e1, box e2) => {
                 match (e1.propagate(constants), e2.propagate(constants)) {
-                    (FlatExpression::Number(n1), FlatExpression::Number(n2)) => {
-                        FlatExpression::Number(n1 - n2)
+                    (FlatExpression::Number(_n1), FlatExpression::Number(n2)) => {
+                        FlatExpression::Number(T::from(-1) * n2)
                     }
-                    (e1, e2) => FlatExpression::Sub(box e1, box e2),
+                    (e1, e2) => FlatExpression::Mult(box e1, box e2),
                 }
             }
             FlatExpression::Mult(box e1, box e2) => {

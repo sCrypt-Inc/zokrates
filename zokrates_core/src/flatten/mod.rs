@@ -1283,6 +1283,30 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                 (x, y) => {
                     let name = self.use_sym();
 
+                    let newid1 = self.use_sym();
+                    statements_flattened.push(FlatStatement::Condition(
+                        FlatExpression::Identifier(newid1),
+                        FlatExpression::Add(box x.clone(), box x.clone()),
+                    ));
+
+                    let newid2 = self.use_sym();
+                    statements_flattened.push(FlatStatement::Condition(
+                        FlatExpression::Identifier(newid2),
+                        FlatExpression::Sub(box y.clone(), box name.into()),
+                    ));
+
+                    let newid3 = self.use_sym();
+                    statements_flattened.push(FlatStatement::Condition(
+                        FlatExpression::Identifier(newid3),
+                        FlatExpression::Add(box newid2.into(), box newid3.into()),
+                    ));
+
+                    let newid4 = self.use_sym();
+                    statements_flattened.push(FlatStatement::Condition(
+                        FlatExpression::Identifier(newid4),
+                        FlatExpression::Add(box x.clone(), box newid4.into()),
+                    ));
+
                     statements_flattened.extend(vec![
                         FlatStatement::Directive(FlatDirective::new(
                             vec![name],
@@ -1290,12 +1314,9 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                             vec![x.clone(), y.clone()],
                         )),
                         FlatStatement::Condition(
-                            FlatExpression::Add(
-                                box x.clone(),
-                                box FlatExpression::Sub(box y.clone(), box name.into()),
-                            ),
+                            FlatExpression::Identifier(newid4),
                             FlatExpression::Mult(
-                                box FlatExpression::Add(box x.clone(), box x.clone()),
+                                box FlatExpression::Identifier(newid1),
                                 box y.clone(),
                             ),
                         ),
@@ -1623,6 +1644,18 @@ impl<'ast, T: Field> Flattener<'ast, T> {
 
                                     let ch = self.use_sym();
 
+                                    let newid1 = self.use_sym();
+                                    statements_flattened.push(FlatStatement::Condition(
+                                        FlatExpression::Identifier(newid1),
+                                        FlatExpression::Sub(box ch.into(), box c.clone()),
+                                    ));
+
+                                    let newid2 = self.use_sym();
+                                    statements_flattened.push(FlatStatement::Condition(
+                                        FlatExpression::Identifier(newid2),
+                                        FlatExpression::Sub(box b.clone(), box c.clone()),
+                                    ));
+
                                     statements_flattened.extend(vec![
                                         FlatStatement::Directive(FlatDirective::new(
                                             vec![ch],
@@ -1630,10 +1663,10 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                                             vec![a.clone(), b.clone(), c.clone()],
                                         )),
                                         FlatStatement::Condition(
-                                            FlatExpression::Sub(box ch.into(), box c.clone()),
+                                            FlatExpression::Identifier(newid1),
                                             FlatExpression::Mult(
                                                 box a,
-                                                box FlatExpression::Sub(box b, box c),
+                                                box FlatExpression::Identifier(newid2),
                                             ),
                                         ),
                                     ]);
@@ -1687,6 +1720,30 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                                             let maj = self.use_sym();
                                             let bc = self.use_sym();
 
+                                            let newid1 = self.use_sym();
+                                            statements_flattened.push(FlatStatement::Condition(
+                                            FlatExpression::Identifier(newid1),
+                                            FlatExpression::Sub(box bc.into(), box maj.into()),
+                                            ));
+
+                                            let newid2 = self.use_sym();
+                                            statements_flattened.push(FlatStatement::Condition(
+                                            FlatExpression::Identifier(newid2),
+                                            FlatExpression::Add(box b.clone(), box c.clone()),
+                                            ));
+
+                                            let newid3 = self.use_sym();
+                                            statements_flattened.push(FlatStatement::Condition(
+                                            FlatExpression::Identifier(newid3),
+                                            FlatExpression::Add(box bc.into(), box bc.into()),
+                                            ));
+
+                                            let newid4 = self.use_sym();
+                                            statements_flattened.push(FlatStatement::Condition(
+                                            FlatExpression::Identifier(newid4),
+                                            FlatExpression::Sub(box newid3.into(), box newid2.into()),
+                                            ));
+
                                             statements_flattened.extend(vec![
                                                 FlatStatement::Directive(FlatDirective::new(
                                                     vec![maj],
@@ -1701,18 +1758,9 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                                                     ),
                                                 ),
                                                 FlatStatement::Condition(
-                                                    FlatExpression::Sub(
-                                                        box bc.into(),
-                                                        box maj.into(),
-                                                    ),
+                                                    FlatExpression::Identifier(newid1),
                                                     FlatExpression::Mult(
-                                                        box FlatExpression::Sub(
-                                                            box FlatExpression::Add(
-                                                                box bc.into(),
-                                                                box bc.into(),
-                                                            ),
-                                                            box FlatExpression::Add(box b, box c),
-                                                        ),
+                                                        box FlatExpression::Identifier(newid4),
                                                         box a,
                                                     ),
                                                 ),

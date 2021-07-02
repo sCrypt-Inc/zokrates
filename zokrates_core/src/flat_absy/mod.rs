@@ -15,6 +15,7 @@ use crate::solvers::Solver;
 use std::collections::HashMap;
 use std::fmt;
 use zokrates_field::Field;
+use crate::typed_absy::FieldElementExpression::Number;
 
 #[derive(Clone, PartialEq)]
 pub struct FlatProg<T: Field> {
@@ -253,7 +254,7 @@ impl<T: Field> fmt::Display for FlatExpression<T> {
             FlatExpression::Number(ref i) => write!(f, "{}", i),
             FlatExpression::Identifier(ref var) => write!(f, "{}", var),
             FlatExpression::Add(ref lhs, ref rhs) => write!(f, "({} + {})", lhs, rhs),
-            FlatExpression::Sub(ref lhs, ref rhs) => write!(f, "({} - {})", lhs, rhs),
+            FlatExpression::Sub(ref _lhs, ref rhs) => write!(f, "({} * {})", Number(T::from(-1)), rhs),
             FlatExpression::Mult(ref lhs, ref rhs) => write!(f, "({} * {})", lhs, rhs),
         }
     }

@@ -1,0 +1,10 @@
+//def main(private field a, field b) -> field:
+//assert(a == b)
+//return 1
+
+def main(private field s, field x) -> (field):
+// assert((x-2)-(x*s) == 9)
+// 
+assert (  s / x     == 9)
+
+return 1
