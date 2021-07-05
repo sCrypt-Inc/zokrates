@@ -2249,13 +2249,8 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         }
     }
 
-    pub fn flat_expression_from_bits(
+    pub fn flat_expression_from_bits_aux(
         &mut self,
-        statements_flattened: &mut FlatStatements<T>,
-        _expr: FlatExpression<T>,
-        vec: Vec<FlatExpression<T>>,
-) -> FlatExpression<T> {
-    fn flat_expression_from_bits_aux<T: Field>(
         vec: Vec<(T, FlatExpression<T>)>,
     ) -> FlatExpression<T> {
         match vec.len() {
@@ -2271,14 +2266,20 @@ impl<'ast, T: Field> Flattener<'ast, T> {
             n => {
                 let (u, v) = vec.split_at(n / 2);
                 FlatExpression::Add(
-                    box flat_expression_from_bits_aux(u.to_vec()),
-                    box flat_expression_from_bits_aux(v.to_vec()),
+                    box self.flat_expression_from_bits_aux(u.to_vec()),
+                    box self.flat_expression_from_bits_aux(v.to_vec()),
                 )
             }
         }
     }
 
-    flat_expression_from_bits_aux(
+    pub fn flat_expression_from_bits(
+        &mut self,
+        statements_flattened: &mut FlatStatements<T>,
+        _expr: FlatExpression<T>,
+        vec: Vec<FlatExpression<T>>,
+) -> FlatExpression<T> {
+    self.flat_expression_from_bits_aux(
         vec.into_iter()
             .rev()
             .enumerate()
