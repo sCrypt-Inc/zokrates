@@ -2251,24 +2251,32 @@ impl<'ast, T: Field> Flattener<'ast, T> {
 
     pub fn flat_expression_from_bits_aux(
         &mut self,
+        statements_flattened: &mut FlatStatements<T>,
         vec: Vec<(T, FlatExpression<T>)>,
     ) -> FlatExpression<T> {
         match vec.len() {
             0 => FlatExpression::Number(T::zero()),
             1 => {
                 let (coeff, var) = vec[0].clone();
-                let newid1 = self.use_sym();
-                //statements_flattened.push(FlatStatement::Condition(
-                        //FlatExpression::Identifier(newid1),
-                FlatExpression::Mult(box FlatExpression::Number(coeff), box var)
-                //))
+                let sum = self.use_sym();
+                let sumId = FlatExpression::Identifier(sum);
+                statements_flattened.push(FlatStatement::Condition(
+                    sumId.clone(),
+                    FlatExpression::Mult(box FlatExpression::Number(coeff), box var),
+                ));
+                sumId
             }
             n => {
                 let (u, v) = vec.split_at(n / 2);
-                FlatExpression::Add(
-                    box self.flat_expression_from_bits_aux(u.to_vec()),
-                    box self.flat_expression_from_bits_aux(v.to_vec()),
-                )
+                let left = self.flat_expression_from_bits_aux(statements_flattened, u.to_vec());
+                let right = self.flat_expression_from_bits_aux(statements_flattened, v.to_vec());           
+                let sum = self.use_sym();
+                let sumId = FlatExpression::Identifier(sum);
+                statements_flattened.push(FlatStatement::Condition(
+                    sumId.clone(),
+                    FlatExpression::Add(box left, box right)
+                ));
+                sumId
             }
         }
     }
@@ -2280,6 +2288,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         vec: Vec<FlatExpression<T>>,
 ) -> FlatExpression<T> {
     self.flat_expression_from_bits_aux(
+        statements_flattened,
         vec.into_iter()
             .rev()
             .enumerate()
