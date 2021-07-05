@@ -103,6 +103,30 @@ impl<'ast, T: Field> Flatten<'ast, T> for BooleanExpression<'ast, T> {
     }
 }
 
+trait Flatxfrombits<'ast, T: Field>{
+    type Output: FlattenOutput<T>;
+
+    fn flatxfrombits(
+        self,
+        flattener: &mut Flattener<'ast, T>,
+        statements_flattened: &mut FlatStatements<T>,
+        vect: Vec<FlatExpression<T>>
+    ) -> Self::Output;
+}
+
+impl<'ast, T: Field> Flatxfrombits<'ast, T> for FlatExpression<T> {
+    type Output = FlatExpression<T>;
+           
+    fn flatxfrombits(
+        self,
+        flattener: &mut Flattener<'ast, T>,
+        statements_flattened: &mut FlatStatements<T>,
+        vec: Vec<FlatExpression<T>>
+    ) -> Self::Output {
+        flattener.flat_expression_from_bits(statements_flattened, self, vec)
+    }
+}
+
 #[derive(Clone, Debug)]
 struct FlatUExpression<T: Field> {
     field: Option<FlatExpression<T>>,
@@ -2224,6 +2248,44 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                 .get_field_unchecked(),
         }
     }
+
+    pub fn flat_expression_from_bits(
+        &mut self,
+        statements_flattened: &mut FlatStatements<T>,
+        _expr: FlatExpression<T>,
+        vec: Vec<FlatExpression<T>>,
+) -> FlatExpression<T> {
+    fn flat_expression_from_bits_aux<T: Field>(
+        vec: Vec<(T, FlatExpression<T>)>,
+    ) -> FlatExpression<T> {
+        match vec.len() {
+            0 => FlatExpression::Number(T::zero()),
+            1 => {
+                let (coeff, var) = vec[0].clone();
+                let newid1 = self.use_sym();
+                //statements_flattened.push(FlatStatement::Condition(
+                        //FlatExpression::Identifier(newid1),
+                FlatExpression::Mult(box FlatExpression::Number(coeff), box var)
+                //))
+            }
+            n => {
+                let (u, v) = vec.split_at(n / 2);
+                FlatExpression::Add(
+                    box flat_expression_from_bits_aux(u.to_vec()),
+                    box flat_expression_from_bits_aux(v.to_vec()),
+                )
+            }
+        }
+    }
+
+    flat_expression_from_bits_aux(
+        vec.into_iter()
+            .rev()
+            .enumerate()
+            .map(|(index, var)| (T::from(2).pow(index), var))
+            .collect::<Vec<_>>(),
+    )
+}
 
     /// Flattens a statement
     ///
