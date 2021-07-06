@@ -7,9 +7,6 @@
 //! @author Jacob Eberhardt <jacob.eberhardt@tu-berlin.de>
 //! @date 2017
 
-mod utils;
-
-use self::utils::flat_expression_from_bits;
 use crate::ir::Interpreter;
 
 use crate::compile::CompileConfig;
@@ -22,6 +19,9 @@ use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::convert::TryFrom;
 use zokrates_field::Field;
+
+use std::rc::Rc;
+use std::cell::RefCell;
 
 type FlatStatements<T> = Vec<FlatStatement<T>>;
 
@@ -40,18 +40,18 @@ pub struct Flattener<'ast, T: Field> {
 }
 
 trait FlattenOutput<T: Field>: Sized {
-    fn flat(&self) -> FlatExpression<T>;
+    fn flat(&self, flattener: &mut Flattener<T>, statements_flattened: &mut FlatStatements<T>) -> FlatExpression<T>;
 }
 
 impl<T: Field> FlattenOutput<T> for FlatExpression<T> {
-    fn flat(&self) -> FlatExpression<T> {
+    fn flat(&self, _flattener: &mut Flattener<T>, _statements_flattened: &mut FlatStatements<T>,) -> FlatExpression<T> {
         self.clone()
     }
 }
 
 impl<T: Field> FlattenOutput<T> for FlatUExpression<T> {
-    fn flat(&self) -> FlatExpression<T> {
-        self.clone().get_field_unchecked()
+    fn flat(&self, flattener: &mut Flattener<T>, statements_flattened: &mut FlatStatements<T>) -> FlatExpression<T> {
+        self.clone().get_field_unchecked(flattener, statements_flattened)
     }
 }
 
@@ -114,18 +114,18 @@ trait Flatxfrombits<'ast, T: Field>{
     ) -> Self::Output;
 }
 
-impl<'ast, T: Field> Flatxfrombits<'ast, T> for FlatExpression<T> {
-    type Output = FlatExpression<T>;
+// impl<'ast, T: Field> Flatxfrombits<'ast, T> for FlatExpression<T> {
+//     type Output = FlatExpression<T>;
            
-    fn flatxfrombits(
-        self,
-        flattener: &mut Flattener<'ast, T>,
-        statements_flattened: &mut FlatStatements<T>,
-        vec: Vec<FlatExpression<T>>
-    ) -> Self::Output {
-        flattener.flat_expression_from_bits(statements_flattened, self, vec)
-    }
-}
+//     fn flatxfrombits(
+//         self,
+//         flattener: &mut Flattener<'ast, T>,
+//         statements_flattened: &mut FlatStatements<T>,
+//         vec: Vec<FlatExpression<T>>
+//     ) -> Self::Output {
+//         flattener.flat_expression_from_bits(statements_flattened, self, vec)
+//     }
+// }
 
 #[derive(Clone, Debug)]
 struct FlatUExpression<T: Field> {
@@ -161,11 +161,11 @@ impl<T: Field> FlatUExpression<T> {
         Self::default().bits(e)
     }
 
-    fn get_field_unchecked(self) -> FlatExpression<T> {
+    fn get_field_unchecked(self, flattener: &mut Flattener<T>, statements_flattened: &mut FlatStatements<T>) -> FlatExpression<T> {
         match self.field {
             Some(f) => f,
             None => match self.bits {
-                Some(bits) => flat_expression_from_bits(bits),
+                Some(bits) => flattener.flat_expression_from_bits(statements_flattened, bits),
                 None => unreachable!(),
             },
         }
@@ -503,8 +503,8 @@ impl<'ast, T: Field> Flattener<'ast, T> {
             )
         };
 
-        let consequence = consequence.flat();
-        let alternative = alternative.flat();
+        let consequence = consequence.flat(self, statements_flattened);
+        let alternative = alternative.flat(self, statements_flattened);
 
         let consequence_id = self.use_sym();
         statements_flattened.push(FlatStatement::Definition(consequence_id, consequence));
@@ -916,10 +916,10 @@ impl<'ast, T: Field> Flattener<'ast, T> {
 
                 let lhs = self
                     .flatten_uint_expression(statements_flattened, lhs)
-                    .get_field_unchecked();
+                    .get_field_unchecked(self, statements_flattened);
                 let rhs = self
                     .flatten_uint_expression(statements_flattened, rhs)
-                    .get_field_unchecked();
+                    .get_field_unchecked(self, statements_flattened);
 
                 self.eq_check(statements_flattened, lhs, rhs)
             }
@@ -951,8 +951,8 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                 let bit_width = T::get_required_bits();
 
                 // lhs
-                let lhs_id = self.define(lhs_flattened.get_field_unchecked(), statements_flattened);
-                let rhs_id = self.define(rhs_flattened.get_field_unchecked(), statements_flattened);
+                let lhs_id = self.define(lhs_flattened.get_field_unchecked(self, statements_flattened), statements_flattened);
+                let rhs_id = self.define(rhs_flattened.get_field_unchecked(self, statements_flattened), statements_flattened);
 
                 // sym := (lhs * 2) - (rhs * 2)
                 let subtraction_result = FlatExpression::Sub(
@@ -1078,7 +1078,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                     consequence,
                     alternative,
                 )
-                .get_field_unchecked(),
+                .get_field_unchecked(self, statements_flattened),
         }
     }
 
@@ -1108,7 +1108,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
             .into_iter()
             .map(|p| {
                 self.flatten_expression(statements_flattened, p)
-                    .get_field_unchecked()
+                    .get_field_unchecked(self, statements_flattened)
             })
             .collect();
 
@@ -1171,11 +1171,13 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                 // Clippy doesn't like the fact that we're collecting here, however not doing so leads to a borrow issue
                 // of `self` in the for-loop just after. This is why the `needless_collect` lint is disabled for this file
                 // (it does not work for this single line)
+                let stmts = Rc::new(RefCell::new(statements_flattened));
+                let stmtsCopy = Rc::clone(&stmts);
                 let params_flattened = param_expressions
                     .into_iter()
-                    .map(|param_expr| self.flatten_expression(statements_flattened, param_expr))
+                    .map(|param_expr| { let mut stmts_ = stmts.borrow_mut(); self.flatten_expression(&mut stmts_, param_expr) })
                     .into_iter()
-                    .map(|x| x.get_field_unchecked())
+                    .map(|x| { let mut stmts_ = stmtsCopy.borrow_mut(); x.get_field_unchecked(self, &mut stmts_) })
                     .collect::<Vec<_>>();
 
                 for (concrete_argument, formal_argument) in
@@ -1363,10 +1365,10 @@ impl<'ast, T: Field> Flattener<'ast, T> {
     ) -> (FlatExpression<T>, FlatExpression<T>) {
         let left_flattened = self
             .flatten_uint_expression(statements_flattened, left)
-            .get_field_unchecked();
+            .get_field_unchecked(self, statements_flattened);
         let right_flattened = self
             .flatten_uint_expression(statements_flattened, right)
-            .get_field_unchecked();
+            .get_field_unchecked(self, statements_flattened);
         let n = if left_flattened.is_linear() {
             left_flattened
         } else {
@@ -1503,11 +1505,11 @@ impl<'ast, T: Field> Flattener<'ast, T> {
             UExpressionInner::Add(box left, box right) => {
                 let left_flattened = self
                     .flatten_uint_expression(statements_flattened, left)
-                    .get_field_unchecked();
+                    .get_field_unchecked(self, statements_flattened);
 
                 let right_flattened = self
                     .flatten_uint_expression(statements_flattened, right)
-                    .get_field_unchecked();
+                    .get_field_unchecked(self, statements_flattened);
 
                 let new_left = if left_flattened.is_linear() {
                     left_flattened
@@ -1535,10 +1537,10 @@ impl<'ast, T: Field> Flattener<'ast, T> {
 
                 let left_flattened = self
                     .flatten_uint_expression(statements_flattened, left)
-                    .get_field_unchecked();
+                    .get_field_unchecked(self, statements_flattened);
                 let right_flattened = self
                     .flatten_uint_expression(statements_flattened, right)
-                    .get_field_unchecked();
+                    .get_field_unchecked(self, statements_flattened);
                 let new_left = if left_flattened.is_linear() {
                     left_flattened
                 } else {
@@ -1597,10 +1599,10 @@ impl<'ast, T: Field> Flattener<'ast, T> {
             UExpressionInner::Mult(box left, box right) => {
                 let left_flattened = self
                     .flatten_uint_expression(statements_flattened, left)
-                    .get_field_unchecked();
+                    .get_field_unchecked(self, statements_flattened);
                 let right_flattened = self
                     .flatten_uint_expression(statements_flattened, right)
-                    .get_field_unchecked();
+                    .get_field_unchecked(self, statements_flattened);
                 let new_left = if left_flattened.is_linear() {
                     left_flattened
                 } else {
@@ -1944,7 +1946,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                         },
                     )
                 } else {
-                    res.get_field_unchecked()
+                    res.get_field_unchecked(self, statements_flattened)
                 };
 
                 FlatUExpression::with_bits(bits).field(field)
@@ -2016,7 +2018,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                         )
                     }));
 
-                    let sum = flat_expression_from_bits(bits.clone());
+                    let sum = self.flat_expression_from_bits(statements_flattened, bits.clone());
 
                     // sum check
                     statements_flattened.push(FlatStatement::Condition(
@@ -2245,7 +2247,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                     consequence,
                     alternative,
                 )
-                .get_field_unchecked(),
+                .get_field_unchecked(self, statements_flattened),
         }
     }
 
@@ -2284,7 +2286,6 @@ impl<'ast, T: Field> Flattener<'ast, T> {
     pub fn flat_expression_from_bits(
         &mut self,
         statements_flattened: &mut FlatStatements<T>,
-        _expr: FlatExpression<T>,
         vec: Vec<FlatExpression<T>>,
 ) -> FlatExpression<T> {
     self.flat_expression_from_bits_aux(
@@ -2313,7 +2314,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                 let flat_expressions = exprs
                     .into_iter()
                     .map(|expr| self.flatten_expression(statements_flattened, expr))
-                    .map(|x| x.get_field_unchecked())
+                    .map(|x| x.get_field_unchecked(self, statements_flattened))
                     .collect::<Vec<_>>();
 
                 statements_flattened.push(FlatStatement::Return(FlatExpressionList {
@@ -2369,7 +2370,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
 
                 let bits = rhs.bits.clone();
 
-                let var = match rhs.get_field_unchecked() {
+                let var = match rhs.get_field_unchecked(self, statements_flattened) {
                     FlatExpression::Identifier(id) => {
                         self.use_variable_with_existing(&assignee, id);
                         id
@@ -2409,10 +2410,10 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                     BooleanExpression::UintEq(box lhs, box rhs) => {
                         let lhs = self
                             .flatten_uint_expression(statements_flattened, lhs)
-                            .get_field_unchecked();
+                            .get_field_unchecked(self, statements_flattened);
                         let rhs = self
                             .flatten_uint_expression(statements_flattened, rhs)
-                            .get_field_unchecked();
+                            .get_field_unchecked(self, statements_flattened);
 
                         self.flatten_equality(statements_flattened, lhs, rhs)
                     }
@@ -2461,7 +2462,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                         let vars: Vec<_> = vars
                             .into_iter()
                             .zip(rhs)
-                            .map(|(v, r)| match r.get_field_unchecked() {
+                            .map(|(v, r)| match r.get_field_unchecked(self, statements_flattened) {
                                 FlatExpression::Identifier(id) => {
                                     self.use_variable_with_existing(&v, id);
                                     id
@@ -2483,7 +2484,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                                     .into_iter()
                                     .map(|e| {
                                         self.flatten_expression(statements_flattened, e)
-                                            .get_field_unchecked()
+                                            .get_field_unchecked(self, statements_flattened)
                                     })
                                     .collect();
                                 self.bits_cache.insert(vars[0].into(), bits);
