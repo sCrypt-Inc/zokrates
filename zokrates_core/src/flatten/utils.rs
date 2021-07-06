@@ -12,11 +12,13 @@ pub fn flat_expression_from_bits<T: Field>(v: Vec<FlatExpression<T>>) -> FlatExp
                 FlatExpression::Mult(box FlatExpression::Number(coeff), box var)
             }
             n => {
-                let (u, v) = v.split_at(n / 2);
-                FlatExpression::Add(
-                    box flat_expression_from_bits_aux(u.to_vec()),
-                    box flat_expression_from_bits_aux(v.to_vec()),
-                )
+                let (coeff, var) = v[0].clone();
+                FlatExpression::Mult(box FlatExpression::Number(coeff), box var)
+                //let (u, v) = v.split_at(n / 2);
+                //FlatExpression::Add(
+                //    box flat_expression_from_bits_aux(u.to_vec()),
+                //    box flat_expression_from_bits_aux(v.to_vec()),
+                //)
             }
         }
     }

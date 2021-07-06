@@ -2024,6 +2024,36 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                         sum.clone(),
                     ));
 
+                    let mut n = 1;
+                    
+                    while n <= bits.len() {
+                    
+                    statements_flattened.extend(bits.iter().rev().enumerate().take(from).map(|(index, bit)|{
+                    FlatStatement::Condition(
+                    FlatExpression::Identifier(FlatVariable::new(n)),// e.field.clone().unwrap(),
+                    FlatExpression::Mult(box FlatExpression::Number(T::from(index+1)),  
+                                        box  bit.clone(),//Number(coeff), box var),
+                            )
+                        )
+                    }));
+
+                    //statements_flattened.extend(bits.iter().rev().enumerate().take(from).map(|(index, bit)|{
+                        statements_flattened.extend(vec![
+                            FlatStatement::Condition(
+                                FlatExpression::Identifier(FlatVariable::new(1)),
+                                FlatExpression::Add(
+                                    Box::new(FlatExpression::Identifier(FlatVariable::new(n))),
+                                    Box::new(FlatExpression::Identifier(FlatVariable::new(n+1))),     
+                                )
+                            )
+                    ]);
+                
+
+                    n += 1;
+
+                    }
+
+
                     // truncate to the `to` lowest bits
                     let bits = bits[from - to..].to_vec();
 
