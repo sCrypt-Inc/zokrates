@@ -10,7 +10,7 @@ use crate::ir;
 use crate::macros;
 use crate::semantics::{self, Checker};
 use crate::static_analysis;
-use crate::static_analysis::Analyse;
+// use crate::static_analysis::Analyse;
 use crate::typed_absy::abi::Abi;
 use crate::zir::ZirProgram;
 use crate::flat_absy;
@@ -202,20 +202,20 @@ pub fn compile<T: Field, E: Into<imports::Error>>(
     let program_flattened = Flattener::flatten(typed_ast, config);
 
     // analyse (constant propagation after call resolution)
-    let program_flattened = program_flattened.analyse();
+    // let program_flattened = program_flattened.analyse();
 
     // convert to ir
     let ir_prog = ir::Prog::from(program_flattened.clone());
 
     // optimize
-    let optimized_ir_prog = ir_prog.optimize();
+    // let optimized_ir_prog = ir_prog.optimize();
 
     // analyse (check constraints)
-    let optimized_ir_prog = optimized_ir_prog.analyse();
+    // let optimized_ir_prog = optimized_ir_prog.analyse();
 
     Ok(CompilationArtifacts {
         flatprog: program_flattened,
-        prog: optimized_ir_prog,
+        prog: ir_prog,
         abi,
     })
 }
