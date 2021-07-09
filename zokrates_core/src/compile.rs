@@ -13,6 +13,8 @@ use crate::static_analysis;
 use crate::static_analysis::Analyse;
 use crate::typed_absy::abi::Abi;
 use crate::zir::ZirProgram;
+use crate::flat_absy;
+
 use macros::process_macros;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -27,6 +29,7 @@ use zokrates_pest_ast as pest;
 #[derive(Debug)]
 pub struct CompilationArtifacts<T: Field> {
     prog: ir::Prog<T>,
+    flatprog: flat_absy::FlatProg<T>,
     abi: Abi,
 }
 
@@ -37,6 +40,10 @@ impl<T: Field> CompilationArtifacts<T> {
 
     pub fn abi(&self) -> &Abi {
         &self.abi
+    }
+
+    pub fn flatprog(&self) -> &flat_absy::FlatProg<T> {
+        &self.flatprog
     }
 }
 
@@ -198,7 +205,7 @@ pub fn compile<T: Field, E: Into<imports::Error>>(
     let program_flattened = program_flattened.analyse();
 
     // convert to ir
-    let ir_prog = ir::Prog::from(program_flattened);
+    let ir_prog = ir::Prog::from(program_flattened.clone());
 
     // optimize
     let optimized_ir_prog = ir_prog.optimize();
@@ -207,6 +214,7 @@ pub fn compile<T: Field, E: Into<imports::Error>>(
     let optimized_ir_prog = optimized_ir_prog.analyse();
 
     Ok(CompilationArtifacts {
+        flatprog: program_flattened,
         prog: optimized_ir_prog,
         abi,
     })
