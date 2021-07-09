@@ -151,6 +151,10 @@ fn cli_compile<T: Field>(sub_matches: &ArgMatches) -> Result<(), String> {
 
     let json = serde_json::to_writer_pretty(std::io::BufWriter::new(ast_file), &flatprog);
 
+    match json {
+        Ok(v) => println!("output program_flattened successfully: {:?}", v),
+        Err(e) => println!("program_flattened fail, error: {:?}", e),
+    }
 
     // number of constraints the flattened program will translate to.
     let num_constraints = program_flattened.constraint_count();

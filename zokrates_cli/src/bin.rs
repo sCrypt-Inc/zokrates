@@ -41,6 +41,7 @@ fn cli() -> Result<(), String> {
         )
         .subcommands(vec![
             compile::subcommand(),
+            deserialize::subcommand(),
             check::subcommand(),
             compute_witness::subcommand(),
             #[cfg(any(feature = "bellman", feature = "ark", feature = "libsnark"))]
@@ -55,6 +56,7 @@ fn cli() -> Result<(), String> {
 
     match matches.subcommand() {
         ("compile", Some(sub_matches)) => compile::exec(sub_matches),
+        ("deserialize", Some(sub_matches)) => deserialize::exec(sub_matches),
         ("check", Some(sub_matches)) => check::exec(sub_matches),
         ("compute-witness", Some(sub_matches)) => compute_witness::exec(sub_matches),
         #[cfg(any(feature = "bellman", feature = "ark", feature = "libsnark"))]
