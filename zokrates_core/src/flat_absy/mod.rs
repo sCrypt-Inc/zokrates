@@ -15,8 +15,9 @@ use crate::solvers::Solver;
 use std::collections::HashMap;
 use std::fmt;
 use zokrates_field::Field;
+use serde::{Deserialize, Serialize};
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, Serialize)]
 pub struct FlatProg<T: Field> {
     /// FlatFunctions of the program
     pub main: FlatFunction<T>,
@@ -34,7 +35,7 @@ impl<T: Field> fmt::Debug for FlatProg<T> {
     }
 }
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, Serialize)]
 pub struct FlatFunction<T: Field> {
     /// Arguments of the function
     pub arguments: Vec<FlatParameter>,
@@ -86,7 +87,7 @@ impl<T: Field> fmt::Debug for FlatFunction<T> {
 ///
 /// * r1cs - R1CS in standard JSON data format
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, Serialize)]
 pub enum FlatStatement<T: Field> {
     Return(FlatExpressionList<T>),
     Condition(FlatExpression<T>, FlatExpression<T>),
@@ -155,7 +156,7 @@ impl<T: Field> FlatStatement<T> {
     }
 }
 
-#[derive(Clone, Hash, Debug, PartialEq, Eq)]
+#[derive(Clone, Hash, Debug, PartialEq, Eq, Serialize)]
 pub struct FlatDirective<T: Field> {
     pub inputs: Vec<FlatExpression<T>>,
     pub outputs: Vec<FlatVariable>,
@@ -199,7 +200,7 @@ impl<T: Field> fmt::Display for FlatDirective<T> {
     }
 }
 
-#[derive(Clone, PartialEq, Eq, Hash)]
+#[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum FlatExpression<T> {
     Number(T),
     Identifier(FlatVariable),
@@ -277,7 +278,7 @@ impl<T: Field> From<FlatVariable> for FlatExpression<T> {
     }
 }
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, Serialize, Deserialize)]
 pub struct FlatExpressionList<T> {
     pub expressions: Vec<FlatExpression<T>>,
 }
