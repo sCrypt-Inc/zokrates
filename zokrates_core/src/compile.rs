@@ -220,6 +220,34 @@ pub fn compile<T: Field, E: Into<imports::Error>>(
     })
 }
 
+
+
+pub fn deserialize<T: Field>(
+    source: String,
+    config: &CompileConfig,
+) -> Result<CompilationArtifacts<T>, serde_json::Error> {
+
+    let program_flattened: flat_absy::FlatProg<T> = serde_json::from_str(&source).unwrap();
+
+    // convert to ir
+    let ir_prog = ir::Prog::from(program_flattened.clone());
+
+    // optimize
+    let optimized_ir_prog = ir_prog.optimize();
+
+    // analyse (check constraints)
+    let optimized_ir_prog = optimized_ir_prog.analyse();
+
+    Ok(CompilationArtifacts {
+        flatprog: program_flattened,
+        prog: optimized_ir_prog,
+        abi: Abi {
+            inputs: vec![],  //TODO: empty
+            outputs: vec![], //TODO: empty
+        }
+    })
+}
+
 pub fn check<T: Field, E: Into<imports::Error>>(
     source: String,
     location: FilePath,
