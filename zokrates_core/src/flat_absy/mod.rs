@@ -104,8 +104,8 @@ impl fmt::Display for RuntimeError {
     }
 }
 
-#[derive(Clone, PartialEq, Serialize)]
-pub struct FlatProg<T: Field> {
+#[derive(Clone, PartialEq, Serialize, Deserialize)]
+pub struct FlatProg<T> {
     /// FlatFunctions of the program
     pub main: FlatFunction<T>,
 }
@@ -122,8 +122,8 @@ impl<T: Field> fmt::Debug for FlatProg<T> {
     }
 }
 
-#[derive(Clone, PartialEq, Serialize)]
-pub struct FlatFunction<T: Field> {
+#[derive(Clone, PartialEq, Serialize, Deserialize)]
+pub struct FlatFunction<T> {
     /// Arguments of the function
     pub arguments: Vec<FlatParameter>,
     /// Vector of statements that are executed when running the function
@@ -174,8 +174,8 @@ impl<T: Field> fmt::Debug for FlatFunction<T> {
 ///
 /// * r1cs - R1CS in standard JSON data format
 
-#[derive(Clone, PartialEq, Serialize)]
-pub enum FlatStatement<T: Field> {
+#[derive(Clone, PartialEq, Serialize, Deserialize)]
+pub enum FlatStatement<T> {
     Return(FlatExpressionList<T>),
     Condition(FlatExpression<T>, FlatExpression<T>, RuntimeError),
     Definition(FlatVariable, FlatExpression<T>),
@@ -246,8 +246,8 @@ impl<T: Field> FlatStatement<T> {
     }
 }
 
-#[derive(Clone, Hash, Debug, PartialEq, Eq, Serialize)]
-pub struct FlatDirective<T: Field> {
+#[derive(Clone, Hash, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FlatDirective<T> {
     pub inputs: Vec<FlatExpression<T>>,
     pub outputs: Vec<FlatVariable>,
     pub solver: Solver,
@@ -299,7 +299,7 @@ pub enum FlatExpression<T> {
     Mult(Box<FlatExpression<T>>, Box<FlatExpression<T>>),
 }
 
-impl<T> From<T> for FlatExpression<T> {
+impl<T: Field> From<T> for FlatExpression<T> {
     fn from(other: T) -> Self {
         Self::Number(other)
     }
