@@ -3,18 +3,18 @@ use crate::helpers::CurveParameter;
 use clap::{App, Arg, ArgMatches, SubCommand};
 use std::convert::TryFrom;
 use std::fs::File;
-use std::io::{BufReader, BufWriter, Read, Write};
-use std::path::{Path, PathBuf};
-use zokrates_core::compile::{deserialize, CompilationArtifacts, CompileConfig, CompileError};
+use std::io::{BufReader, Read};
+use std::path::{PathBuf};
 use zokrates_field::{Bls12_377Field, Bls12_381Field, Bn128Field, Bw6_761Field, Field};
+use zokrates_core::flat_absy::{FlatProg};
 
 pub fn subcommand() -> App<'static, 'static> {
     SubCommand::with_name("deserialize")
-        .about("deserialize into flattened conditions.")
+        .about("deserialize into flattened program.")
         .arg(Arg::with_name("input")
             .short("i")
             .long("input")
-            .help("Path of the flattened conditions")
+            .help("Path of the flattened program")
             .value_name("FILE")
             .takes_value(true)
             .required(true)
@@ -47,6 +47,13 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
     }
 }
 
+
+fn deserialize<T: Field>(
+    source: String,
+) -> Result<FlatProg<T>, serde_json::Error> {
+    Ok(serde_json::from_str(&source).unwrap())
+}
+
 fn cli_deserialize<T: Field>(sub_matches: &ArgMatches) -> Result<(), String> {
 
     println!("Deserializing {}\n", sub_matches.value_of("input").unwrap());
@@ -60,21 +67,10 @@ fn cli_deserialize<T: Field>(sub_matches: &ArgMatches) -> Result<(), String> {
     let mut source = String::new();
     reader.read_to_string(&mut source).unwrap();
 
-    let config = CompileConfig::default()
-        .allow_unconstrained_variables(sub_matches.is_present("allow-unconstrained-variables"))
-        .isolate_branches(sub_matches.is_present("isolate-branches"));
-
-    let artifacts: CompilationArtifacts<T> = deserialize(source, &config)
-    .map_err(|e| {
-        format!(
-            "Deserializing failed:\n {}", e
-        )
-    })?;
+    let flatprog: FlatProg<T> = deserialize(source).unwrap();
 
 
     //NOW we got flatprog 
-
-    let flatprog =  artifacts.flatprog();
 
     println!("NOW we got flatprog : {}", flatprog);
 
