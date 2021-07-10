@@ -98,7 +98,7 @@ fn cli_compile<T: Field>(sub_matches: &ArgMatches) -> Result<(), String> {
     let bin_output_path = Path::new(sub_matches.value_of("output").unwrap());
     let abi_spec_path = Path::new(sub_matches.value_of("abi-spec").unwrap());
     let hr_output_path = bin_output_path.to_path_buf().with_extension("ztf");
-    let flattened_output_path = bin_output_path.to_path_buf().with_extension("flattened");
+    let flattened_output_path = bin_output_path.to_path_buf().with_file_name("flattened.json");
 
     let file = File::open(path.clone())
         .map_err(|why| format!("Could not open {}: {}", path.display(), why))?;
@@ -146,14 +146,14 @@ fn cli_compile<T: Field>(sub_matches: &ArgMatches) -> Result<(), String> {
     let program_flattened = artifacts.prog();
     let flatprog = artifacts.flatprog();
 
-    let ast_file = File::create(&flattened_output_path)
+    let flat_prog_file = File::create(&flattened_output_path)
         .map_err(|why| format!("Could not create {}: {}", flattened_output_path.display(), why))?;
 
-    let json = serde_json::to_writer_pretty(std::io::BufWriter::new(ast_file), &flatprog);
+    let json = serde_json::to_writer_pretty(std::io::BufWriter::new(flat_prog_file), &flatprog);
 
     match json {
-        Ok(v) => println!("output program_flattened successfully: {:?}", v),
-        Err(e) => println!("program_flattened fail, error: {:?}", e),
+        Ok(v) => println!("Writing flattened program successfully successfully: {:?}", v),
+        Err(e) => println!("Writing flattened program failed, error: {:?}", e),
     }
 
     // number of constraints the flattened program will translate to.
