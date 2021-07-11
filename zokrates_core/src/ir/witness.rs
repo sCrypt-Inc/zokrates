@@ -87,6 +87,21 @@ impl<T: Field> Witness<T> {
 
         Ok(Witness(map))
     }
+
+
+    pub fn get(&self, key: &str) -> Option<&T> {
+
+
+        let variable =
+        FlatVariable::try_from_human_readable(key).map_err(|why| {
+            io::Error::new(
+                io::ErrorKind::Other,
+                format!("Invalid variable in witness: {}", why),
+            )
+        }).unwrap();
+
+        self.0.get(&variable)
+    }
 }
 
 impl<T: Field> fmt::Display for Witness<T> {
@@ -132,6 +147,18 @@ mod tests {
             let r = Witness::read(buff).unwrap();
 
             assert_eq!(w, r);
+
+            let v = w.get("_42").unwrap();
+
+            assert_eq!(*v, Bn128Field::from(42));
+
+            let v = w.get("~one").unwrap();
+
+            assert_eq!(*v, Bn128Field::from(1));
+
+            let v = w.get("~out_8").unwrap();
+
+            assert_eq!(*v, Bn128Field::from(8));
         }
 
         #[test]
