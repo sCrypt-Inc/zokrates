@@ -17,7 +17,6 @@ use crate::solvers::Solver;
 use std::collections::HashMap;
 use std::fmt;
 use zokrates_field::Field;
-use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Hash, PartialEq, Eq)]
 pub enum RuntimeError {
