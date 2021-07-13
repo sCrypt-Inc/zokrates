@@ -102,6 +102,11 @@ impl<T: Field> Witness<T> {
 
         self.0.get(&variable)
     }
+
+    pub fn getvariable(&self, variable: &FlatVariable) -> Option<&T> {
+
+        self.0.get(&variable)
+    }
 }
 
 impl<T: Field> fmt::Display for Witness<T> {

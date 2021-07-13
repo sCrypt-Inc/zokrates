@@ -6,7 +6,7 @@ use std::fs::File;
 use std::io::{BufReader, Read};
 use std::path::Path;
 use std::path::PathBuf;
-use zokrates_core::flat_absy::FlatProg;
+use zokrates_core::flat_absy::{FlatProg, FlatExpression, FlatStatement };
 use zokrates_core::ir;
 use zokrates_field::{Bls12_377Field, Bls12_381Field, Bn128Field, Bw6_761Field, Field};
 
@@ -56,33 +56,17 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
     let curve = CurveParameter::try_from(sub_matches.value_of("curve").unwrap())?;
     match curve {
         CurveParameter::Bn128 => {
-            if sub_matches.is_present("witness") {
-                cli_deserialize_witness::<Bn128Field>(sub_matches)
-            } else {
-                cli_deserialize::<Bn128Field>(sub_matches)
-            }
+            cli_deserialize::<Bn128Field>(sub_matches)
         }
         CurveParameter::Bls12_377 => {
-            if sub_matches.is_present("witness") {
-                cli_deserialize_witness::<Bls12_377Field>(sub_matches)
-            } else {
-                cli_deserialize::<Bls12_377Field>(sub_matches)
-            }
+            cli_deserialize::<Bls12_377Field>(sub_matches)
         }
         CurveParameter::Bls12_381 => {
-            if sub_matches.is_present("witness") {
-                cli_deserialize_witness::<Bls12_381Field>(sub_matches)
-            } else {
-                cli_deserialize::<Bls12_381Field>(sub_matches)
-            }
+            cli_deserialize::<Bls12_381Field>(sub_matches)
         }
 
         CurveParameter::Bw6_761 => {
-            if sub_matches.is_present("witness") {
-                cli_deserialize_witness::<Bw6_761Field>(sub_matches)
-            } else {
-                cli_deserialize::<Bw6_761Field>(sub_matches)
-            }
+            cli_deserialize::<Bw6_761Field>(sub_matches)
         }
     }
 }
@@ -104,32 +88,141 @@ fn cli_deserialize<T: Field>(sub_matches: &ArgMatches) -> Result<(), String> {
 
     let flatprog: FlatProg<T> = deserialize(source).unwrap();
 
+
+    let witness = deserialize_witness::<T>(sub_matches).unwrap();
+
     //NOW we got flatprog
 
-    println!("NOW we got flatprog : {}", flatprog);
+    //println!("NOW we got flatprog : {}", flatprog);
+
+    println!("pring all statements");
+
+    let fetch_expr_value_closure =  |a: &Box<FlatExpression<T>>, b: &Box<FlatExpression<T>>| {
+        let a_value = match a.as_ref() {
+            FlatExpression::Number(v) => v,
+            FlatExpression::Identifier(v) => witness.getvariable(v).unwrap(),
+            _ => {
+                panic!("unknown Definition");
+            }
+        };
+
+        let b_value = match b.as_ref() {
+            FlatExpression::Number(v) => v,
+            FlatExpression::Identifier(v) => witness.getvariable(v).unwrap(),
+            _ => {
+                panic!("unknown Definition");
+            }
+        };
+
+        (a_value.clone(), b_value.clone())
+    };
+
+    for statement in &flatprog.main.statements {
+       
+
+        match statement {
+            
+            FlatStatement::Definition(variable, expr) => {
+                
+                
+                println!("Definition variable {}", variable);
+                println!("Definition expr {}", expr);
+
+                let left_value = witness.getvariable(variable).unwrap().clone();
+
+                let right_value = match expr {
+                    FlatExpression::Number(v) => v.clone(),
+                    FlatExpression::Identifier(v) => witness.getvariable(v).unwrap().clone(),
+                    FlatExpression::Add(a, b) => {
+                        let (a_value,b_value ) = fetch_expr_value_closure(a, b);
+                        a_value.add(b_value)
+                    },
+                    FlatExpression::Sub(a, b) => {
+                        let (a_value,b_value ) = fetch_expr_value_closure(a, b);
+                        a_value.sub(b_value)
+                    },
+                    FlatExpression::Mult(a, b) => {
+                        let (a_value,b_value ) = fetch_expr_value_closure(a, b);
+                        a_value.mul(b_value)
+                    }
+                };
+
+                //check value
+                if !left_value.eq(&right_value) {
+                    println!("left_value {} no equal rightValue {}", left_value, right_value);
+                    panic!("leftValue no equal rightValue");
+                } else {
+                    println!("check Definition successfully");
+                }
+
+                //TODO: Pedersen commitment 
+            },
+            FlatStatement::Condition(expr1, expr2) => {
+                
+
+                let left_value = match expr1 {
+                    FlatExpression::Number(v) => v.clone(),
+                    FlatExpression::Identifier(v) => witness.getvariable(v).unwrap().clone(),
+                    FlatExpression::Add(a, b) => {
+                        let (a_value,b_value ) = fetch_expr_value_closure(a, b);
+                        a_value.add(b_value)
+                    },
+                    FlatExpression::Sub(a, b) => {
+                        let (a_value,b_value ) = fetch_expr_value_closure(a, b);
+                        a_value.sub(b_value)
+                    },
+                    FlatExpression::Mult(a, b) => {
+                        let (a_value,b_value ) = fetch_expr_value_closure(a, b);
+                        a_value.mul(b_value)
+                    }
+                };
+
+                let right_value = match expr2 {
+                    FlatExpression::Number(v) => v.clone(),
+                    FlatExpression::Identifier(v) => witness.getvariable(v).unwrap().clone(),
+                    FlatExpression::Add(a, b) => {
+                        let (a_value,b_value ) = fetch_expr_value_closure(a, b);
+                        a_value.add(b_value)
+                    },
+                    FlatExpression::Sub(a, b) => {
+                        let (a_value,b_value ) = fetch_expr_value_closure(a, b);
+                        a_value.sub(b_value)
+                    },
+                    FlatExpression::Mult(a, b) => {
+                        let (a_value,b_value ) = fetch_expr_value_closure(a, b);
+                        a_value.mul(b_value)
+                    }
+                };
+
+
+                if !left_value.eq(&right_value) {
+                    println!("left_value {} no equal rightValue {}", left_value, right_value);
+                    panic!("leftValue no equal rightValue");
+                } else {
+                    println!("check Condition successfully");
+                }
+
+                //TODO: Pedersen commitment 
+            },
+            FlatStatement::Directive(directive) => println!("Directive {}", directive),
+            FlatStatement::Return(outexpr) => println!("Return {}", outexpr),
+
+        }
+    }
+
+
 
     Ok(())
 }
 
-fn cli_deserialize_witness<T: Field>(sub_matches: &ArgMatches) -> Result<(), String> {
-    println!(
-        "Deserializing witness {}\n",
-        sub_matches.value_of("input").unwrap()
-    );
-    let witness_path = Path::new(sub_matches.value_of("input").unwrap());
+fn deserialize_witness<T: Field>(sub_matches: &ArgMatches) -> Result<ir::Witness<T>, String> {
+
+    let witness_path = Path::new(sub_matches.value_of("input").unwrap()).with_file_name("witness");
     let witness_file = File::open(&witness_path)
         .map_err(|why| format!("Could not open {}: {}", witness_path.display(), why))?;
 
     let witness: ir::Witness<T> = ir::Witness::read(witness_file)
         .map_err(|why| format!("Could not load witness: {:?}", why))?;
 
-    println!("witness csv len {}", witness.0.len());
-    println!("now you can access any var in the witness");
-
-    match witness.get("~out_0") {
-        Some(out_0) => println!("~out_0: {}", out_0),
-        None => println!("~out_0 is None."),
-    }
-
-    Ok(())
+    Ok(witness)
 }
