@@ -186,8 +186,8 @@ impl<T: Field> fmt::Display for FlatStatement<T> {
         match *self {
             FlatStatement::Definition(ref lhs, ref rhs) => write!(f, "{} = {}", lhs, rhs),
             FlatStatement::Return(ref expr) => write!(f, "return {}", expr),
-            FlatStatement::Condition(ref lhs, ref rhs, ref message) => {
-                write!(f, "{} == {} // {}", lhs, rhs, message)
+            FlatStatement::Condition(ref lhs, ref rhs, ref _message) => {
+                write!(f, "{} == {}", lhs, rhs)
             }
             FlatStatement::Directive(ref d) => write!(f, "{}", d),
         }
