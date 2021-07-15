@@ -178,7 +178,7 @@ fn cli_compile<T: Field>(sub_matches: &ArgMatches) -> Result<(), String> {
 
     if sub_matches.is_present("verbose") {
         // debugging output
-        println!("Compiled program:\n{}", program_flattened);
+        println!("Compiled program:\n{}", flatprog);
     }
 
     println!("Compiled code written to '{}'", bin_output_path.display());
