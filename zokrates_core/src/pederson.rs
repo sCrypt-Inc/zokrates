@@ -57,11 +57,15 @@ pub struct Pedersen(Secp256k1);
 
 pub fn to_secret_key<T: Field>(secp: &Secp256k1, value: &T) -> SecretKey {
 
-    let b = value.to_biguint();
-    let bytes = b.to_bytes_be();
-    let mut v = vec![0u8; 32 - bytes.len()];
-    v.extend_from_slice(&bytes);
-    SecretKey::from_slice(secp, &v).unwrap()
+    if value.eq(&T::from(0)) {
+        key::ZERO_KEY
+    } else {
+        let b = value.to_biguint();
+        let bytes = b.to_bytes_be();
+        let mut v = vec![0u8; 32 - bytes.len()];
+        v.extend_from_slice(&bytes);
+        SecretKey::from_slice(secp, &v).expect(&format!("expect value {}", value))
+    }
 }
 
 fn computes_opening_value(
