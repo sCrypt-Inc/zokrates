@@ -332,7 +332,21 @@ impl<T: Field> FlatExpression<T> {
     pub fn is_linear(&self) -> bool {
         match *self {
             FlatExpression::Number(_) | FlatExpression::Identifier(_) => true,
-            _ => false,
+            FlatExpression::Add(ref x, ref y) | FlatExpression::Sub(ref x, ref y) => {
+                x.is_linear() && y.is_linear()
+            }
+            FlatExpression::Mult(ref x, ref y) => matches!(
+                (x.clone(), y.clone()),
+                (box FlatExpression::Number(_), box FlatExpression::Number(_))
+                    | (
+                        box FlatExpression::Number(_),
+                        box FlatExpression::Identifier(_)
+                    )
+                    | (
+                        box FlatExpression::Identifier(_),
+                        box FlatExpression::Number(_)
+                    )
+            ),
         }
     }
 }
