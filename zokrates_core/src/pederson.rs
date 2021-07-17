@@ -1,8 +1,17 @@
 use secp256k1zkp::{
     constants, key, pedersen::Commitment, ContextFlag, PublicKey, Secp256k1, SecretKey,
 };
-
+use zokrates_field::Field;
+use zokrates_field::Bn128Field;
 use rand_0_5::{thread_rng, Rng};
+
+fn random_32_bytes<T: Field>() -> T {
+    let mut rng = thread_rng();
+    let mut ret = [0u8; 32];
+    rng.fill(&mut ret);
+    T::from_byte_vector(ret.to_vec())
+}
+
 
 #[allow(non_snake_case)]
 #[derive(Debug)]
@@ -45,14 +54,14 @@ pub struct Prover {
 
 pub struct Pedersen(Secp256k1);
 
-fn tou8(value: &u64) -> Vec<u8> {
-    let mut v = vec![0u8; 24];
-    v.extend_from_slice(&value.to_be_bytes());
-    v
-}
 
-fn to_secret_key(secp: &Secp256k1, value: &u64) -> SecretKey {
-    SecretKey::from_slice(secp, &tou8(value)).unwrap()
+pub fn to_secret_key<T: Field>(secp: &Secp256k1, value: &T) -> SecretKey {
+
+    let b = value.to_biguint();
+    let bytes = b.to_bytes_be();
+    let mut v = vec![0u8; 32 - bytes.len()];
+    v.extend_from_slice(&bytes);
+    SecretKey::from_slice(secp, &v).unwrap()
 }
 
 fn computes_opening_value(
@@ -81,7 +90,7 @@ impl Pedersen {
         Pedersen(Secp256k1::with_caps(ContextFlag::Commit))
     }
 
-    pub fn generate_add_prover(&self, value_l: u64, value_r: u64, value_o: u64) -> Prover {
+    pub fn generate_add_prover<T: Field>(&self, value_l: T, value_r: T, value_o: T) -> Prover {
         let r_l = SecretKey::new(&self.0, &mut thread_rng());
         let r_r = SecretKey::new(&self.0, &mut thread_rng());
         let r_o = SecretKey::new(&self.0, &mut thread_rng());
@@ -100,16 +109,16 @@ impl Pedersen {
             value_r: to_secret_key(&self.0, &value_r),
             value_o: to_secret_key(&self.0, &value_o),
             witness: PedersenWitness {
-                W_L: self.0.commit(value_l, r_l.clone()).unwrap(),
-                W_R: self.0.commit(value_r, r_r.clone()).unwrap(),
-                W_O: self.0.commit(value_o, r_o.clone()).unwrap(),
+                W_L: self.0.commit_blind(to_secret_key(&self.0, &value_l), r_l.clone()).unwrap(),
+                W_R: self.0.commit_blind(to_secret_key(&self.0, &value_r), r_r.clone()).unwrap(),
+                W_O: self.0.commit_blind(to_secret_key(&self.0, &value_o), r_o.clone()).unwrap(),
             },
             commit_add: Some(commit_add),
             commit_mul: None,
         }
     }
 
-    pub fn generate_mul_prover(&self, value_l: u64, value_r: u64, value_o: u64) -> Prover {
+    pub fn generate_mul_prover<T: Field>(&self, value_l: T, value_r: T, value_o: T) -> Prover {
         let r_l = SecretKey::new(&self.0, &mut thread_rng());
         let r_r = SecretKey::new(&self.0, &mut thread_rng());
         let r_o = SecretKey::new(&self.0, &mut thread_rng());
@@ -121,9 +130,9 @@ impl Pedersen {
         let t5 = SecretKey::new(&self.0, &mut thread_rng());
 
         let p_witness = PedersenWitness {
-            W_L: self.0.commit(value_l, r_l.clone()).unwrap(),
-            W_R: self.0.commit(value_r, r_r.clone()).unwrap(),
-            W_O: self.0.commit(value_o, r_o.clone()).unwrap(),
+            W_L: self.0.commit_blind(to_secret_key(&self.0, &value_l), r_l.clone()).unwrap(),
+            W_R: self.0.commit_blind(to_secret_key(&self.0, &value_r), r_r.clone()).unwrap(),
+            W_O: self.0.commit_blind(to_secret_key(&self.0, &value_o), r_o.clone()).unwrap(),
         };
 
         let F = self.0.commit(0, key::ONE_KEY).unwrap();
@@ -164,7 +173,7 @@ impl Pedersen {
     }
 
     //The prover then computes the opening value: 𝑧=𝑥(𝑟𝐿+𝑟𝑅−𝑟𝑂)+𝑟𝐵 and sends it to the verifier.
-    pub fn prove_add_gate(&self, x: u64, prover: &Prover) -> SecretKey {
+    pub fn prove_add_gate<T: Field>(&self, x: T, prover: &Prover) -> SecretKey {
         let mut z = self
             .0
             .blind_sum(
@@ -187,9 +196,9 @@ impl Pedersen {
         z
     }
 
-    pub fn prove_mul_gate(
+    pub fn prove_mul_gate<T: Field>(
         &self,
-        x: u64, //challenge
+        x: T, //challenge
         prover: &Prover,
     ) -> (SecretKey, SecretKey, SecretKey, SecretKey, SecretKey) {
         let x = to_secret_key(&self.0, &x);
@@ -220,9 +229,9 @@ impl Pedersen {
         (e1, e2, z1, z2, z3)
     }
 
-    pub fn verify_add(
+    pub fn verify_add<T: Field>(
         &self,
-        x: u64,
+        x: T,
         witness: &PedersenWitness,
         b_commit: Commitment,
         z: SecretKey,
@@ -246,9 +255,9 @@ impl Pedersen {
         w_left == w_right
     }
 
-    pub fn verify_mul(
+    pub fn verify_mul<T: Field>(
         &self,
-        x: u64,
+        x: T,
         witness: &PedersenWitness,
         commits: &CommitMul,
         (e1, e2, z1, z2, z3): (SecretKey, SecretKey, SecretKey, SecretKey, SecretKey), /*(e1, e2, z1, z2, z3) */
@@ -295,6 +304,54 @@ impl Pedersen {
 
         true
     }
+
+
+    pub fn verify_proof<T: Field>(
+        &self,
+        prover: &Prover,
+    ) -> bool {
+
+        let is_add_gate = match &prover.commit_add {
+            Some(_) => true,
+            None => false,
+        };
+
+        let x = random_32_bytes::<T>();
+        
+        if is_add_gate {
+
+            let b_commit = match prover.commit_add.clone() {
+                Some(c) => c.b_commit,
+                None => panic!("No b_commit"),
+            };
+
+
+            let z = self.prove_add_gate(x.clone(), &prover);
+
+            let success = self.verify_add(x.clone(), &prover.witness, b_commit, z);
+    
+            assert!(success, "𝐶𝑜𝑚(0,𝑧)=𝑥×(𝑊𝐿+𝑊𝑅−𝑊𝑂)+𝐵 fail");
+
+        } else {
+
+            let tuple = self.prove_mul_gate(x.clone(), &prover);
+
+            let commits_mul = match &prover.commit_mul {
+                Some(c) => c,
+                None => panic!("No commit_mul"),
+            };
+
+            let success = self.verify_mul(x, &prover.witness, &commits_mul, tuple);
+
+            assert!(success, " 1 = 1 * 1 fail");
+        }
+
+        true
+
+    }
+
+
+
 }
 
 
@@ -304,9 +361,12 @@ mod test {
     
     #[test]
     fn test_all_api() {
+
+        println!("Bn128Field::from(1).to_byte_vector(): {:?}", Bn128Field::from(1111111111).to_byte_vector());
+
         let pederson = Pedersen::new();
         // 4 = 1 + 3
-        let prover = pederson.generate_add_prover(1, 3, 4);
+        let prover = pederson.generate_add_prover(Bn128Field::from(1), Bn128Field::from(3), Bn128Field::from(4));
         println!("prover: {:?}", prover);
     
         let b_commit = match prover.commit_add.clone() {
@@ -317,20 +377,20 @@ mod test {
         println!("b_commit: {:?}", b_commit);
     
         // x is challenge
-        let x = 1;
-        let z = pederson.prove_add_gate(x, &prover);
+        let x = Bn128Field::from(1);
+        let z = pederson.prove_add_gate(x.clone(), &prover);
     
         println!("z: {:?}", z);
     
-        let success = pederson.verify_add(x, &prover.witness, b_commit, z);
+        let success = pederson.verify_add(x.clone(), &prover.witness, b_commit, z);
     
         assert!(success, "𝐶𝑜𝑚(0,𝑧)=𝑥×(𝑊𝐿+𝑊𝑅−𝑊𝑂)+𝐵 fail");
     
         // 1 = 1 * 1
-        let prover = pederson.generate_mul_prover(1, 1, 1);
+        let prover = pederson.generate_mul_prover(Bn128Field::from(1), Bn128Field::from(1), Bn128Field::from(1));
         println!("prover: {:?}", prover);
     
-        let tuple = pederson.prove_mul_gate(x, &prover);
+        let tuple = pederson.prove_mul_gate(x.clone(), &prover);
     
         println!("tuple: {:?}", tuple);
     

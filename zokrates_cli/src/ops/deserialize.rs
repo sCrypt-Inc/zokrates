@@ -10,6 +10,8 @@ use zokrates_core::flat_absy::{FlatProg, FlatExpression, FlatStatement };
 use zokrates_core::ir::{self, Witness};
 use zokrates_field::{Bls12_377Field, Bls12_381Field, Bn128Field, Bw6_761Field, Field};
 
+use zokrates_core::pederson::{Pedersen};
+
 pub fn subcommand() -> App<'static, 'static> {
     SubCommand::with_name("deserialize")
         .about("deserialize into flattened program.")
@@ -132,6 +134,7 @@ fn cli_deserialize<T: Field>(sub_matches: &ArgMatches) -> Result<(), String> {
         (a_value.clone(), b_value.clone())
     };
 
+    let pedersen = Pedersen::new();
     for statement in &flatprog.main.statements {
        
 
@@ -143,75 +146,72 @@ fn cli_deserialize<T: Field>(sub_matches: &ArgMatches) -> Result<(), String> {
                 println!("Definition variable {}", variable);
                 println!("Definition expr {}", expr);
 
-                let left_value = witness.getvariable(variable).unwrap().clone();
+                let value_o = witness.getvariable(variable).unwrap().clone();
 
-                let right_value = match expr {
-                    FlatExpression::Number(v) => v.clone(),
-                    FlatExpression::Identifier(v) => witness.getvariable(v).unwrap().clone(),
+                let prover = match expr {
+                    FlatExpression::Number(v) =>  {
+
+                        pedersen.generate_mul_prover(T::from(1), v.clone(), value_o)
+                    },
+                    FlatExpression::Identifier(v) => {
+                        let v = witness.getvariable(v).unwrap().clone();
+
+                        pedersen.generate_mul_prover(T::from(1), v.clone(), value_o)
+                    },
                     FlatExpression::Add(a, b) => {
                         let (a_value,b_value ) = fetch_expr_value_closure(a, b);
-                        a_value.add(b_value)
+                        //pedersen.generate_add_prover(a_value.clone(), b_value, left_value);
+                        pedersen.generate_add_prover(a_value, b_value, value_o)
                     },
                     FlatExpression::Mult(a, b) => {
                         let (a_value,b_value ) = fetch_expr_value_closure(a, b);
-                        a_value.mul(b_value)
+                        pedersen.generate_mul_prover(a_value, b_value, value_o)
                     }
                     FlatExpression::Sub(_, _) => panic!("There must NOT be Sub expr in FlatProg."),
 
                 };
 
-                //check value
-                if !left_value.eq(&right_value) {
-                    println!("left_value: {}, rightValue: {}", left_value, right_value);
-                    panic!("leftValue not equal to rightValue");
-                } else {
-                    println!("Check definition successfully");
-                }
+                pedersen.verify_proof::<T>(&prover);
 
-                //TODO: Pedersen commitment 
+                println!("verify_proof definition success");
+
             },
             FlatStatement::Condition(expr1, expr2, _) => {
                 
-
-                let left_value = match expr1 {
+                let value_o = match expr1 {
                     FlatExpression::Number(v) => v.clone(),
                     FlatExpression::Identifier(v) => witness.getvariable(v).unwrap().clone(),
+                    _ => panic!("There must NOT be expr in here."),
+
+                };
+
+                let prover = match expr2 {
+                    FlatExpression::Number(v) =>  {
+
+                        pedersen.generate_mul_prover(T::from(1), v.clone(), value_o)
+                    },
+                    FlatExpression::Identifier(v) => {
+                        let v = witness.getvariable(v).unwrap().clone();
+
+                        pedersen.generate_mul_prover(T::from(1), v.clone(), value_o)
+                    },
                     FlatExpression::Add(a, b) => {
                         let (a_value,b_value ) = fetch_expr_value_closure(a, b);
-                        a_value.add(b_value)
+                        //pedersen.generate_add_prover(a_value.clone(), b_value, left_value);
+                        pedersen.generate_add_prover(a_value, b_value, value_o)
                     },
                     FlatExpression::Mult(a, b) => {
                         let (a_value,b_value ) = fetch_expr_value_closure(a, b);
-                        a_value.mul(b_value)
+                        pedersen.generate_mul_prover(a_value, b_value, value_o)
                     }
                     FlatExpression::Sub(_, _) => panic!("There must NOT be Sub expr in FlatProg."),
 
                 };
 
-                let right_value = match expr2 {
-                    FlatExpression::Number(v) => v.clone(),
-                    FlatExpression::Identifier(v) => witness.getvariable(v).unwrap().clone(),
-                    FlatExpression::Add(a, b) => {
-                        let (a_value,b_value ) = fetch_expr_value_closure(a, b);
-                        a_value.add(b_value)
-                    },
-                    FlatExpression::Mult(a, b) => {
-                        let (a_value,b_value ) = fetch_expr_value_closure(a, b);
-                        a_value.mul(b_value)
-                    }
-                    FlatExpression::Sub(_, _) => panic!("There must NOT be Sub expr in FlatProg."),
+                pedersen.verify_proof::<T>(&prover);
 
-                };
+                println!("verify_proof condition success");
 
-
-                if !left_value.eq(&right_value) {
-                    println!("left_value: {}, rightValue: {}", left_value, right_value);
-                    panic!("leftValue not equal to rightValue");
-                } else {
-                    println!("Check condition successfully");
-                }
-
-                //TODO: Pedersen commitment 
             },
             FlatStatement::Directive(directive) => println!("Directive {}", directive),
             FlatStatement::Return(outexpr) => println!("Return {}", outexpr),
