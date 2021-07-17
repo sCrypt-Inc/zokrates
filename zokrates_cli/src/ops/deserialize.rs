@@ -46,8 +46,10 @@ pub fn subcommand() -> App<'static, 'static> {
             Arg::with_name("witness")
                 .short("w")
                 .long("witness")
-                .help("deserialize witness")
+                .help("Path of the witness file")
                 .takes_value(false)
+                .value_name("WITNESS_FILE")
+                .takes_value(true)
                 .required(false),
         )
 }
@@ -102,7 +104,7 @@ fn cli_deserialize<T: Field>(sub_matches: &ArgMatches) -> Result<(), String> {
             FlatExpression::Number(v) => v,
             FlatExpression::Identifier(v) => witness.getvariable(v).unwrap(),
             _ => {
-                panic!("unknown Definition");
+                panic!("unknown definition");
             }
         };
 
@@ -110,7 +112,7 @@ fn cli_deserialize<T: Field>(sub_matches: &ArgMatches) -> Result<(), String> {
             FlatExpression::Number(v) => v,
             FlatExpression::Identifier(v) => witness.getvariable(v).unwrap(),
             _ => {
-                panic!("unknown Definition");
+                panic!("unknown definition");
             }
         };
 
@@ -137,27 +139,25 @@ fn cli_deserialize<T: Field>(sub_matches: &ArgMatches) -> Result<(), String> {
                         let (a_value,b_value ) = fetch_expr_value_closure(a, b);
                         a_value.add(b_value)
                     },
-                    FlatExpression::Sub(a, b) => {
-                        let (a_value,b_value ) = fetch_expr_value_closure(a, b);
-                        a_value.sub(b_value)
-                    },
                     FlatExpression::Mult(a, b) => {
                         let (a_value,b_value ) = fetch_expr_value_closure(a, b);
                         a_value.mul(b_value)
                     }
+                    FlatExpression::Sub(_, _) => panic!("There must NOT be Sub expr in FlatProg."),
+
                 };
 
                 //check value
                 if !left_value.eq(&right_value) {
-                    println!("left_value {} no equal rightValue {}", left_value, right_value);
-                    panic!("leftValue no equal rightValue");
+                    println!("left_value: {}, rightValue: {}", left_value, right_value);
+                    panic!("leftValue not equal to rightValue");
                 } else {
-                    println!("check Definition successfully");
+                    println!("Check definition successfully");
                 }
 
                 //TODO: Pedersen commitment 
             },
-            FlatStatement::Condition(expr1, expr2) => {
+            FlatStatement::Condition(expr1, expr2, _) => {
                 
 
                 let left_value = match expr1 {
@@ -167,14 +167,12 @@ fn cli_deserialize<T: Field>(sub_matches: &ArgMatches) -> Result<(), String> {
                         let (a_value,b_value ) = fetch_expr_value_closure(a, b);
                         a_value.add(b_value)
                     },
-                    FlatExpression::Sub(a, b) => {
-                        let (a_value,b_value ) = fetch_expr_value_closure(a, b);
-                        a_value.sub(b_value)
-                    },
                     FlatExpression::Mult(a, b) => {
                         let (a_value,b_value ) = fetch_expr_value_closure(a, b);
                         a_value.mul(b_value)
                     }
+                    FlatExpression::Sub(_, _) => panic!("There must NOT be Sub expr in FlatProg."),
+
                 };
 
                 let right_value = match expr2 {
@@ -184,22 +182,20 @@ fn cli_deserialize<T: Field>(sub_matches: &ArgMatches) -> Result<(), String> {
                         let (a_value,b_value ) = fetch_expr_value_closure(a, b);
                         a_value.add(b_value)
                     },
-                    FlatExpression::Sub(a, b) => {
-                        let (a_value,b_value ) = fetch_expr_value_closure(a, b);
-                        a_value.sub(b_value)
-                    },
                     FlatExpression::Mult(a, b) => {
                         let (a_value,b_value ) = fetch_expr_value_closure(a, b);
                         a_value.mul(b_value)
                     }
+                    FlatExpression::Sub(_, _) => panic!("There must NOT be Sub expr in FlatProg."),
+
                 };
 
 
                 if !left_value.eq(&right_value) {
-                    println!("left_value {} no equal rightValue {}", left_value, right_value);
-                    panic!("leftValue no equal rightValue");
+                    println!("left_value: {}, rightValue: {}", left_value, right_value);
+                    panic!("leftValue not equal to rightValue");
                 } else {
-                    println!("check Condition successfully");
+                    println!("Check condition successfully");
                 }
 
                 //TODO: Pedersen commitment 
