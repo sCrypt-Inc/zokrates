@@ -13,6 +13,9 @@ verifier.sol
 proof.json
 universal_setup.dat
 witness
+flattened.json
+zk/
+
 
 # Remove Cargo.lock from gitignore if creating an executable, leave it for libraries
 # More information here http://doc.crates.io/guide.html#cargotoml-vs-cargolock
