@@ -7,7 +7,7 @@ use std::io::{BufReader, Read};
 use std::path::Path;
 use std::path::PathBuf;
 use zokrates_core::flat_absy::{FlatProg, FlatExpression, FlatStatement };
-use zokrates_core::ir;
+use zokrates_core::ir::{self, Witness};
 use zokrates_field::{Bls12_377Field, Bls12_381Field, Bn128Field, Bw6_761Field, Field};
 
 pub fn subcommand() -> App<'static, 'static> {
@@ -47,9 +47,8 @@ pub fn subcommand() -> App<'static, 'static> {
                 .short("w")
                 .long("witness")
                 .help("Path of the witness file")
-                .takes_value(false)
-                .value_name("WITNESS_FILE")
                 .takes_value(true)
+                .value_name("WITNESS_FILE")
                 .required(false),
         )
 }
@@ -77,6 +76,15 @@ fn deserialize<T: Field>(source: String) -> Result<FlatProg<T>, serde_json::Erro
     Ok(serde_json::from_str(&source).unwrap())
 }
 
+
+pub fn public_inputs_values<T: Field>(flatprog: &FlatProg<T>, witness: &Witness<T> ) -> Vec<T> {
+    flatprog.main.arguments.iter().filter_map(|p| match p.private { 
+        false => Some(witness.getvariable(&p.id).unwrap().clone()),
+        true => None
+     }).collect()
+}
+
+
 fn cli_deserialize<T: Field>(sub_matches: &ArgMatches) -> Result<(), String> {
     println!("Deserializing {}\n", sub_matches.value_of("input").unwrap());
     let path = PathBuf::from(sub_matches.value_of("input").unwrap());
@@ -92,7 +100,12 @@ fn cli_deserialize<T: Field>(sub_matches: &ArgMatches) -> Result<(), String> {
 
 
     let witness = deserialize_witness::<T>(sub_matches).unwrap();
+    
 
+    let public_inputs = public_inputs_values::<T>(&flatprog, &witness);
+
+    println!("pring all public_inputs {:?}", public_inputs);
+    
     //NOW we got flatprog
 
     //println!("NOW we got flatprog : {}", flatprog);
