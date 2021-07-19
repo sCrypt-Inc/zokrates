@@ -25,3 +25,4 @@ pub mod flat_absy;
 pub mod ir;
 pub mod proof_system;
 pub mod typed_absy;
+pub mod pederson;
