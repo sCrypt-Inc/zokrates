@@ -277,14 +277,14 @@ impl Pedersen {
         let verify_equation = |e: SecretKey, z: SecretKey, w: Commitment, c: Commitment| {
             let w_left = self.0.commit_blind(e, z).unwrap();
             let w_right = right_expr(w, c);
-            assert_eq!(w_left, w_right);
+            w_left == w_right
         };
 
         //𝐶𝑜𝑚(𝑒1,𝑧1)=𝑥×𝑊𝐿+𝐶1
-        verify_equation(e1.clone(), z1, witness.W_L, commits.c1_commit);
+        let equation_1 =  verify_equation(e1.clone(), z1, witness.W_L, commits.c1_commit);
 
         // 𝐶𝑜𝑚(𝑒2,𝑧2)=𝑥×𝑊𝑅+𝐶2
-        verify_equation(e2.clone(), z2, witness.W_R, commits.c2_commit);
+        let equation_2 = verify_equation(e2.clone(), z2, witness.W_R, commits.c2_commit);
 
         //𝑒1×𝑊𝑅+𝑧3×𝐹=𝑥×𝑊𝑂+𝐶3
         // 𝐶3 = 𝑡1×𝑊𝑅+𝑡4×𝐹
@@ -304,9 +304,9 @@ impl Pedersen {
 
         let w_right = right_expr(witness.W_O, commits.c3_commit);
 
-        assert_eq!(w_left, w_right);
+        let equation_3 = w_left == w_right;
 
-        true
+        equation_1 && equation_2 && equation_3
     }
 
 
@@ -333,8 +333,12 @@ impl Pedersen {
             let z = self.prove_add_gate(x.clone(), &prover);
 
             let success = self.verify_add(x.clone(), &prover.witness, b_commit, z);
-    
-            assert!(success, "𝐶𝑜𝑚(0,𝑧)=𝑥×(𝑊𝐿+𝑊𝑅−𝑊𝑂)+𝐵 fail");
+
+            if !success {
+                    
+                println!("add gate fail prover: {:?}", prover);
+            }
+            success
 
         } else {
 
@@ -347,10 +351,13 @@ impl Pedersen {
 
             let success = self.verify_mul(x, &prover.witness, &commits_mul, tuple);
 
-            assert!(success, " 1 = 1 * 1 fail");
-        }
+            if !success {
 
-        true
+                println!("mul gate fail prover: {:?}", prover);
+            }
+
+            success
+        }
 
     }
 
