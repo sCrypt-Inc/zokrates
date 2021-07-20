@@ -142,9 +142,6 @@ fn cli_deserialize<T: Field>(sub_matches: &ArgMatches) -> Result<(), String> {
             
             FlatStatement::Definition(variable, expr) => {
                 
-                
-                println!("Definition variable {}", variable);
-                println!("Definition expr {}", expr);
 
                 let value_o = witness.getvariable(variable).unwrap().clone();
 
@@ -171,9 +168,12 @@ fn cli_deserialize<T: Field>(sub_matches: &ArgMatches) -> Result<(), String> {
 
                 };
 
-                pedersen.verify_proof::<T>(&prover);
+                let success = pedersen.verify_proof::<T>(&prover);
 
-                println!("verify_proof definition success");
+                if !success {
+                    println!("definition fail variable: {:?}, expr: {:?}", variable, expr);
+                    panic!("definition fail");
+                }
 
             },
             FlatStatement::Condition(expr1, expr2, _) => {
@@ -208,9 +208,12 @@ fn cli_deserialize<T: Field>(sub_matches: &ArgMatches) -> Result<(), String> {
 
                 };
 
-                pedersen.verify_proof::<T>(&prover);
+                let success = pedersen.verify_proof::<T>(&prover);
 
-                println!("verify_proof condition success");
+                if !success {
+                    println!("condition fail expr1: {:?}, expr2: {:?}", expr1, expr2);
+                    panic!("condition fail");
+                }
 
             },
             FlatStatement::Directive(directive) => println!("Directive {}", directive),
