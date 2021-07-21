@@ -7,7 +7,7 @@ use std::fs::File;
 use std::io::{BufReader, BufWriter, Read, Write};
 use std::path::{Path, PathBuf};
 use zokrates_core::compile::{compile, CompilationArtifacts, CompileConfig, CompileError};
-use zokrates_field::{Bls12_377Field, Bls12_381Field, Bn128Field, Bw6_761Field, Field};
+use zokrates_field::{Bls12_377Field, Bls12_381Field, Bn128Field, Bw6_761Field, Field, Secp256k1Field};
 use zokrates_fs_resolver::FileSystemResolver;
 
 pub fn subcommand() -> App<'static, 'static> {
@@ -51,7 +51,7 @@ pub fn subcommand() -> App<'static, 'static> {
         .takes_value(true)
         .required(false)
         .possible_values(constants::CURVES)
-        .default_value(constants::BN128)
+        .default_value(constants::SECP_256K1)
     ).arg(Arg::with_name("allow-unconstrained-variables")
         .long("allow-unconstrained-variables")
         .help("Allow unconstrained variables by inserting dummy constraints")
@@ -76,6 +76,7 @@ pub fn subcommand() -> App<'static, 'static> {
 pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
     let curve = CurveParameter::try_from(sub_matches.value_of("curve").unwrap())?;
     match curve {
+        CurveParameter::Secp256k1 => cli_compile::<Secp256k1Field>(sub_matches),
         CurveParameter::Bn128 => cli_compile::<Bn128Field>(sub_matches),
         CurveParameter::Bls12_377 => cli_compile::<Bls12_377Field>(sub_matches),
         CurveParameter::Bls12_381 => cli_compile::<Bls12_381Field>(sub_matches),
