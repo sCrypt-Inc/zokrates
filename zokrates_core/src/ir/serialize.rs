@@ -12,6 +12,7 @@ pub enum ProgEnum {
     Bn128Program(Prog<Bn128Field>),
     Bls12_377Program(Prog<Bls12_377Field>),
     Bw6_761Program(Prog<Bw6_761Field>),
+    Secp256k1Program(Prog<Secp256k1Field>),
 }
 
 impl<T: Field> Prog<T> {
@@ -54,6 +55,9 @@ impl ProgEnum {
                         deserialize_from(&mut r, Infinite).unwrap(),
                     )),
                     m if m == Bw6_761Field::id() => Ok(ProgEnum::Bw6_761Program(
+                        deserialize_from(&mut r, Infinite).unwrap(),
+                    )),
+                    m if m == Secp256k1Field::id() => Ok(ProgEnum::Secp256k1Program(
                         deserialize_from(&mut r, Infinite).unwrap(),
                     )),
                     _ => Err(String::from("Unknown curve identifier")),
