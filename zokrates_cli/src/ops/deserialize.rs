@@ -8,7 +8,7 @@ use std::path::Path;
 use std::path::PathBuf;
 use zokrates_core::flat_absy::{FlatProg, FlatExpression, FlatStatement };
 use zokrates_core::ir::{self, Witness};
-use zokrates_field::{Bls12_377Field, Bls12_381Field, Bn128Field, Bw6_761Field, Field};
+use zokrates_field::{Bls12_377Field, Bls12_381Field, Bn128Field, Bw6_761Field, Field, Secp256k1Field};
 
 use zokrates_core::pederson::{Pedersen, Proof};
 
@@ -42,7 +42,7 @@ pub fn subcommand() -> App<'static, 'static> {
                 .takes_value(true)
                 .required(false)
                 .possible_values(constants::CURVES)
-                .default_value(constants::BN128),
+                .default_value(constants::SECP_256K1),
         )
         .arg(
             Arg::with_name("witness")
@@ -58,6 +58,9 @@ pub fn subcommand() -> App<'static, 'static> {
 pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
     let curve = CurveParameter::try_from(sub_matches.value_of("curve").unwrap())?;
     match curve {
+        CurveParameter::Secp256k1 => {
+            cli_deserialize::<Secp256k1Field>(sub_matches)
+        }
         CurveParameter::Bn128 => {
             cli_deserialize::<Bn128Field>(sub_matches)
         }
