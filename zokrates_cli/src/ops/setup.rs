@@ -98,6 +98,7 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
             ProgEnum::Bls12_377Program(_) => constants::BLS12_377,
             ProgEnum::Bls12_381Program(_) => constants::BLS12_381,
             ProgEnum::Bw6_761Program(_) => constants::BW6_761,
+            ProgEnum::Secp256k1Program(_) => constants::SECP_256K1,
         },
         sub_matches.value_of("proving-scheme").unwrap(),
     ))?;

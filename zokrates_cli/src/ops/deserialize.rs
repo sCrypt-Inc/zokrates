@@ -13,8 +13,8 @@ use zokrates_field::{Bls12_377Field, Bls12_381Field, Bn128Field, Bw6_761Field, F
 use zokrates_core::pederson::{Pedersen, Proof};
 
 pub fn subcommand() -> App<'static, 'static> {
-    SubCommand::with_name("deserialize")
-        .about("deserialize into flattened program.")
+    SubCommand::with_name("generate-proof")
+        .about("Calculates a proof for a given constraint system and witness")
         .arg(
             Arg::with_name("input")
                 .short("i")
