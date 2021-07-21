@@ -3,6 +3,7 @@ use secp256k1zkp::{
 };
 use zokrates_field::Field;
 use zokrates_field::Bn128Field;
+use zokrates_field::Secp256k1Field;
 use rand_0_5::{thread_rng, Rng};
 
 fn random_32_bytes<T: Field>() -> T {
@@ -60,8 +61,7 @@ pub fn to_secret_key<T: Field>(secp: &Secp256k1, value: &T) -> SecretKey {
     if value.eq(&T::from(0)) {
         key::ZERO_KEY
     } else {
-        let b = value.to_biguint();
-        let bytes = b.to_bytes_be();
+        let bytes = value.to_byte_vector();
         let mut v = vec![0u8; 32 - bytes.len()];
         v.extend_from_slice(&bytes);
         SecretKey::from_slice(secp, &v).expect(&format!("expect value {}", value))
@@ -413,6 +413,39 @@ mod test {
         let success = pederson.verify_mul(x, &prover.witness, &commits_mul, tuple);
     
         assert!(success, " 1 = 1 * 1 fail");
+    }
+
+
+
+    
+    #[test]
+    fn test_to_secret_key() {
+
+        let secp = Secp256k1::with_caps(ContextFlag::Commit);
+        let x = Secp256k1Field::try_from_dec_str("115792089237316195423570985008687907853269984665640564039457584007908834671663").unwrap();
+
+        let x = to_secret_key(&secp, &x);
+
+        assert_eq!(x, to_secret_key(&secp, &Secp256k1Field::from(0)));
+
+        let x = Secp256k1Field::try_from_dec_str("115792089237316195423570985008687907853269984665640564039457584007908834671664").unwrap();
+
+        let x = to_secret_key(&secp, &x);
+
+        assert_eq!(x, to_secret_key(&secp, &Secp256k1Field::from(1)));
+
+        let x = Secp256k1Field::try_from_dec_str("1").unwrap();
+
+        let x = to_secret_key(&secp, &x);
+
+        assert_eq!(x, to_secret_key(&secp, &Secp256k1Field::from(1)));
+
+        let x = Secp256k1Field::try_from_dec_str("115792089237316195423570985008687907853269984665640564039457584007908834671662").unwrap();
+
+        let x = to_secret_key(&secp, &x);
+
+        assert_eq!(x, to_secret_key(&secp, &Secp256k1Field::try_from_dec_str("115792089237316195423570985008687907853269984665640564039457584007908834671662").unwrap()));
+
     }
     
 }
