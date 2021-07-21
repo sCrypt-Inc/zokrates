@@ -7,7 +7,6 @@ use zokrates_field::Bn128Field;
 use zokrates_field::Secp256k1Field;
 use rand_0_5::{thread_rng, Rng};
 
-use rand_0_5::{thread_rng, Rng};
 use sha2::{Sha256, Sha512, Digest};
 fn random_32_bytes<T: Field>() -> T {
     let mut rng = thread_rng();
@@ -622,8 +621,8 @@ mod test {
 
         let pederson = Pedersen::new();
         let prover = pederson.generate_add_prover(a.clone(), b.clone(), c.clone());
-        let proof = pederson.generate_proof::<Bn128Field>(&prover);
-        let success = pederson.verify_proof::<Bn128Field>(&proof);
+        let proof = pederson.generate_proof::<T>(&prover);
+        let success = pederson.verify_proof::<T>(&proof);
         assert!(success, "test_add_proof fail a: {}, b: {}, c: {}", a, b, c);
     }
 
@@ -631,8 +630,8 @@ mod test {
 
         let pederson = Pedersen::new();
         let prover = pederson.generate_mul_prover(a.clone(), b.clone(), c.clone());
-        let proof = pederson.generate_proof::<Bn128Field>(&prover);
-        let success = pederson.verify_proof::<Bn128Field>(&proof);
+        let proof = pederson.generate_proof::<T>(&prover);
+        let success = pederson.verify_proof::<T>(&proof);
         assert!(success, "test_mul_proof fail a: {}, b: {}, c: {}", a, b, c);
     }
 
@@ -648,6 +647,17 @@ mod test {
         test_mul_proof(Bn128Field::from(1), Bn128Field::from(1), Bn128Field::from(1));
 
         test_mul_proof(Bn128Field::from(2), Bn128Field::from(2), Bn128Field::from(4));
+
+
+        test_add_proof(Secp256k1Field::from(1), Secp256k1Field::from(1), Secp256k1Field::from(2));
+        test_add_proof(Secp256k1Field::from(11), Secp256k1Field::from(1), Secp256k1Field::from(12));
+        
+        test_add_proof(Secp256k1Field::from(1000000), Secp256k1Field::from(100), Secp256k1Field::from(1000100));
+
+
+        test_mul_proof(Secp256k1Field::from(1), Secp256k1Field::from(1), Secp256k1Field::from(1));
+
+        test_mul_proof(Secp256k1Field::from(2), Secp256k1Field::from(2), Secp256k1Field::from(4));
     }
 
 
