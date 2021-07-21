@@ -87,7 +87,8 @@ pub fn to_secret_key<T: Field>(secp: &Secp256k1, value: &T) -> SecretKey {
     if value.eq(&T::from(0)) {
         key::ZERO_KEY
     } else {
-        let bytes = value.to_byte_vector();
+        let b = value.to_biguint();
+        let bytes = b.to_bytes_be();
         let mut v = vec![0u8; 32 - bytes.len()];
         v.extend_from_slice(&bytes);
         SecretKey::from_slice(secp, &v).expect(&format!("expect value {}", value))
@@ -576,11 +577,9 @@ mod test {
     #[test]
     fn test_all_api() {
 
-        println!("Bn128Field::from(1).to_byte_vector(): {:?}", Bn128Field::from(1111111111).to_byte_vector());
-
         let pederson = Pedersen::new();
         // 4 = 1 + 3
-        let prover = pederson.generate_add_prover(Bn128Field::from(1), Bn128Field::from(3), Bn128Field::from(4));
+        let prover = pederson.generate_add_prover(Secp256k1Field::from(100), Secp256k1Field::from(10000), Secp256k1Field::from(10100));
         println!("prover: {:?}", prover);
     
         let b_commit = match prover.commit_add.clone() {
@@ -591,7 +590,7 @@ mod test {
         println!("b_commit: {:?}", b_commit);
     
         // x is challenge
-        let x = Bn128Field::from(1);
+        let x = Secp256k1Field::from(1);
         let z = pederson.prove_add_gate(x.clone(), &prover);
     
         println!("z: {:?}", z);
@@ -601,7 +600,7 @@ mod test {
         assert!(success, "𝐶𝑜𝑚(0,𝑧)=𝑥×(𝑊𝐿+𝑊𝑅−𝑊𝑂)+𝐵 fail");
     
         // 1 = 1 * 1
-        let prover = pederson.generate_mul_prover(Bn128Field::from(1), Bn128Field::from(1), Bn128Field::from(1));
+        let prover = pederson.generate_mul_prover(Secp256k1Field::from(100), Secp256k1Field::from(1), Secp256k1Field::from(100));
         println!("prover: {:?}", prover);
     
         let tuple = pederson.prove_mul_gate(x.clone(), &prover);
