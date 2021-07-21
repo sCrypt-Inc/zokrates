@@ -51,7 +51,8 @@ pub const BN128: &str = "bn128";
 pub const BLS12_381: &str = "bls12_381";
 pub const BLS12_377: &str = "bls12_377";
 pub const BW6_761: &str = "bw6_761";
-pub const CURVES: &[&str] = &[BN128, BLS12_381, BLS12_377, BW6_761];
+pub const SECP_256K1: &str = "secp256k1";
+pub const CURVES: &[&str] = &[BN128, BLS12_381, BLS12_377, BW6_761, SECP_256K1];
 
 pub const G16: &str = "g16";
 pub const PGHR13: &str = "pghr13";

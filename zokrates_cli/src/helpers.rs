@@ -7,6 +7,7 @@ pub enum CurveParameter {
     Bls12_381,
     Bls12_377,
     Bw6_761,
+    Secp256k1
 }
 
 #[derive(Debug)]
@@ -33,6 +34,7 @@ impl TryFrom<&str> for CurveParameter {
 
     fn try_from(s: &str) -> Result<Self, Self::Error> {
         match s {
+            SECP_256K1 => Ok(CurveParameter::Secp256k1),
             BN128 => Ok(CurveParameter::Bn128),
             BLS12_381 => Ok(CurveParameter::Bls12_381),
             BLS12_377 => Ok(CurveParameter::Bls12_377),
