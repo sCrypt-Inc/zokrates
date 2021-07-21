@@ -10,7 +10,7 @@ use zokrates_core::flat_absy::{FlatProg, FlatExpression, FlatStatement };
 use zokrates_core::ir::{self, Witness};
 use zokrates_field::{Bls12_377Field, Bls12_381Field, Bn128Field, Bw6_761Field, Field};
 
-use zokrates_core::pederson::{Pedersen};
+use zokrates_core::pederson::{Pedersen, Proof};
 
 pub fn subcommand() -> App<'static, 'static> {
     SubCommand::with_name("deserialize")
@@ -135,6 +135,7 @@ fn cli_deserialize<T: Field>(sub_matches: &ArgMatches) -> Result<(), String> {
     };
 
     let pedersen = Pedersen::new();
+    let mut proofs: Vec<Proof> = vec![];
     for statement in &flatprog.main.statements {
        
 
@@ -168,12 +169,16 @@ fn cli_deserialize<T: Field>(sub_matches: &ArgMatches) -> Result<(), String> {
 
                 };
 
-                let success = pedersen.verify_proof::<T>(&prover);
+                let success = pedersen.verify_prover::<T>(&prover);
 
                 if !success {
                     println!("definition fail variable: {:?}, expr: {:?}", variable, expr);
                     panic!("definition fail");
                 }
+
+                let proof = pedersen.generate_proof::<T>(&prover);
+
+                proofs.push(proof);
 
             },
             FlatStatement::Condition(expr1, expr2, _) => {
@@ -208,12 +213,16 @@ fn cli_deserialize<T: Field>(sub_matches: &ArgMatches) -> Result<(), String> {
 
                 };
 
-                let success = pedersen.verify_proof::<T>(&prover);
+                let success = pedersen.verify_prover::<T>(&prover);
 
                 if !success {
                     println!("condition fail expr1: {:?}, expr2: {:?}", expr1, expr2);
                     panic!("condition fail");
                 }
+
+                let proof = pedersen.generate_proof::<T>(&prover);
+
+                proofs.push(proof);
 
             },
             FlatStatement::Directive(directive) => println!("Directive {}", directive),
@@ -222,7 +231,20 @@ fn cli_deserialize<T: Field>(sub_matches: &ArgMatches) -> Result<(), String> {
         }
     }
 
+    println!("proofs len {}", proofs.len());
 
+    let proofs_path = PathBuf::from(sub_matches.value_of("input").unwrap()).with_file_name("proofs.json");
+
+    let proofs_file = File::create(&proofs_path)
+    .map_err(|why| format!("Could not create {}: {}", proofs_path.display(), why))?;
+
+    let result = serde_json::to_writer_pretty(std::io::BufWriter::new(proofs_file), &proofs);
+
+
+    match result {
+        Ok(_) => println!("Output to proofs.json"),
+        _ => panic!("generate proof fail")
+    }
 
     Ok(())
 }

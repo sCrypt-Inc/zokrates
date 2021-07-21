@@ -1,10 +1,12 @@
 use secp256k1zkp::{
     constants, key, pedersen::Commitment, ContextFlag, PublicKey, Secp256k1, SecretKey,
 };
+use serde::{Deserialize, Serialize};
 use zokrates_field::Field;
 use zokrates_field::Bn128Field;
-use rand_0_5::{thread_rng, Rng};
 
+use rand_0_5::{thread_rng, Rng};
+use sha2::{Sha256, Sha512, Digest};
 fn random_32_bytes<T: Field>() -> T {
     let mut rng = thread_rng();
     let mut ret = [0u8; 32];
@@ -52,6 +54,29 @@ pub struct Prover {
     commit_mul: Option<CommitMul>,
 }
 
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct AddGateProof {
+    z: String,
+    b_commit: String,
+    commits: Vec<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct MulGateProof {
+    tuple:  (String, String, String, String, String),
+    c_commits: Vec<String>,
+    commits:Vec<String>,
+}
+
+#[derive(Debug,Serialize, Deserialize, Clone)]
+pub enum Proof {
+    AddGate(AddGateProof),
+    MulGate(MulGateProof),
+}
+
+
+
 pub struct Pedersen(Secp256k1);
 
 
@@ -66,6 +91,18 @@ pub fn to_secret_key<T: Field>(secp: &Secp256k1, value: &T) -> SecretKey {
         v.extend_from_slice(&bytes);
         SecretKey::from_slice(secp, &v).expect(&format!("expect value {}", value))
     }
+}
+
+pub fn string_to_commit(value: &String) -> Commitment {
+
+    let data = hex::decode(value).unwrap();
+    Commitment::from_vec(data)
+}
+
+pub fn string_to_secret_key(secp: &Secp256k1, value: &String) -> SecretKey {
+
+    let data = hex::decode(value).unwrap();
+    SecretKey::from_slice(secp, &data).expect(&format!("expect value {}", value))
 }
 
 fn computes_opening_value(
@@ -310,7 +347,7 @@ impl Pedersen {
     }
 
 
-    pub fn verify_proof<T: Field>(
+    pub fn verify_prover<T: Field>(
         &self,
         prover: &Prover,
     ) -> bool {
@@ -362,6 +399,171 @@ impl Pedersen {
     }
 
 
+    pub fn generate_proof<T: Field>(
+        &self,
+        prover: &Prover,
+    ) -> Proof {
+
+
+        let is_add_gate = match &prover.commit_add {
+            Some(_) => true,
+            None => false,
+        };
+
+        let sha256 = Sha256::new();
+        
+
+        if is_add_gate {
+
+            let b_commit = match prover.commit_add.clone() {
+                Some(c) => c.b_commit,
+                None => panic!("No b_commit"),
+            };
+
+            let result  = sha256.chain(prover.witness.W_L.0)
+            .chain(prover.witness.W_R.0)
+            .chain(prover.witness.W_O.0)
+            .chain(b_commit.0).finalize();
+
+     
+            let z = self.prove_add_gate(T::from_byte_vector(result.to_vec()), &prover);
+
+            Proof::AddGate(AddGateProof {
+                z: hex::encode(z.0),
+                b_commit:hex::encode(b_commit.0) ,
+                commits: vec![hex::encode(prover.witness.W_L.0) , hex::encode(prover.witness.W_R.0),hex::encode(prover.witness.W_O.0) ]
+            })
+
+        } else {
+
+            let commits_mul = match &prover.commit_mul {
+                Some(c) => c,
+                None => panic!("No commit_mul"),
+            };
+
+            let result  = sha256.chain(prover.witness.W_L.0)
+            .chain(prover.witness.W_R.0)
+            .chain(prover.witness.W_O.0)
+            .chain(commits_mul.c1_commit.0)
+            .chain(commits_mul.c2_commit.0)
+            .chain(commits_mul.c3_commit.0).finalize();
+            
+
+            let tuple = self.prove_mul_gate(T::from_byte_vector(result.to_vec()), &prover);
+
+            Proof::MulGate(MulGateProof {
+                tuple: (hex::encode(tuple.0.0),hex::encode(tuple.1.0),hex::encode(tuple.2.0),hex::encode(tuple.3.0),hex::encode(tuple.4.0) ),
+                c_commits: vec![hex::encode(commits_mul.c1_commit.0) , hex::encode(commits_mul.c2_commit.0), hex::encode(commits_mul.c3_commit.0)],
+                commits: vec![hex::encode(prover.witness.W_L.0) , hex::encode(prover.witness.W_R.0),hex::encode(prover.witness.W_O.0) ]
+            })
+        }
+    }
+
+
+    pub fn verify_add_proof<T: Field>(
+        &self,
+        proof: &AddGateProof,
+    ) -> bool {
+        let sha256 = Sha256::new();
+
+        let b_commit = string_to_commit(&proof.b_commit);
+
+        let w_l_commit = string_to_commit(&proof.commits[0]);
+
+        let w_r_commit = string_to_commit(&proof.commits[1]);
+
+        let w_o_commit = string_to_commit(&proof.commits[2]);
+        
+
+        let result  = sha256.chain(w_l_commit.0)
+        .chain(w_r_commit.0)
+        .chain(w_o_commit.0)
+        .chain(b_commit.0).finalize();
+
+
+        let z = string_to_secret_key(&self.0, &proof.z);
+
+        let x = T::from_byte_vector(result.to_vec());
+
+        let success = self.verify_add(x, &PedersenWitness {
+            W_L: w_l_commit,
+            W_R: w_r_commit,
+            W_O: w_o_commit
+        },b_commit, z);
+
+
+        success
+    }
+
+
+
+    pub fn verify_mul_proof<T: Field>(
+        &self,
+        proof: &MulGateProof,
+    ) -> bool {
+        let sha256 = Sha256::new();
+
+        let c1_commit = string_to_commit(&proof.c_commits[0]);
+        let c2_commit = string_to_commit(&proof.c_commits[1]);
+        let c3_commit = string_to_commit(&proof.c_commits[2]);
+
+        let w_l_commit = string_to_commit(&proof.commits[0]);
+        let w_r_commit = string_to_commit(&proof.commits[1]);
+        let w_o_commit = string_to_commit(&proof.commits[2]);
+        
+
+        let result  = sha256.chain(w_l_commit.0)
+        .chain(w_r_commit.0)
+        .chain(w_o_commit.0)
+        .chain(c1_commit.0)
+        .chain(c2_commit.0)
+        .chain(c3_commit.0).finalize();
+
+        let x = T::from_byte_vector(result.to_vec());
+
+        let tuple = ( string_to_secret_key(&self.0, &proof.tuple.0),
+                                            string_to_secret_key(&self.0, &proof.tuple.1),
+                                            string_to_secret_key(&self.0, &proof.tuple.2),
+                                            string_to_secret_key(&self.0, &proof.tuple.3),
+                                            string_to_secret_key(&self.0, &proof.tuple.4));
+
+
+
+        let success = self.verify_mul(x, &PedersenWitness {
+            W_L: w_l_commit,
+            W_R: w_r_commit,
+            W_O: w_o_commit
+        },&CommitMul {
+            t1:SecretKey::new(&self.0, &mut thread_rng()),
+            t2:SecretKey::new(&self.0, &mut thread_rng()),
+            t3:SecretKey::new(&self.0, &mut thread_rng()),
+            t4:SecretKey::new(&self.0, &mut thread_rng()),
+            t5:SecretKey::new(&self.0, &mut thread_rng()),
+            c1_commit: c1_commit,
+            c2_commit: c2_commit,
+            c3_commit: c3_commit
+        }, tuple);
+
+
+        success
+    }
+
+
+
+
+    pub fn verify_proof<T: Field>(
+        &self,
+        proof: &Proof,
+    ) -> bool {
+        match proof {
+            Proof::AddGate(p) => {
+                self.verify_add_proof::<T>(&p)
+            }
+            Proof::MulGate(p) => {
+                self.verify_mul_proof::<T>(&p)
+            }
+        }
+    }
 
 }
 
@@ -414,5 +616,38 @@ mod test {
     
         assert!(success, " 1 = 1 * 1 fail");
     }
-    
+
+
+    fn test_add_proof<T: Field>(a: T, b: T, c: T) {
+
+        let pederson = Pedersen::new();
+        let prover = pederson.generate_add_prover(a.clone(), b.clone(), c.clone());
+        let proof = pederson.generate_proof::<Bn128Field>(&prover);
+        let success = pederson.verify_proof::<Bn128Field>(&proof);
+        assert!(success, "test_add_proof fail a: {}, b: {}, c: {}", a, b, c);
+    }
+
+    fn test_mul_proof<T: Field>(a: T, b: T, c: T) {
+
+        let pederson = Pedersen::new();
+        let prover = pederson.generate_mul_prover(a.clone(), b.clone(), c.clone());
+        let proof = pederson.generate_proof::<Bn128Field>(&prover);
+        let success = pederson.verify_proof::<Bn128Field>(&proof);
+        assert!(success, "test_mul_proof fail a: {}, b: {}, c: {}", a, b, c);
+    }
+
+    #[test]
+    fn test_generate_proof() {
+
+        test_add_proof(Bn128Field::from(1), Bn128Field::from(1), Bn128Field::from(2));
+        test_add_proof(Bn128Field::from(11), Bn128Field::from(1), Bn128Field::from(12));
+        
+        test_add_proof(Bn128Field::from(1000000), Bn128Field::from(100), Bn128Field::from(1000100));
+
+
+        test_mul_proof(Bn128Field::from(1), Bn128Field::from(1), Bn128Field::from(1));
+
+        test_mul_proof(Bn128Field::from(2), Bn128Field::from(2), Bn128Field::from(4));
+    }
+
 }
