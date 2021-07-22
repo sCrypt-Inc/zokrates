@@ -84,27 +84,17 @@ pub struct Pedersen(Secp256k1);
 
 pub fn to_secret_key<T: Field>(secp: &Secp256k1, value: &T) -> SecretKey {
 
-    let N = T::from_byte_vector(vec![65, 65, 54, 208, 140, 94, 210, 191, 59, 160, 72, 175, 230, 220, 174, 186, 254, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255]);
-
     if value.eq(&T::from(0)) {
         return key::ZERO_KEY
     } 
-
-    if value.eq(&N) {
-        return key::ZERO_KEY
-    } 
     
-    let b = if value.gt(&N) {
-        value.to_biguint() % N.to_biguint()
-
-    } else {
-        value.to_biguint()
-    };
+    let b = value.to_biguint();
 
     let bytes = b.to_bytes_be();
     let mut v = vec![0u8; 32 - bytes.len()];
     v.extend_from_slice(&bytes);
     SecretKey::from_slice(secp, &v).expect(&format!("expect value {}", value))
+
 }
 
 pub fn string_to_commit(value: &String) -> Commitment {
@@ -584,49 +574,81 @@ impl Pedersen {
 
 #[cfg(test)]
 mod test {
+    use rand_0_5::RngCore;
+
     use super::*;
     
-    #[test]
-    fn test_all_api() {
+
+
+    fn test_verify_add_prover<T: Field>(a: T, b: T, c: T) {
 
         let pederson = Pedersen::new();
         // 4 = 1 + 3
-        let prover = pederson.generate_add_prover(Secp256k1Field::from(100), Secp256k1Field::from(10000), Secp256k1Field::from(10100));
-        println!("prover: {:?}", prover);
+        let prover = pederson.generate_add_prover(a.clone(), b.clone(), c.clone());
+
     
         let b_commit = match prover.commit_add.clone() {
             Some(c) => c.b_commit,
             None => panic!("No b_commit"),
         };
     
-        println!("b_commit: {:?}", b_commit);
-    
+
+        let mut rng =  thread_rng();
+
         // x is challenge
-        let x = Secp256k1Field::from(1);
+        let x = Secp256k1Field::from(rng.next_u32());
         let z = pederson.prove_add_gate(x.clone(), &prover);
     
-        println!("z: {:?}", z);
     
         let success = pederson.verify_add(x.clone(), &prover.witness, b_commit, z);
     
-        assert!(success, "𝐶𝑜𝑚(0,𝑧)=𝑥×(𝑊𝐿+𝑊𝑅−𝑊𝑂)+𝐵 fail");
+        assert!(success, "test_verify_add_prover failed:  {:?} + {:?} = {:?}", a, b, c);
+
+    }
+
+    fn test_verify_mul_prover<T: Field>(a: T, b: T, c: T) {
+
+        let pederson = Pedersen::new();
+
+        let mut rng =  thread_rng();
+        let x = Secp256k1Field::from(rng.next_u32());
+
     
-        // 1 = 1 * 1
-        let prover = pederson.generate_mul_prover(Secp256k1Field::from(100), Secp256k1Field::from(1), Secp256k1Field::from(100));
-        println!("prover: {:?}", prover);
+        let prover = pederson.generate_mul_prover(a, b, c);
+
     
         let tuple = pederson.prove_mul_gate(x.clone(), &prover);
-    
-        println!("tuple: {:?}", tuple);
-    
+
         let commits_mul = match &prover.commit_mul {
             Some(c) => c,
             None => panic!("No commit_mul"),
         };
-    
+
         let success = pederson.verify_mul(x, &prover.witness, &commits_mul, tuple);
-    
-        assert!(success, " 1 = 1 * 1 fail");
+
+        assert!(success, "test_verify_mul_prover fail {:?}", prover);
+    }
+
+
+    #[test]
+    fn test_all_api() {
+
+        let P = Secp256k1Field::try_from_dec_str("115792089237316195423570985008687907853269984665640564039457584007908834671663").unwrap();
+        let N = Secp256k1Field::try_from_dec_str("115792089237316195423570985008687907853269984665640564039457584007908834671662").unwrap();
+        test_verify_add_prover(Secp256k1Field::from(1), Secp256k1Field::from(1), Secp256k1Field::from(2));
+        test_verify_add_prover(Secp256k1Field::from(0), Secp256k1Field::from(1), Secp256k1Field::from(1));
+        test_verify_add_prover(Secp256k1Field::from(0), Secp256k1Field::from(1), Secp256k1Field::from(1));
+
+        //TODO: 
+        test_verify_add_prover(Secp256k1Field::from(1), 
+            Secp256k1Field::from(Secp256k1Field::try_from_dec_str("115792089237316195423570985008687907853269984665640564039457584007908834671662").unwrap()), 
+            Secp256k1Field::from(0));
+
+        
+
+        test_verify_mul_prover(Secp256k1Field::from(1), Secp256k1Field::from(1), Secp256k1Field::from(1));
+        test_verify_mul_prover(Secp256k1Field::from(100), Secp256k1Field::from(100), Secp256k1Field::from(10000));
+
     }
 
 
@@ -702,26 +724,18 @@ mod test {
         let x = to_secret_key(&secp, &x);
 
         assert_eq!(x, to_secret_key(&secp, &Secp256k1Field::try_from_dec_str("115792089237316195423570985008687907853269984665640564039457584007908834671662").unwrap()));
-
         
 
-        let n =   Secp256k1Field::try_from_str("FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364142", 16).unwrap();
+        //Com(x, r) == Com(x-N, r)
+        let r = Secp256k1Field::try_from_dec_str("3").unwrap();
+        let x = Secp256k1Field::try_from_dec_str("5").unwrap();
+        let N = Secp256k1Field::try_from_str("FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141", 16).unwrap();
+        let c1 = secp.commit_blind( to_secret_key(&secp, &x), to_secret_key(&secp, &r)).unwrap();
+        println!("c1 {:?}", c1);
+        let c2 = secp.commit_blind( to_secret_key(&secp, &(x - N)), to_secret_key(&secp, &r)).unwrap();
+        println!("c2 {:?}", c2);
+        assert_eq!(c1, c2);
 
-
-        let n = to_secret_key(&secp, &n);
-
-
-        assert_eq!(n, to_secret_key(&secp, &Secp256k1Field::from(1)));
-
-
-        let n =   Secp256k1Field::try_from_str("FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141", 16).unwrap();
-
-
-        let n = to_secret_key(&secp, &n);
-
-
-        assert_eq!(n, to_secret_key(&secp, &Secp256k1Field::from(0)));
-
-    }
+    }  
     
 }
