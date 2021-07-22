@@ -8,6 +8,8 @@ use zokrates_field::Secp256k1Field;
 use rand_0_5::{thread_rng, Rng};
 
 use sha2::{Sha256, Sha512, Digest};
+
+
 fn random_32_bytes<T: Field>() -> T {
     let mut rng = thread_rng();
     let mut ret = [0u8; 32];
@@ -80,18 +82,29 @@ pub enum Proof {
 
 pub struct Pedersen(Secp256k1);
 
-
 pub fn to_secret_key<T: Field>(secp: &Secp256k1, value: &T) -> SecretKey {
 
+    let N = T::from_byte_vector(vec![65, 65, 54, 208, 140, 94, 210, 191, 59, 160, 72, 175, 230, 220, 174, 186, 254, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255]);
+
     if value.eq(&T::from(0)) {
-        key::ZERO_KEY
+        return key::ZERO_KEY
+    } 
+
+    if value.eq(&N) {
+        return key::ZERO_KEY
+    } 
+    
+    let b = if value.gt(&N) {
+        value.to_biguint() % N.to_biguint()
+
     } else {
-        let b = value.to_biguint();
-        let bytes = b.to_bytes_be();
-        let mut v = vec![0u8; 32 - bytes.len()];
-        v.extend_from_slice(&bytes);
-        SecretKey::from_slice(secp, &v).expect(&format!("expect value {}", value))
-    }
+        value.to_biguint()
+    };
+
+    let bytes = b.to_bytes_be();
+    let mut v = vec![0u8; 32 - bytes.len()];
+    v.extend_from_slice(&bytes);
+    SecretKey::from_slice(secp, &v).expect(&format!("expect value {}", value))
 }
 
 pub fn string_to_commit(value: &String) -> Commitment {
@@ -689,6 +702,25 @@ mod test {
         let x = to_secret_key(&secp, &x);
 
         assert_eq!(x, to_secret_key(&secp, &Secp256k1Field::try_from_dec_str("115792089237316195423570985008687907853269984665640564039457584007908834671662").unwrap()));
+
+        
+
+        let n =   Secp256k1Field::try_from_str("FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364142", 16).unwrap();
+
+
+        let n = to_secret_key(&secp, &n);
+
+
+        assert_eq!(n, to_secret_key(&secp, &Secp256k1Field::from(1)));
+
+
+        let n =   Secp256k1Field::try_from_str("FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141", 16).unwrap();
+
+
+        let n = to_secret_key(&secp, &n);
+
+
+        assert_eq!(n, to_secret_key(&secp, &Secp256k1Field::from(0)));
 
     }
     
