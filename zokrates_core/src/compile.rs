@@ -235,9 +235,6 @@ pub fn deserialize<T: Field>(
     // optimize
     let optimized_ir_prog = ir_prog.optimize();
 
-    // analyse (check constraints)
-    let optimized_ir_prog = optimized_ir_prog.analyse();
-
     Ok(CompilationArtifacts {
         flatprog: program_flattened,
         prog: optimized_ir_prog,

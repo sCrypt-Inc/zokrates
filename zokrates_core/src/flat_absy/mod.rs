@@ -329,6 +329,13 @@ impl<T: Field> FlatExpression<T> {
         }
     }
 
+    pub fn is_flat(&self) -> bool {
+        match *self {
+            FlatExpression::Number(_) | FlatExpression::Identifier(_) => true,
+            _ => false,
+        }
+    }
+
     pub fn is_linear(&self) -> bool {
         match *self {
             FlatExpression::Number(_) | FlatExpression::Identifier(_) => true,

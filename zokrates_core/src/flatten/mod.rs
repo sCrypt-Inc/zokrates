@@ -1290,43 +1290,65 @@ impl<'ast, T: Field> Flattener<'ast, T> {
             FlatExpression::Number(_) => expr,
             FlatExpression::Identifier(x) => FlatExpression::Identifier(*self.layout2.get(&x).unwrap_or_else(|| panic!("{}", x))),
             FlatExpression::Add(box e1, box e2) => {
-                let e1 = self.flatten_expression2(statements_flattened, e1);
-                let e2 = self.flatten_expression2(statements_flattened, e2);
-                let l = self.use_sym();
-                statements_flattened.push(FlatStatement::Definition(l, e1));
-                let r = self.use_sym();
-                statements_flattened.push(FlatStatement::Definition(r, e2));
-                let sum = self.use_sym();
-                statements_flattened.push(FlatStatement::Definition(sum, FlatExpression::Add(box FlatExpression::Identifier(l), box FlatExpression::Identifier(r))));
-                FlatExpression::Identifier(sum)
+                let l = if e1.is_flat() {
+                    self.flatten_expression2(statements_flattened, e1)
+                } else {
+                    let e1 = self.flatten_expression2(statements_flattened, e1);
+                    let l = self.use_sym();
+                    statements_flattened.push(FlatStatement::Definition(l, e1));
+                    FlatExpression::Identifier(l)
+                };
+                let r = if e2.is_flat() {
+                    self.flatten_expression2(statements_flattened, e2)
+                } else {
+                    let e2 = self.flatten_expression2(statements_flattened, e2);
+                    let r = self.use_sym();
+                    statements_flattened.push(FlatStatement::Definition(r, e2));
+                    FlatExpression::Identifier(r)
+                };
+                
+                FlatExpression::Add(box l, box r)
             },
             FlatExpression::Sub(box e1, box e2) => {
-                let e1 = self.flatten_expression2(statements_flattened, e1);
+                let l = if e1.is_flat() {
+                    self.flatten_expression2(statements_flattened, e1)
+                } else {
+                    let e1 = self.flatten_expression2(statements_flattened, e1);
+                    let l = self.use_sym();
+                    statements_flattened.push(FlatStatement::Definition(l, e1));
+                    FlatExpression::Identifier(l)
+                };
                 let e2 = self.flatten_expression2(statements_flattened, e2);
-                let l = self.use_sym();
-                statements_flattened.push(FlatStatement::Definition(l, e1));
                 let r = self.use_sym();
                 statements_flattened.push(FlatStatement::Definition(r, e2));
+
                 // change l - r to:
                 // neg_r = (-1) * r
                 // l + neg_r
                 let neg_id = self.use_sym();
                 let neg_r = FlatExpression::Mult(box FlatExpression::Number(T::from(-1)), box FlatExpression::Identifier(r));
                 statements_flattened.push(FlatStatement::Definition(neg_id, neg_r));
-                let diff = self.use_sym();
-                statements_flattened.push(FlatStatement::Definition(diff, FlatExpression::Add(box FlatExpression::Identifier(l), box FlatExpression::Identifier(neg_id))));
-                FlatExpression::Identifier(diff)
+                FlatExpression::Add(box l, box FlatExpression::Identifier(neg_id))
             },
             FlatExpression::Mult(box e1, box e2) => {
-                let e1 = self.flatten_expression2(statements_flattened, e1);
-                let e2 = self.flatten_expression2(statements_flattened, e2);
-                let l = self.use_sym();
-                statements_flattened.push(FlatStatement::Definition(l, e1));
-                let r = self.use_sym();
-                statements_flattened.push(FlatStatement::Definition(r, e2));
-                let prod = self.use_sym();
-                statements_flattened.push(FlatStatement::Definition(prod, FlatExpression::Mult(box FlatExpression::Identifier(l), box FlatExpression::Identifier(r))));
-                FlatExpression::Identifier(prod)
+                let l = if e1.is_flat() {
+                    self.flatten_expression2(statements_flattened, e1)
+                } else {
+                    let e1 = self.flatten_expression2(statements_flattened, e1);
+                    let l = self.use_sym();
+                    statements_flattened.push(FlatStatement::Definition(l, e1));
+                    FlatExpression::Identifier(l)
+                };
+                let r = if e2.is_flat() {
+                    self.flatten_expression2(statements_flattened, e2)
+                } else {
+                    let e2 = self.flatten_expression2(statements_flattened, e2);
+                    let r = self.use_sym();
+                    statements_flattened.push(FlatStatement::Definition(r, e2));
+                    FlatExpression::Identifier(r)
+                };
+                
+                FlatExpression::Mult(box l, box r)
             },
         }
     }
@@ -2343,6 +2365,14 @@ impl<'ast, T: Field> Flattener<'ast, T> {
             FlatStatement::Condition(lhs, rhs, message) => {
                 let lhs = self.flatten_expression2(statements_flattened, lhs);
                 let rhs = self.flatten_expression2(statements_flattened, rhs);
+                let lhs = if !lhs.is_flat() && !rhs.is_flat() {
+                    // at least one side has to be flat
+                    let l = self.use_sym();
+                    statements_flattened.push(FlatStatement::Definition(l, lhs));
+                    FlatExpression::Identifier(l)
+                } else {
+                    lhs
+                };
                 FlatStatement::Condition(lhs, rhs, message)
             },
             FlatStatement::Directive(d) => {
@@ -2580,11 +2610,11 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         let mut statements_flattened: FlatStatements<T> = FlatStatements::new();
 
         // push parameters
-        let mut arguments_flattened = funct
+        let mut arguments_flattened: Vec<FlatParameter> = funct
             .arguments
             .clone()
             .into_iter()
-            .map(|p| self.use_parameter(&p, &mut statements_flattened, false))
+            .map(|p| self.use_parameter(&p, &mut statements_flattened))
             .collect();
 
         // flatten statements in functions and apply substitution
@@ -2597,10 +2627,9 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         let mut statements_flattened: FlatStatements<T> = FlatStatements::new();
         
         // push parameters
-        arguments_flattened = funct
-            .arguments
+        arguments_flattened = arguments_flattened
             .into_iter()
-            .map(|p| self.use_parameter(&p, &mut statements_flattened, true))
+            .map(|p| FlatParameter { id: self.use_variable2(&p.id), private: p.private })
             .collect();
         
         for stat in statements_flattened_ {
@@ -2695,13 +2724,6 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         var
     }
 
-    fn use_variable3(&mut self) -> FlatVariable {
-        let var = self.issue_new_variable();
-
-        self.layout2.insert(var, var);
-        var
-    }
-
     /// Reuse an existing variable for a new name
     /// # Arguments
     ///
@@ -2719,15 +2741,8 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         &mut self,
         parameter: &Parameter<'ast>,
         statements_flattened: &mut FlatStatements<T>,
-        round2: bool,
     ) -> FlatParameter {
-        let variable = if round2 {
-            // more flattening in round 2
-            self.use_variable3()
-        } else {
-            // round 1
-            self.use_variable(&parameter.id)
-        };
+        let variable = self.use_variable(&parameter.id);
 
         match parameter.id.get_type() {
             Type::Uint(bitwidth) => {
