@@ -45,13 +45,13 @@ pub struct CommitMul {
 }
 
 #[derive(Debug)]
-pub struct Prover {
+pub struct Prover<T: Field> {
     r_l: SecretKey,
     r_r: SecretKey,
     r_o: SecretKey,
-    value_l: SecretKey,
-    value_r: SecretKey,
-    value_o: SecretKey,
+    value_l: T,
+    value_r: T,
+    value_o: T,
     witness: PedersenWitness,
     commit_add: Option<CommitAdd>,
     commit_mul: Option<CommitMul>,
@@ -87,7 +87,9 @@ pub fn to_secret_key<T: Field>(secp: &Secp256k1, value: &T) -> SecretKey {
     if value.eq(&T::from(0)) {
         return key::ZERO_KEY
     } 
-    
+
+    let value = wrapp_value(value);
+ 
     let b = value.to_biguint();
 
     let bytes = b.to_bytes_be();
@@ -130,12 +132,36 @@ fn mul_commit_secret(secp: &Secp256k1, w: &Commitment, r: &SecretKey) -> Commitm
     Commitment::from_pubkey(secp, &public_key).unwrap()
 }
 
+
+fn wrapp_value<T: Field>(v: &T)-> T {
+    let N = T::try_from_str_no_mod("FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141", 16).unwrap();
+    let P = T::try_from_str_no_mod("115792089237316195423570985008687907853269984665640564039457584007908834671663", 10).unwrap();
+    let value = v.clone();
+    let value = if value.ge(&N) {
+        value - P + N
+    } else if value.lt(&T::from(0)) {
+        value + N
+    }
+    else {
+        value
+    };
+
+    value
+}
+fn value_to_commit<T: Field>(secp: &Secp256k1, v: &T, blind: SecretKey) -> Commitment {
+
+    let value = wrapp_value(v);
+
+    secp.commit_blind(to_secret_key(secp, &value), blind).unwrap()
+}
+
+
 impl Pedersen {
     pub fn new() -> Self {
         Pedersen(Secp256k1::with_caps(ContextFlag::Commit))
     }
 
-    pub fn generate_add_prover<T: Field>(&self, value_l: T, value_r: T, value_o: T) -> Prover {
+    pub fn generate_add_prover<T: Field>(&self, value_l: T, value_r: T, value_o: T) -> Prover<T> {
         let r_l = SecretKey::new(&self.0, &mut thread_rng());
         let r_r = SecretKey::new(&self.0, &mut thread_rng());
         let r_o = SecretKey::new(&self.0, &mut thread_rng());
@@ -146,24 +172,26 @@ impl Pedersen {
             b_commit: self.0.commit(0, r_b.clone()).unwrap(),
         };
 
+        let witness = PedersenWitness {
+            W_L: value_to_commit(&self.0, &value_l, r_l.clone()),
+            W_R: value_to_commit(&self.0, &value_r, r_r.clone()),
+            W_O: value_to_commit(&self.0, &value_o, r_o.clone()),
+        };
+
         Prover {
             r_l: r_l.clone(),
             r_r: r_r.clone(),
             r_o: r_o.clone(),
-            value_l: to_secret_key(&self.0, &value_l),
-            value_r: to_secret_key(&self.0, &value_r),
-            value_o: to_secret_key(&self.0, &value_o),
-            witness: PedersenWitness {
-                W_L: self.0.commit_blind(to_secret_key(&self.0, &value_l), r_l.clone()).unwrap(),
-                W_R: self.0.commit_blind(to_secret_key(&self.0, &value_r), r_r.clone()).unwrap(),
-                W_O: self.0.commit_blind(to_secret_key(&self.0, &value_o), r_o.clone()).unwrap(),
-            },
+            value_l: value_l,
+            value_r: value_r,
+            value_o: value_o,
+            witness: witness,
             commit_add: Some(commit_add),
             commit_mul: None,
         }
     }
 
-    pub fn generate_mul_prover<T: Field>(&self, value_l: T, value_r: T, value_o: T) -> Prover {
+    pub fn generate_mul_prover<T: Field>(&self, value_l: T, value_r: T, value_o: T) -> Prover<T> {
         let r_l = SecretKey::new(&self.0, &mut thread_rng());
         let r_r = SecretKey::new(&self.0, &mut thread_rng());
         let r_o = SecretKey::new(&self.0, &mut thread_rng());
@@ -174,10 +202,10 @@ impl Pedersen {
         let t4 = SecretKey::new(&self.0, &mut thread_rng());
         let t5 = SecretKey::new(&self.0, &mut thread_rng());
 
-        let p_witness = PedersenWitness {
-            W_L: self.0.commit_blind(to_secret_key(&self.0, &value_l), r_l.clone()).unwrap(),
-            W_R: self.0.commit_blind(to_secret_key(&self.0, &value_r), r_r.clone()).unwrap(),
-            W_O: self.0.commit_blind(to_secret_key(&self.0, &value_o), r_o.clone()).unwrap(),
+        let witness = PedersenWitness {
+            W_L: value_to_commit(&self.0, &value_l, r_l.clone()),
+            W_R: value_to_commit(&self.0, &value_r, r_r.clone()),
+            W_O: value_to_commit(&self.0, &value_o, r_o.clone()),
         };
 
         let F = self.0.commit(0, key::ONE_KEY).unwrap();
@@ -186,7 +214,7 @@ impl Pedersen {
             .0
             .commit_sum(
                 vec![
-                    mul_commit_secret(&self.0, &p_witness.W_R, &t1),
+                    mul_commit_secret(&self.0, &witness.W_R, &t1),
                     mul_commit_secret(&self.0, &F, &t4),
                 ],
                 vec![],
@@ -208,17 +236,17 @@ impl Pedersen {
             r_l: r_l.clone(),
             r_r: r_r.clone(),
             r_o: r_o.clone(),
-            value_l: to_secret_key(&self.0, &value_l),
-            value_r: to_secret_key(&self.0, &value_r),
-            value_o: to_secret_key(&self.0, &value_o),
-            witness: p_witness,
+            value_l: value_l,
+            value_r: value_r,
+            value_o: value_o,
+            witness: witness,
             commit_add: None,
             commit_mul: Some(commit_mul),
         }
     }
 
     //The prover then computes the opening value: 𝑧=𝑥(𝑟𝐿+𝑟𝑅−𝑟𝑂)+𝑟𝐵 and sends it to the verifier.
-    pub fn prove_add_gate<T: Field>(&self, x: T, prover: &Prover) -> SecretKey {
+    pub fn prove_add_gate<T: Field>(&self, x: T, prover: &Prover<T>) -> SecretKey {
         let mut z = self
             .0
             .blind_sum(
@@ -244,7 +272,7 @@ impl Pedersen {
     pub fn prove_mul_gate<T: Field>(
         &self,
         x: T, //challenge
-        prover: &Prover,
+        prover: &Prover<T>,
     ) -> (SecretKey, SecretKey, SecretKey, SecretKey, SecretKey) {
         let x = to_secret_key(&self.0, &x);
 
@@ -254,15 +282,15 @@ impl Pedersen {
         };
 
         //𝑒1=𝑤𝐿𝑥+𝑡1
-        let e1 = computes_opening_value(&self.0, &prover.value_l, &x, &commit_mul.t1);
+        let e1 = computes_opening_value(&self.0, &to_secret_key(&self.0, &prover.value_l), &x, &commit_mul.t1);
         //𝑒2=𝑤𝑅𝑥+𝑡2
-        let e2 = computes_opening_value(&self.0, &prover.value_r, &x, &commit_mul.t2);
+        let e2 = computes_opening_value(&self.0, &to_secret_key(&self.0, &prover.value_r), &x, &commit_mul.t2);
         //𝑧1=𝑟𝐿𝑥+𝑡3
         let z1 = computes_opening_value(&self.0, &prover.r_l, &x, &commit_mul.t3);
         //𝑧2=𝑟𝑅𝑥+𝑡5
         let z2 = computes_opening_value(&self.0, &prover.r_r, &x, &commit_mul.t5);
         //𝑧3=(𝑟𝑂−𝑤𝐿𝑟𝑅)𝑥+𝑡4
-        let mut 𝑤_l_𝑟_l = prover.value_l.clone();
+        let mut 𝑤_l_𝑟_l = to_secret_key(&self.0, &prover.value_l);
         𝑤_l_𝑟_l.mul_assign(&self.0, &prover.r_r.clone()).unwrap();
 
         let r_o_𝑤_l𝑟_r = self
@@ -353,7 +381,7 @@ impl Pedersen {
 
     pub fn verify_prover<T: Field>(
         &self,
-        prover: &Prover,
+        prover: &Prover<T>,
     ) -> bool {
 
         let is_add_gate = match &prover.commit_add {
@@ -405,7 +433,7 @@ impl Pedersen {
 
     pub fn generate_proof<T: Field>(
         &self,
-        prover: &Prover,
+        prover: &Prover<T>,
     ) -> Proof {
 
 
@@ -596,13 +624,15 @@ mod test {
         let mut rng =  thread_rng();
 
         // x is challenge
-        let x = Secp256k1Field::from(rng.next_u32());
-        let z = pederson.prove_add_gate(x.clone(), &prover);
+        let x = T::from(rng.next_u32());
+        let z = pederson.prove_add_gate::<T>(x.clone(), &prover);
     
     
         let success = pederson.verify_add(x.clone(), &prover.witness, b_commit, z);
     
-        assert!(success, "test_verify_add_prover failed:  {:?} + {:?} = {:?}", a, b, c);
+
+
+        assert!(success, "test_verify_add_prover failed:  {:?} + {:?} = {:?},  prover: {:?}", a, b, c, prover);
 
     }
 
@@ -611,13 +641,13 @@ mod test {
         let pederson = Pedersen::new();
 
         let mut rng =  thread_rng();
-        let x = Secp256k1Field::from(rng.next_u32());
+        let x = T::from(rng.next_u32());
 
     
         let prover = pederson.generate_mul_prover(a, b, c);
 
     
-        let tuple = pederson.prove_mul_gate(x.clone(), &prover);
+        let tuple = pederson.prove_mul_gate::<T>(x.clone(), &prover);
 
         let commits_mul = match &prover.commit_mul {
             Some(c) => c,
@@ -633,21 +663,31 @@ mod test {
     #[test]
     fn test_all_api() {
 
-        let P = Secp256k1Field::try_from_dec_str("115792089237316195423570985008687907853269984665640564039457584007908834671663").unwrap();
-        let N = Secp256k1Field::try_from_dec_str("115792089237316195423570985008687907853269984665640564039457584007908834671662").unwrap();
-        test_verify_add_prover(Secp256k1Field::from(1), Secp256k1Field::from(1), Secp256k1Field::from(2));
-        test_verify_add_prover(Secp256k1Field::from(0), Secp256k1Field::from(1), Secp256k1Field::from(1));
-        test_verify_add_prover(Secp256k1Field::from(0), Secp256k1Field::from(1), Secp256k1Field::from(1));
 
-        //TODO: 
-        test_verify_add_prover(Secp256k1Field::from(1), 
-            Secp256k1Field::from(Secp256k1Field::try_from_dec_str("115792089237316195423570985008687907853269984665640564039457584007908834671662").unwrap()), 
+        test_verify_add_prover(Secp256k1Field::from_i64_no_mod(1), Secp256k1Field::from_i64_no_mod(1), Secp256k1Field::from_i64_no_mod(2));
+        test_verify_add_prover(Secp256k1Field::from_i64_no_mod(0), Secp256k1Field::from_i64_no_mod(1), Secp256k1Field::from_i64_no_mod(1));
+        test_verify_add_prover(Secp256k1Field::from_i64_no_mod(0), Secp256k1Field::from_i64_no_mod(1), Secp256k1Field::from_i64_no_mod(1));
+        test_verify_add_prover(Secp256k1Field::from_i64_no_mod(-1), Secp256k1Field::from_i64_no_mod(-1), Secp256k1Field::from_i64_no_mod(-2));
+        test_verify_add_prover(Secp256k1Field::from_i64_no_mod(1), Secp256k1Field::from_i64_no_mod(-1), Secp256k1Field::from_i64_no_mod(0));
+        test_verify_add_prover(Secp256k1Field::from_i64_no_mod(1), 
+            Secp256k1Field::from(Secp256k1Field::try_from_str_no_mod("115792089237316195423570985008687907853269984665640564039457584007908834671662", 10).unwrap()), 
+            Secp256k1Field::from_i64_no_mod(0));
+        
+            test_verify_add_prover(Secp256k1Field::from(2), 
+            Secp256k1Field::from(Secp256k1Field::try_from_str_no_mod("115792089237316195423570985008687907853269984665640564039457584007908834671661", 10).unwrap()), 
             Secp256k1Field::from(0));
 
         
 
-        test_verify_mul_prover(Secp256k1Field::from(1), Secp256k1Field::from(1), Secp256k1Field::from(1));
-        test_verify_mul_prover(Secp256k1Field::from(100), Secp256k1Field::from(100), Secp256k1Field::from(10000));
+       test_verify_mul_prover(Secp256k1Field::from_i64_no_mod(1), Secp256k1Field::from_i64_no_mod(1), Secp256k1Field::from_i64_no_mod(1));
+       test_verify_mul_prover(Secp256k1Field::from_i64_no_mod(100), Secp256k1Field::from_i64_no_mod(100), Secp256k1Field::from_i64_no_mod(10000));
+       test_verify_mul_prover(Secp256k1Field::from_i64_no_mod(1), 
+       Secp256k1Field::try_from_str_no_mod("115792089237316195423570985008687907853269984665640564039457584007908834671662", 10).unwrap(), 
+       Secp256k1Field::from_i64_no_mod(-1));
+
+       test_verify_mul_prover(Secp256k1Field::from_i64_no_mod(-1), 
+       Secp256k1Field::from_i64_no_mod(-1), 
+       Secp256k1Field::from_i64_no_mod(1));
 
     }
 
@@ -728,14 +768,18 @@ mod test {
 
         //Com(x, r) == Com(x-N, r)
         let r = Secp256k1Field::try_from_dec_str("3").unwrap();
-        let x = Secp256k1Field::try_from_dec_str("5").unwrap();
+        let x = Secp256k1Field::from(-1);
         let N = Secp256k1Field::try_from_str("FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141", 16).unwrap();
+
+        
         let c1 = secp.commit_blind( to_secret_key(&secp, &x), to_secret_key(&secp, &r)).unwrap();
         println!("c1 {:?}", c1);
-        let c2 = secp.commit_blind( to_secret_key(&secp, &(x - N)), to_secret_key(&secp, &r)).unwrap();
-        println!("c2 {:?}", c2);
-        assert_eq!(c1, c2);
+
+
+        let c3 = secp.commit_blind( to_secret_key(&secp, &(x + N)),  to_secret_key(&secp, &r)).unwrap();
+        
+        assert_eq!(c1, c3);
 
     }  
-    
+
 }
