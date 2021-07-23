@@ -78,6 +78,20 @@ pub enum Proof {
     MulGate(MulGateProof),
 }
 
+impl Proof {
+    pub fn is_add_gate(&self) -> bool {
+        match self {
+            Proof::AddGate(_) => true,
+            _ => false,
+        }
+    }
+    pub fn is_mul_gate(&self) -> bool {
+        match self {
+            Proof::MulGate(_) => true,
+            _ => false,
+        }
+    }
+}
 
 
 pub struct Pedersen(Secp256k1);

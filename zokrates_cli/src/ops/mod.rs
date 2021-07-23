@@ -13,3 +13,4 @@ pub mod setup;
 pub mod universal_setup;
 #[cfg(any(feature = "bellman", feature = "ark", feature = "libsnark"))]
 pub mod verify;
+pub mod verify_proofs;

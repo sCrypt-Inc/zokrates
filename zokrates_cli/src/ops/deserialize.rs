@@ -13,7 +13,7 @@ use zokrates_field::{Bls12_377Field, Bls12_381Field, Bn128Field, Bw6_761Field, F
 use zokrates_core::pederson::{Pedersen, Proof};
 
 pub fn subcommand() -> App<'static, 'static> {
-    SubCommand::with_name("generate-proof")
+    SubCommand::with_name("generate-proofs")
         .about("Calculates a proof for a given constraint system and witness")
         .arg(
             Arg::with_name("input")
@@ -77,7 +77,7 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
     }
 }
 
-fn deserialize<T: Field>(source: String) -> Result<FlatProg<T>, serde_json::Error> {
+pub fn deserialize<T: Field>(source: String) -> Result<FlatProg<T>, serde_json::Error> {
     Ok(serde_json::from_str(&source).unwrap())
 }
 
@@ -228,8 +228,7 @@ fn cli_deserialize<T: Field>(sub_matches: &ArgMatches) -> Result<(), String> {
                 proofs.push(proof);
 
             },
-            FlatStatement::Directive(directive) => println!("Directive {}", directive),
-            FlatStatement::Return(outexpr) => println!("Return {}", outexpr),
+            _ => (),
 
         }
     }
