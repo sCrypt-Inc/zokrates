@@ -1,6 +1,6 @@
 use crate::constants;
 use crate::helpers::*;
-use crate::ops::deserialize::deserialize;
+use crate::ops::generate_proofs::deserialize;
 use clap::{App, Arg, ArgMatches, SubCommand};
 use std::convert::TryFrom;
 use std::fs::File;
