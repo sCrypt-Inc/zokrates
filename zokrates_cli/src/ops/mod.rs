@@ -1,6 +1,6 @@
 pub mod check;
 pub mod compile;
-pub mod deserialize;
+pub mod generate_proofs;
 pub mod compute_witness;
 pub mod export_verifier;
 #[cfg(any(feature = "bellman", feature = "ark", feature = "libsnark"))]

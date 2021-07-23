@@ -41,6 +41,7 @@ fn cli() -> Result<(), String> {
         )
         .subcommands(vec![
             compile::subcommand(),
+            generate_proofs::subcommand(),
             verify_proofs::subcommand(),
             verify::subcommand(),
             check::subcommand(),
@@ -74,7 +75,7 @@ fn cli() -> Result<(), String> {
         #[cfg(any(feature = "bellman", feature = "ark", feature = "libsnark"))]
         ("verify", Some(sub_matches)) => verify::exec(sub_matches),
         ("verify-proofs", Some(sub_matches)) => verify_proofs::exec(sub_matches),
-        ("generate-proofs", Some(sub_matches)) => deserialize::exec(sub_matches),
+        ("generate-proofs", Some(sub_matches)) => generate_proofs::exec(sub_matches),
         _ => unreachable!(),
     }
 }

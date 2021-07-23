@@ -35,16 +35,6 @@ pub fn subcommand() -> App<'static, 'static> {
                 .default_value(constants::DEFAULT_STDLIB_PATH.as_str()),
         )
         .arg(
-            Arg::with_name("curve")
-                .short("c")
-                .long("curve")
-                .help("Curve to be used in the compilation")
-                .takes_value(true)
-                .required(false)
-                .possible_values(constants::CURVES)
-                .default_value(constants::SECP_256K1),
-        )
-        .arg(
             Arg::with_name("witness")
                 .short("w")
                 .long("witness")
@@ -56,25 +46,7 @@ pub fn subcommand() -> App<'static, 'static> {
 }
 
 pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
-    let curve = CurveParameter::try_from(sub_matches.value_of("curve").unwrap())?;
-    match curve {
-        CurveParameter::Secp256k1 => {
-            cli_deserialize::<Secp256k1Field>(sub_matches)
-        }
-        CurveParameter::Bn128 => {
-            cli_deserialize::<Bn128Field>(sub_matches)
-        }
-        CurveParameter::Bls12_377 => {
-            cli_deserialize::<Bls12_377Field>(sub_matches)
-        }
-        CurveParameter::Bls12_381 => {
-            cli_deserialize::<Bls12_381Field>(sub_matches)
-        }
-
-        CurveParameter::Bw6_761 => {
-            cli_deserialize::<Bw6_761Field>(sub_matches)
-        }
-    }
+    cli_deserialize::<Secp256k1Field>(sub_matches)
 }
 
 pub fn deserialize<T: Field>(source: String) -> Result<FlatProg<T>, serde_json::Error> {
@@ -91,7 +63,7 @@ pub fn public_inputs_values<T: Field>(flatprog: &FlatProg<T>, witness: &Witness<
 
 
 fn cli_deserialize<T: Field>(sub_matches: &ArgMatches) -> Result<(), String> {
-    println!("Deserializing {}\n", sub_matches.value_of("input").unwrap());
+    println!("Generating proofs for {}\n", sub_matches.value_of("input").unwrap());
     let path = PathBuf::from(sub_matches.value_of("input").unwrap());
 
     let file = File::open(path.clone())
@@ -109,13 +81,6 @@ fn cli_deserialize<T: Field>(sub_matches: &ArgMatches) -> Result<(), String> {
 
     let public_inputs = public_inputs_values::<T>(&flatprog, &witness);
 
-    println!("pring all public_inputs {:?}", public_inputs);
-    
-    //NOW we got flatprog
-
-    //println!("NOW we got flatprog : {}", flatprog);
-
-    println!("pring all statements");
 
     let fetch_expr_value_closure =  |a: &Box<FlatExpression<T>>, b: &Box<FlatExpression<T>>| {
         let a_value = match a.as_ref() {
