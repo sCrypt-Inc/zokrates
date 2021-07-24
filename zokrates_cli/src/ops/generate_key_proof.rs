@@ -41,7 +41,18 @@ pub fn subcommand() -> App<'static, 'static> {
                 .help("Path of the witness file")
                 .takes_value(true)
                 .value_name("WITNESS_FILE")
-                .required(false),
+                .required(true)
+                .default_value(constants::WITNESS_DEFAULT_PATH),
+        )        
+        .arg(
+            Arg::with_name("output")
+                .short("o")
+                .long("output")
+                .help("Path of the output proof file")
+                .takes_value(true)
+                .value_name("OUTPUT_FILE")
+                .required(true)
+                .default_value(constants::JSON_PROOF_PATH),
         )
 }
 
@@ -200,7 +211,7 @@ fn cli_generate_key_proof<T: Field>(sub_matches: &ArgMatches) -> Result<(), Stri
 
     println!("proofs len {}", proofs.len());
 
-    let proofs_path = PathBuf::from(sub_matches.value_of("input").unwrap()).with_file_name("proofs.json");
+    let proofs_path = PathBuf::from(sub_matches.value_of("output").unwrap());
 
     let proofs_file = File::create(&proofs_path)
     .map_err(|why| format!("Could not create {}: {}", proofs_path.display(), why))?;
@@ -209,7 +220,7 @@ fn cli_generate_key_proof<T: Field>(sub_matches: &ArgMatches) -> Result<(), Stri
 
 
     match result {
-        Ok(_) => println!("Output to proofs.json"),
+        Ok(_) => println!("Output to proof.json"),
         _ => panic!("generate proof fail")
     }
 

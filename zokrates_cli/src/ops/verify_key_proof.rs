@@ -22,7 +22,7 @@ pub fn subcommand() -> App<'static, 'static> {
                 .help("Path of the JSON proof file")
                 .value_name("FILE")
                 .takes_value(true)
-                .required(false)
+                .required(true)
                 .default_value(constants::JSON_PROOF_PATH),
         )
         .arg(
