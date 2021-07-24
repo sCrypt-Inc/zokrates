@@ -1,6 +1,6 @@
 use crate::constants;
 use crate::helpers::*;
-use crate::ops::generate_proofs::deserialize;
+use crate::ops::generate_key_proof::deserialize;
 use clap::{App, Arg, ArgMatches, SubCommand};
 use std::convert::TryFrom;
 use std::fs::File;
@@ -13,7 +13,7 @@ use zokrates_core::pederson::{Pedersen, Proof};
 
 
 pub fn subcommand() -> App<'static, 'static> {
-    SubCommand::with_name("verify-proofs")
+    SubCommand::with_name("verify-key-proof")
         .about("Verifies a given proof")
         .arg(
             Arg::with_name("proof-path")
@@ -29,7 +29,7 @@ pub fn subcommand() -> App<'static, 'static> {
             Arg::with_name("input")
                 .short("i")
                 .long("input")
-                .help("Path of the flattened program")
+                .help("Path of the circuit")
                 .value_name("FILE")
                 .takes_value(true)
                 .required(true),
@@ -80,7 +80,7 @@ fn cli_verify(sub_matches: &ArgMatches) -> Result<(), String> {
             FlatExpression::Mult(_, _) => {
                 assert!(proof.is_mul_gate());
             }
-            FlatExpression::Sub(_, _) => panic!("There must NOT be Sub expr in FlatProg."),
+            FlatExpression::Sub(_, _) => panic!("There must not be subtraction in the circuit."),
         };
     };
 

@@ -153,7 +153,7 @@ fn cli_compile<T: Field>(sub_matches: &ArgMatches) -> Result<(), String> {
     let json = serde_json::to_writer_pretty(std::io::BufWriter::new(flat_prog_file), &flatprog);
 
     match json {
-        Ok(v) => println!("Writing flattened program successfully successfully: {:?}", v),
+        Ok(v) => println!("Writing flattened program succeeded: {:?}", v),
         Err(e) => println!("Writing flattened program failed, error: {:?}", e),
     }
 

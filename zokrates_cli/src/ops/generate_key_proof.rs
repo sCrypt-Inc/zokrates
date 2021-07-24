@@ -13,8 +13,8 @@ use zokrates_field::{Bls12_377Field, Bls12_381Field, Bn128Field, Bw6_761Field, F
 use zokrates_core::pederson::{Pedersen, Proof};
 
 pub fn subcommand() -> App<'static, 'static> {
-    SubCommand::with_name("generate-proofs")
-        .about("Calculates a proof for a given constraint system and witness")
+    SubCommand::with_name("generate-key-proof")
+        .about("Calculates proof for a key statement")
         .arg(
             Arg::with_name("input")
                 .short("i")
@@ -46,7 +46,7 @@ pub fn subcommand() -> App<'static, 'static> {
 }
 
 pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
-    cli_deserialize::<Secp256k1Field>(sub_matches)
+    cli_generate_key_proof::<Secp256k1Field>(sub_matches)
 }
 
 pub fn deserialize<T: Field>(source: String) -> Result<FlatProg<T>, serde_json::Error> {
@@ -62,7 +62,7 @@ pub fn public_inputs_values<T: Field>(flatprog: &FlatProg<T>, witness: &Witness<
 }
 
 
-fn cli_deserialize<T: Field>(sub_matches: &ArgMatches) -> Result<(), String> {
+fn cli_generate_key_proof<T: Field>(sub_matches: &ArgMatches) -> Result<(), String> {
     println!("Generating proofs for {}\n", sub_matches.value_of("input").unwrap());
     let path = PathBuf::from(sub_matches.value_of("input").unwrap());
 

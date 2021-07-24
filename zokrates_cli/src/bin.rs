@@ -41,8 +41,8 @@ fn cli() -> Result<(), String> {
         )
         .subcommands(vec![
             compile::subcommand(),
-            generate_proofs::subcommand(),
-            verify_proofs::subcommand(),
+            generate_key_proof::subcommand(),
+            verify_key_proof::subcommand(),
             verify::subcommand(),
             check::subcommand(),
             compute_witness::subcommand(),
@@ -74,8 +74,8 @@ fn cli() -> Result<(), String> {
         ("print-proof", Some(sub_matches)) => print_proof::exec(sub_matches),
         #[cfg(any(feature = "bellman", feature = "ark", feature = "libsnark"))]
         ("verify", Some(sub_matches)) => verify::exec(sub_matches),
-        ("verify-proofs", Some(sub_matches)) => verify_proofs::exec(sub_matches),
-        ("generate-proofs", Some(sub_matches)) => generate_proofs::exec(sub_matches),
+        ("verify-key-proof", Some(sub_matches)) => verify_key_proof::exec(sub_matches),
+        ("generate-key-proof", Some(sub_matches)) => generate_key_proof::exec(sub_matches),
         _ => unreachable!(),
     }
 }

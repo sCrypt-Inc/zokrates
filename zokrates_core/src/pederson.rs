@@ -531,14 +531,11 @@ impl Pedersen {
 
         let x = T::from_byte_vector(result.to_vec());
 
-        let success = self.verify_add(x, &PedersenWitness {
+        self.verify_add(x, &PedersenWitness {
             W_L: w_l_commit,
             W_R: w_r_commit,
             W_O: w_o_commit
-        },b_commit, z);
-
-
-        success
+        },b_commit, z)
     }
 
 
@@ -568,30 +565,27 @@ impl Pedersen {
         let x = T::from_byte_vector(result.to_vec());
 
         let tuple = ( string_to_secret_key(&self.0, &proof.tuple.0),
-                                            string_to_secret_key(&self.0, &proof.tuple.1),
-                                            string_to_secret_key(&self.0, &proof.tuple.2),
-                                            string_to_secret_key(&self.0, &proof.tuple.3),
-                                            string_to_secret_key(&self.0, &proof.tuple.4));
+            string_to_secret_key(&self.0, &proof.tuple.1),
+            string_to_secret_key(&self.0, &proof.tuple.2),
+            string_to_secret_key(&self.0, &proof.tuple.3),
+            string_to_secret_key(&self.0, &proof.tuple.4));
 
 
 
-        let success = self.verify_mul(x, &PedersenWitness {
-            W_L: w_l_commit,
-            W_R: w_r_commit,
-            W_O: w_o_commit
-        },&CommitMul {
-            t1:SecretKey::new(&self.0, &mut thread_rng()),
-            t2:SecretKey::new(&self.0, &mut thread_rng()),
-            t3:SecretKey::new(&self.0, &mut thread_rng()),
-            t4:SecretKey::new(&self.0, &mut thread_rng()),
-            t5:SecretKey::new(&self.0, &mut thread_rng()),
-            c1_commit: c1_commit,
-            c2_commit: c2_commit,
-            c3_commit: c3_commit
-        }, tuple);
-
-
-        success
+            self.verify_mul(x, &PedersenWitness {
+                W_L: w_l_commit,
+                W_R: w_r_commit,
+                W_O: w_o_commit
+            },&CommitMul {
+                t1:SecretKey::new(&self.0, &mut thread_rng()),
+                t2:SecretKey::new(&self.0, &mut thread_rng()),
+                t3:SecretKey::new(&self.0, &mut thread_rng()),
+                t4:SecretKey::new(&self.0, &mut thread_rng()),
+                t5:SecretKey::new(&self.0, &mut thread_rng()),
+                c1_commit: c1_commit,
+                c2_commit: c2_commit,
+                c3_commit: c3_commit
+            }, tuple)
     }
 
 
@@ -670,7 +664,7 @@ mod test {
 
         let success = pederson.verify_mul(x, &prover.witness, &commits_mul, tuple);
 
-        assert!(success, "test_verify_mul_prover fail {:?}", prover);
+        assert!(success, "test_verify_mul_prover failed {:?}", prover);
     }
 
 
