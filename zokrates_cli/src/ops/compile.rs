@@ -7,7 +7,7 @@ use std::fs::File;
 use std::io::{BufReader, BufWriter, Read, Write};
 use std::path::{Path, PathBuf};
 use zokrates_core::compile::{compile, CompilationArtifacts, CompileConfig, CompileError};
-use zokrates_field::{Bls12_377Field, Bls12_381Field, Bn128Field, Bw6_761Field, Field};
+use zokrates_field::{Bls12_377Field, Bls12_381Field, Bn128Field, Bw6_761Field, Field, Secp256k1Field};
 use zokrates_fs_resolver::FileSystemResolver;
 
 pub fn subcommand() -> App<'static, 'static> {
@@ -51,7 +51,7 @@ pub fn subcommand() -> App<'static, 'static> {
         .takes_value(true)
         .required(false)
         .possible_values(constants::CURVES)
-        .default_value(constants::BN128)
+        .default_value(constants::SECP_256K1)
     ).arg(Arg::with_name("allow-unconstrained-variables")
         .long("allow-unconstrained-variables")
         .help("Allow unconstrained variables by inserting dummy constraints")
@@ -76,6 +76,7 @@ pub fn subcommand() -> App<'static, 'static> {
 pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
     let curve = CurveParameter::try_from(sub_matches.value_of("curve").unwrap())?;
     match curve {
+        CurveParameter::Secp256k1 => cli_compile::<Secp256k1Field>(sub_matches),
         CurveParameter::Bn128 => cli_compile::<Bn128Field>(sub_matches),
         CurveParameter::Bls12_377 => cli_compile::<Bls12_377Field>(sub_matches),
         CurveParameter::Bls12_381 => cli_compile::<Bls12_381Field>(sub_matches),
@@ -98,7 +99,7 @@ fn cli_compile<T: Field>(sub_matches: &ArgMatches) -> Result<(), String> {
     let bin_output_path = Path::new(sub_matches.value_of("output").unwrap());
     let abi_spec_path = Path::new(sub_matches.value_of("abi-spec").unwrap());
     let hr_output_path = bin_output_path.to_path_buf().with_extension("ztf");
-    let flattened_output_path = bin_output_path.to_path_buf().with_extension("flattened");
+    let flattened_output_path = bin_output_path.to_path_buf().with_file_name("flattened.json");
 
     let file = File::open(path.clone())
         .map_err(|why| format!("Could not open {}: {}", path.display(), why))?;
@@ -146,14 +147,14 @@ fn cli_compile<T: Field>(sub_matches: &ArgMatches) -> Result<(), String> {
     let program_flattened = artifacts.prog();
     let flatprog = artifacts.flatprog();
 
-    let ast_file = File::create(&flattened_output_path)
+    let flat_prog_file = File::create(&flattened_output_path)
         .map_err(|why| format!("Could not create {}: {}", flattened_output_path.display(), why))?;
 
-    let json = serde_json::to_writer_pretty(std::io::BufWriter::new(ast_file), &flatprog);
+    let json = serde_json::to_writer_pretty(std::io::BufWriter::new(flat_prog_file), &flatprog);
 
     match json {
-        Ok(v) => println!("output program_flattened successfully: {:?}", v),
-        Err(e) => println!("program_flattened fail, error: {:?}", e),
+        Ok(v) => println!("Writing flattened program succeeded: {:?}", v),
+        Err(e) => println!("Writing flattened program failed, error: {:?}", e),
     }
 
     // number of constraints the flattened program will translate to.

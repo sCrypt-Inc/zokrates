@@ -106,6 +106,8 @@ pub trait Field:
     /// Tries to parse a string into this representation
     fn try_from_dec_str(s: &str) -> Result<Self, FieldParseError>;
     fn try_from_str(s: &str, radix: u32) -> Result<Self, FieldParseError>;
+    fn try_from_str_no_mod(s: &str, radix: u32) -> Result<Self, FieldParseError>;
+    fn from_i64_no_mod(v: i64) -> Self;
     /// Returns a decimal string representing a the member of the equivalence class of this `Field` in Z/pZ
     /// which lies in [-(p-1)/2, (p-1)/2]
     fn to_compact_dec_string(&self) -> String;
@@ -241,6 +243,19 @@ mod prime_field {
                         value: &x - x.div_floor(&*P) * &*P,
                     })
                 }
+                fn try_from_str_no_mod(s: &str, radix: u32) -> Result<Self, FieldParseError> {
+                    let x = BigInt::parse_bytes(s.as_bytes(), radix).ok_or(FieldParseError)?;
+                    Ok(FieldPrime {
+                        value: x,
+                    })
+                }
+                fn from_i64_no_mod(v: i64) -> Self {
+                    let x = BigInt::from(v);
+                    FieldPrime {
+                        value: x,
+                    }
+                }
+                
                 fn to_compact_dec_string(&self) -> String {
                     // values up to (p-1)/2 included are represented as positive, values between (p+1)/2 and p-1 as represented as negative by subtracting p
                     if self.value <= FieldPrime::max_value().value / 2 {
@@ -611,8 +626,10 @@ pub mod bls12_377;
 pub mod bls12_381;
 pub mod bn128;
 pub mod bw6_761;
+pub mod secp256k1;
 
 pub use bls12_377::FieldPrime as Bls12_377Field;
 pub use bls12_381::FieldPrime as Bls12_381Field;
 pub use bn128::FieldPrime as Bn128Field;
 pub use bw6_761::FieldPrime as Bw6_761Field;
+pub use secp256k1::FieldPrime as Secp256k1Field;
