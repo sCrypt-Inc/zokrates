@@ -51,7 +51,7 @@ pub fn subcommand() -> App<'static, 'static> {
         .takes_value(true)
         .required(false)
         .possible_values(constants::CURVES)
-        .default_value(constants::SECP_256K1)
+        .default_value(constants::BN128)
     ).arg(Arg::with_name("allow-unconstrained-variables")
         .long("allow-unconstrained-variables")
         .help("Allow unconstrained variables by inserting dummy constraints")
