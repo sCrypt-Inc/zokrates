@@ -32,7 +32,8 @@ pub fn subcommand() -> App<'static, 'static> {
                 .help("Path of the circuit")
                 .value_name("FILE")
                 .takes_value(true)
-                .required(true),
+                .required(true)
+                .default_value(constants::FLATTENED_PATH),
         )
 }
 

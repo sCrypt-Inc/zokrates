@@ -44,3 +44,20 @@ You can enable zokrates git hooks locally by running:
 ```sh
 git config core.hooksPath .githooks
 ```
+
+
+### Workflow
+
+
+```bash
+# compile
+zokrates compile -i root.zok
+# perform the setup phase
+zokrates compute-witness -a 337 113569
+# generate a proof of computation
+zokrates generate-key-proof
+# export a scrypt verifier
+zokrates export-scrypt
+# or verify natively
+zokrates verify-key-proof
+```
