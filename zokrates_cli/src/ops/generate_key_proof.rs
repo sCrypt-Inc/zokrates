@@ -131,14 +131,13 @@ fn cli_generate_key_proof<T: Field>(sub_matches: &ArgMatches) -> Result<(), Stri
             let mut indexs = vec![];
             if is_a_opening_key {
 
-                indexs.push(1)
+                indexs.push(1);
                 
             }
 
             if is_b_opening_key {
                 indexs.push(2);
             } 
-
             opening_key_indexs = Some(indexs);
         }
 

@@ -55,7 +55,7 @@ pub struct Prover<T: Field> {
     witness: PedersenWitness,
     commit_add: Option<CommitAdd>,
     commit_mul: Option<CommitMul>,
-    opening_key_indexs: Option<Vec<u16>>,
+    opening_key_indexs: Option<Vec<usize>>,
 }
 
 
@@ -71,6 +71,7 @@ pub struct AddGateProof {
     z: String,
     b_commit: String,
     commits: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     opening_keys: Option<Vec<OpeningKey>>,
 }
 
@@ -79,6 +80,7 @@ pub struct MulGateProof {
     tuple:  (String, String, String, String, String),
     c_commits: Vec<String>,
     commits:Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     opening_keys: Option<Vec<OpeningKey>>,
 }
 
@@ -260,7 +262,7 @@ impl Pedersen {
         Pedersen(Secp256k1::with_caps(ContextFlag::Commit))
     }
 
-    pub fn generate_add_prover<T: Field>(&self, value_l: T, value_r: T, value_o: T, opening_key_indexs: Option<Vec<u16>>) -> Prover<T> {
+    pub fn generate_add_prover<T: Field>(&self, value_l: T, value_r: T, value_o: T, opening_key_indexs: Option<Vec<usize>>) -> Prover<T> {
         let r_l = SecretKey::new(&self.0, &mut thread_rng());
         let r_r = SecretKey::new(&self.0, &mut thread_rng());
         let r_o = SecretKey::new(&self.0, &mut thread_rng());
@@ -291,7 +293,7 @@ impl Pedersen {
         }
     }
 
-    pub fn generate_mul_prover<T: Field>(&self, value_l: T, value_r: T, value_o: T, opening_key_indexs: Option<Vec<u16>>) -> Prover<T> {
+    pub fn generate_mul_prover<T: Field>(&self, value_l: T, value_r: T, value_o: T, opening_key_indexs: Option<Vec<usize>>) -> Prover<T> {
         let r_l = SecretKey::new(&self.0, &mut thread_rng());
         let r_r = SecretKey::new(&self.0, &mut thread_rng());
         let r_o = SecretKey::new(&self.0, &mut thread_rng());
