@@ -66,10 +66,10 @@ pub fn deserialize<T: Field>(source: String) -> Result<FlatProg<T>, serde_json::
 }
 
 
-pub fn public_inputs_values<T: Field>(flatprog: &FlatProg<T>, witness: &Witness<T> ) -> Vec<T> {
+pub fn private_inputs_ids<T: Field>(flatprog: &FlatProg<T>) -> Vec<usize> {
     flatprog.main.arguments.iter().filter_map(|p| match p.private { 
-        false => Some(witness.getvariable(&p.id).unwrap().clone()),
-        true => None
+        true => Some(p.id.id()),
+        false => None
      }).collect()
 }
 
@@ -91,7 +91,7 @@ fn cli_generate_key_proof<T: Field>(sub_matches: &ArgMatches) -> Result<(), Stri
     let witness = deserialize_witness::<T>(sub_matches).unwrap();
     
 
-    let public_inputs = public_inputs_values::<T>(&flatprog, &witness);
+    let private_inputs = private_inputs_ids::<T>(&flatprog);
 
 
     let fetch_expr_value_closure =  |a: &Box<FlatExpression<T>>, b: &Box<FlatExpression<T>>| {
@@ -114,6 +114,37 @@ fn cli_generate_key_proof<T: Field>(sub_matches: &ArgMatches) -> Result<(), Stri
         (a_value.clone(), b_value.clone())
     };
 
+    let fetch_opening_closure =  |a: &Box<FlatExpression<T>>, b: &Box<FlatExpression<T>>| {
+        let is_a_opening_key = match a.as_ref() {
+            FlatExpression::Identifier(v) => private_inputs.contains(&v.id()),
+            _ => false
+        };
+
+        let is_b_opening_key = match b.as_ref() {
+            FlatExpression::Identifier(v) => private_inputs.contains(&v.id()),
+            _ => false
+        };
+
+
+        let mut opening_key_indexs = None;
+        if is_a_opening_key || is_b_opening_key {
+            let mut indexs = vec![];
+            if is_a_opening_key {
+
+                indexs.push(1)
+                
+            }
+
+            if is_b_opening_key {
+                indexs.push(2);
+            } 
+
+            opening_key_indexs = Some(indexs);
+        }
+
+        opening_key_indexs
+    };
+
     let pedersen = Pedersen::new();
     let mut proofs: Vec<Proof> = vec![];
     for statement in &flatprog.main.statements {
@@ -123,27 +154,30 @@ fn cli_generate_key_proof<T: Field>(sub_matches: &ArgMatches) -> Result<(), Stri
             
             FlatStatement::Definition(variable, expr) => {
                 
-
+                
                 let value_o = witness.getvariable(variable).unwrap().clone();
 
                 let prover = match expr {
                     FlatExpression::Number(v) =>  {
 
-                        pedersen.generate_mul_prover(T::from(1), v.clone(), value_o)
+                        pedersen.generate_mul_prover(T::from(1), v.clone(), value_o, None)
                     },
                     FlatExpression::Identifier(v) => {
                         let v = witness.getvariable(v).unwrap().clone();
 
-                        pedersen.generate_mul_prover(T::from(1), v.clone(), value_o)
+                        pedersen.generate_mul_prover(T::from(1), v.clone(), value_o, None)
                     },
                     FlatExpression::Add(a, b) => {
                         let (a_value,b_value ) = fetch_expr_value_closure(a, b);
-                        //pedersen.generate_add_prover(a_value.clone(), b_value, left_value);
-                        pedersen.generate_add_prover(a_value, b_value, value_o)
+                        let opening_key_indexs = fetch_opening_closure(a, b);
+  
+                        pedersen.generate_add_prover(a_value, b_value, value_o, opening_key_indexs)
+
                     },
                     FlatExpression::Mult(a, b) => {
                         let (a_value,b_value ) = fetch_expr_value_closure(a, b);
-                        pedersen.generate_mul_prover(a_value, b_value, value_o)
+                        let opening_key_indexs = fetch_opening_closure(a, b);
+                        pedersen.generate_mul_prover(a_value, b_value, value_o, opening_key_indexs)
                     }
                     FlatExpression::Sub(_, _) => panic!("There must NOT be Sub expr in FlatProg."),
 
@@ -173,21 +207,22 @@ fn cli_generate_key_proof<T: Field>(sub_matches: &ArgMatches) -> Result<(), Stri
                 let prover = match expr2 {
                     FlatExpression::Number(v) =>  {
 
-                        pedersen.generate_mul_prover(T::from(1), v.clone(), value_o)
+                        pedersen.generate_mul_prover(T::from(1), v.clone(), value_o, None)
                     },
                     FlatExpression::Identifier(v) => {
                         let v = witness.getvariable(v).unwrap().clone();
 
-                        pedersen.generate_mul_prover(T::from(1), v.clone(), value_o)
+                        pedersen.generate_mul_prover(T::from(1), v.clone(), value_o, None)
                     },
                     FlatExpression::Add(a, b) => {
                         let (a_value,b_value ) = fetch_expr_value_closure(a, b);
-                        //pedersen.generate_add_prover(a_value.clone(), b_value, left_value);
-                        pedersen.generate_add_prover(a_value, b_value, value_o)
+                        let opening_key_indexs = fetch_opening_closure(a, b);
+                        pedersen.generate_add_prover(a_value, b_value, value_o, opening_key_indexs)
                     },
                     FlatExpression::Mult(a, b) => {
                         let (a_value,b_value ) = fetch_expr_value_closure(a, b);
-                        pedersen.generate_mul_prover(a_value, b_value, value_o)
+                        let opening_key_indexs = fetch_opening_closure(a, b);
+                        pedersen.generate_mul_prover(a_value, b_value, value_o, opening_key_indexs )
                     }
                     FlatExpression::Sub(_, _) => panic!("There must NOT be Sub expr in FlatProg."),
 

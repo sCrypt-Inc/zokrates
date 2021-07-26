@@ -86,6 +86,7 @@ fn cli_verify(sub_matches: &ArgMatches) -> Result<(), String> {
     };
 
     let mut index = 0;
+    let mut public_keys_vec: Vec<String> = vec![];
     for statement in &flatprog.main.statements {
         match statement {
             FlatStatement::Definition(_, expr) => {
@@ -94,19 +95,33 @@ fn cli_verify(sub_matches: &ArgMatches) -> Result<(), String> {
                 check_proof(&proof, expr.clone());
 
                 pedersen.verify_proof::<Secp256k1Field>(&proof);
+
+                if proof.has_opening_key() {
+                    let public_keys = proof.get_public_keys();
+                    public_keys_vec.extend(public_keys.iter().cloned());
+                }
+
+
                 index += 1;
             }
             FlatStatement::Condition(_, expr, _) => {
                 let proof = proofs[index].clone();
                 check_proof(&proof, expr.clone());
                 pedersen.verify_proof::<Secp256k1Field>(&proof);
+
+                if proof.has_opening_key() {
+                    let public_keys = proof.get_public_keys();
+                    public_keys_vec.extend(public_keys.iter().cloned());
+                }
+
                 index += 1;
             }
             _ => (),
         }
     }
 
-    println!("Performing sucessfully, gate: {}...", index);
+    println!("Performing sucessfully, opening publickeys: {:?}", public_keys_vec);
+    println!("total gates:  {}...", index);
 
     Ok(())
 }

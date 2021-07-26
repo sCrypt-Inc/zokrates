@@ -55,6 +55,14 @@ pub struct Prover<T: Field> {
     witness: PedersenWitness,
     commit_add: Option<CommitAdd>,
     commit_mul: Option<CommitMul>,
+    opening_key_indexs: Option<Vec<u16>>,
+}
+
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct OpeningKey {
+    r: String,
+    index: usize,
 }
 
 
@@ -63,6 +71,7 @@ pub struct AddGateProof {
     z: String,
     b_commit: String,
     commits: Vec<String>,
+    opening_keys: Option<Vec<OpeningKey>>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -70,6 +79,7 @@ pub struct MulGateProof {
     tuple:  (String, String, String, String, String),
     c_commits: Vec<String>,
     commits:Vec<String>,
+    opening_keys: Option<Vec<OpeningKey>>,
 }
 
 #[derive(Debug,Serialize, Deserialize, Clone)]
@@ -91,6 +101,81 @@ impl Proof {
             _ => false,
         }
     }
+
+
+    pub fn has_opening_key(&self) -> bool {
+        match self {
+            Proof::MulGate(proof) => {
+                match &proof.opening_keys {
+                    Some(_) => {
+                        true
+                    }, 
+                    None => false
+                }
+            },
+            Proof::AddGate(proof) => {
+                match &proof.opening_keys {
+                    Some(_) => {
+                        true
+                    }, 
+                    None => false
+                }
+            },
+        }
+    }
+
+
+    pub fn get_public_keys(&self) -> Vec<String> {
+
+        match self {
+            Proof::MulGate(proof) => {
+                match &proof.opening_keys {
+                    Some(opening_keys) => {
+                        
+                        let secp = Secp256k1::with_caps(ContextFlag::Commit);
+                        let F = secp.commit(0, key::ONE_KEY).unwrap();
+
+                        opening_keys.iter().map(| opening|  {
+
+                            let public_key = secp.commit_sum(
+                                    vec![
+                                        string_to_commit(&proof.commits[opening.index])
+                                    ],
+                                    vec![mul_commit_secret(&secp, &F, &string_to_secret_key(&secp, &opening.r))],
+                                )
+                                .unwrap().to_pubkey(&secp).unwrap();
+
+                                hex::encode(public_key.0.0)
+                        }).collect()
+                    }, 
+                    None => vec![]
+                }
+            },
+            Proof::AddGate(proof) => {
+                match &proof.opening_keys {
+                    Some(opening_keys) => {
+                        let secp = Secp256k1::with_caps(ContextFlag::Commit);
+                        let F = secp.commit(0, key::ONE_KEY).unwrap();
+                        opening_keys.iter().map(| opening|  {
+
+                            let public_key = secp.commit_sum(
+                                    vec![
+                                        string_to_commit(&proof.commits[opening.index])
+                                    ],
+                                    vec![mul_commit_secret(&secp, &F, &string_to_secret_key(&secp, &opening.r))],
+                                )
+                                .unwrap().to_pubkey(&secp).unwrap();
+
+                                hex::encode(public_key.0.0)
+                        }).collect()
+                    }, 
+                    None => vec![]
+                }
+            },
+        }
+    }
+
+
 }
 
 
@@ -175,7 +260,7 @@ impl Pedersen {
         Pedersen(Secp256k1::with_caps(ContextFlag::Commit))
     }
 
-    pub fn generate_add_prover<T: Field>(&self, value_l: T, value_r: T, value_o: T) -> Prover<T> {
+    pub fn generate_add_prover<T: Field>(&self, value_l: T, value_r: T, value_o: T, opening_key_indexs: Option<Vec<u16>>) -> Prover<T> {
         let r_l = SecretKey::new(&self.0, &mut thread_rng());
         let r_r = SecretKey::new(&self.0, &mut thread_rng());
         let r_o = SecretKey::new(&self.0, &mut thread_rng());
@@ -202,10 +287,11 @@ impl Pedersen {
             witness: witness,
             commit_add: Some(commit_add),
             commit_mul: None,
+            opening_key_indexs: opening_key_indexs
         }
     }
 
-    pub fn generate_mul_prover<T: Field>(&self, value_l: T, value_r: T, value_o: T) -> Prover<T> {
+    pub fn generate_mul_prover<T: Field>(&self, value_l: T, value_r: T, value_o: T, opening_key_indexs: Option<Vec<u16>>) -> Prover<T> {
         let r_l = SecretKey::new(&self.0, &mut thread_rng());
         let r_r = SecretKey::new(&self.0, &mut thread_rng());
         let r_o = SecretKey::new(&self.0, &mut thread_rng());
@@ -256,6 +342,7 @@ impl Pedersen {
             witness: witness,
             commit_add: None,
             commit_mul: Some(commit_mul),
+            opening_key_indexs: opening_key_indexs
         }
     }
 
@@ -456,6 +543,18 @@ impl Pedersen {
             None => false,
         };
 
+        let opening_keys = match &prover.opening_key_indexs {
+            Some(indexs) => indexs.iter().map(|index| {
+                match index {
+                    1 => OpeningKey { r: hex::encode(prover.r_l.0), index: 1 },
+                    2 => OpeningKey { r: hex::encode(prover.r_r.0), index: 2 },
+                    _ => panic!("opening_indexs should never be {}", index)
+                }
+
+            }).collect(),
+            None => vec![],
+        };
+
         let sha256 = Sha256::new();
         
 
@@ -477,7 +576,8 @@ impl Pedersen {
             Proof::AddGate(AddGateProof {
                 z: hex::encode(z.0),
                 b_commit:hex::encode(b_commit.0) ,
-                commits: vec![hex::encode(prover.witness.W_L.0) , hex::encode(prover.witness.W_R.0),hex::encode(prover.witness.W_O.0) ]
+                commits: vec![hex::encode(prover.witness.W_L.0) , hex::encode(prover.witness.W_R.0),hex::encode(prover.witness.W_O.0) ],
+                opening_keys: if opening_keys.len() == 0 {None} else {Some(opening_keys)},
             })
 
         } else {
@@ -500,7 +600,8 @@ impl Pedersen {
             Proof::MulGate(MulGateProof {
                 tuple: (hex::encode(tuple.0.0),hex::encode(tuple.1.0),hex::encode(tuple.2.0),hex::encode(tuple.3.0),hex::encode(tuple.4.0) ),
                 c_commits: vec![hex::encode(commits_mul.c1_commit.0) , hex::encode(commits_mul.c2_commit.0), hex::encode(commits_mul.c3_commit.0)],
-                commits: vec![hex::encode(prover.witness.W_L.0) , hex::encode(prover.witness.W_R.0),hex::encode(prover.witness.W_O.0) ]
+                commits: vec![hex::encode(prover.witness.W_L.0) , hex::encode(prover.witness.W_R.0),hex::encode(prover.witness.W_O.0) ],
+                opening_keys: if opening_keys.len() == 0 {None} else {Some(opening_keys)},
             })
         }
     }
@@ -620,7 +721,7 @@ mod test {
 
         let pederson = Pedersen::new();
         // 4 = 1 + 3
-        let prover = pederson.generate_add_prover(a.clone(), b.clone(), c.clone());
+        let prover = pederson.generate_add_prover(a.clone(), b.clone(), c.clone(), None);
 
     
         let b_commit = match prover.commit_add.clone() {
@@ -652,7 +753,7 @@ mod test {
         let x = T::from(rng.next_u32());
 
     
-        let prover = pederson.generate_mul_prover(a, b, c);
+        let prover = pederson.generate_mul_prover(a, b, c, None);
 
     
         let tuple = pederson.prove_mul_gate::<T>(x.clone(), &prover);
@@ -703,7 +804,7 @@ mod test {
     fn test_add_proof<T: Field>(a: T, b: T, c: T) {
 
         let pederson = Pedersen::new();
-        let prover = pederson.generate_add_prover(a.clone(), b.clone(), c.clone());
+        let prover = pederson.generate_add_prover(a.clone(), b.clone(), c.clone(), None);
         let proof = pederson.generate_proof::<T>(&prover);
         let success = pederson.verify_proof::<T>(&proof);
         assert!(success, "test_add_proof fail a: {}, b: {}, c: {}", a, b, c);
@@ -712,7 +813,7 @@ mod test {
     fn test_mul_proof<T: Field>(a: T, b: T, c: T) {
 
         let pederson = Pedersen::new();
-        let prover = pederson.generate_mul_prover(a.clone(), b.clone(), c.clone());
+        let prover = pederson.generate_mul_prover(a.clone(), b.clone(), c.clone(), None);
         let proof = pederson.generate_proof::<T>(&prover);
         let success = pederson.verify_proof::<T>(&proof);
         assert!(success, "test_mul_proof fail a: {}, b: {}, c: {}", a, b, c);
