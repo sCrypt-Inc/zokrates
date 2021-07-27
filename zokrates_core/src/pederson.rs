@@ -257,6 +257,35 @@ fn value_to_commit<T: Field>(secp: &Secp256k1, v: &T, blind: SecretKey) -> Commi
 }
 
 
+pub static _2_128: SecretKey = SecretKey([0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0,
+    0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+    0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff]);
+
+
+fn open_public_key(
+    secp: &Secp256k1,
+    public_keys: &Vec<String>
+) -> String {
+
+
+    let data = hex::decode(public_keys[0].clone()).unwrap();
+    let mut public_key_0 = PublicKey::from_slice(secp, &data).unwrap();
+
+    let data = hex::decode(public_keys[1].clone()).unwrap();
+    let public_key_1 = PublicKey::from_slice(secp, &data).unwrap();
+
+    public_key_0.mul_assign(&secp, &_2_128).unwrap();
+    let mut v: Vec<&PublicKey> = vec![];
+    v.push(&public_key_0);
+    v.push(&public_key_1);
+    
+    let opened_publickey = PublicKey::from_combination(secp, v).unwrap();
+   
+    hex::encode(opened_publickey.0.0)
+}
+
+
 impl Pedersen {
     pub fn new() -> Self {
         Pedersen(Secp256k1::with_caps(ContextFlag::Commit))
@@ -708,6 +737,15 @@ impl Pedersen {
         }
     }
 
+
+    pub fn open_public_key(
+        &self,
+        public_keys: &Vec<String>
+    ) -> String {
+
+        open_public_key(&self.0, public_keys)
+    }
+
 }
 
 
@@ -890,6 +928,24 @@ mod test {
         let c3 = secp.commit_blind( to_secret_key(&secp, &(x + N)),  to_secret_key(&secp, &r)).unwrap();
         
         assert_eq!(c1, c3);
+
+    }  
+
+
+    #[test]
+    fn test_open_public_keys() {
+
+        let secp = Secp256k1::with_caps(ContextFlag::Commit);
+
+        let mut public_keys: Vec<String> = vec![];
+
+        public_keys.push(String::from("042226ba19c37f6cc4a0178be21bf830612ef3eaeebfdd99eabfbe5837c0faec03941befbce9e29c1959cf07144fdae7581f1287a15e7be862433239af3ff8ac61"));
+        
+        public_keys.push(String::from("047b0c8b80e66f252e5cc6cb8e098be49054bb19917862f7e855e75735ad023131b0c425cb12764341493bd45a3a04e711c063dd6b6b873d0b473e108502081f29"));
+
+        let opened_publickey = open_public_key(&secp, &public_keys);
+
+        assert_eq!(opened_publickey, String::from("30cb05966bad4e0d30d5ddfa89b5423167597dc618428dc7a03b104aed7b1a5b645a8e4a3fe39b25e60acffae3cdec7129650232d5424015678e8ac4d4d1f995"));
 
     }  
 

@@ -120,7 +120,11 @@ fn cli_verify(sub_matches: &ArgMatches) -> Result<(), String> {
         }
     }
 
-    println!("Performing sucessfully, opening publickeys: {:?}", public_keys_vec);
+
+    let opening_public_key = pedersen.open_public_key(&public_keys_vec);
+
+
+    println!("Performing sucessfully, opening publickey: {:?}", opening_public_key);
     println!("total gates:  {}...", index);
 
     Ok(())
