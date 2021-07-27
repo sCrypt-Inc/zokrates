@@ -147,7 +147,7 @@ impl Proof {
                                 )
                                 .unwrap().to_pubkey(&secp).unwrap();
 
-                                hex::encode(public_key.0.0)
+                                hex::encode(public_key.serialize_vec(&secp, false))
                         }).collect()
                     }, 
                     None => vec![]
@@ -168,7 +168,7 @@ impl Proof {
                                 )
                                 .unwrap().to_pubkey(&secp).unwrap();
 
-                                hex::encode(public_key.0.0)
+                                hex::encode(public_key.serialize_vec(&secp, false))
                         }).collect()
                     }, 
                     None => vec![]
@@ -282,7 +282,7 @@ fn open_public_key(
     
     let opened_publickey = PublicKey::from_combination(secp, v).unwrap();
    
-    hex::encode(opened_publickey.0.0)
+    hex::encode(opened_publickey.serialize_vec(secp, false))
 }
 
 
@@ -577,8 +577,8 @@ impl Pedersen {
         let opening_keys = match &prover.opening_key_indexs {
             Some(indexs) => indexs.iter().map(|index| {
                 match index {
-                    1 => OpeningKey { r: hex::encode(prover.r_l.0), index: 1 },
-                    2 => OpeningKey { r: hex::encode(prover.r_r.0), index: 2 },
+                    0 => OpeningKey { r: hex::encode(prover.r_l.0), index: 0 },
+                    1 => OpeningKey { r: hex::encode(prover.r_r.0), index: 1 },
                     _ => panic!("opening_indexs should never be {}", index)
                 }
 
@@ -939,13 +939,13 @@ mod test {
 
         let mut public_keys: Vec<String> = vec![];
 
-        public_keys.push(String::from("042226ba19c37f6cc4a0178be21bf830612ef3eaeebfdd99eabfbe5837c0faec03941befbce9e29c1959cf07144fdae7581f1287a15e7be862433239af3ff8ac61"));
-        
-        public_keys.push(String::from("047b0c8b80e66f252e5cc6cb8e098be49054bb19917862f7e855e75735ad023131b0c425cb12764341493bd45a3a04e711c063dd6b6b873d0b473e108502081f29"));
+        public_keys.push(String::from("0490bccc7e8d1a49a38c497cfcc068cb014d9396e4ac8b6c0e58419ec0486144d7bc5e2b996f368cd67ac103fd2acf28117d13b2ec2525e12b4b4fc49fccd3aec5"));
+        public_keys.push(String::from("04551e82ce27bcb8d71cb0fa39b4caf3065c8c18179a0c8f548eacf5df52a2ebf7802b3de33ae8f0e94ec8e98ab0a17f5a9a300634f25e0af2bb11b6ef6225d343"));
 
+        
         let opened_publickey = open_public_key(&secp, &public_keys);
 
-        assert_eq!(opened_publickey, String::from("30cb05966bad4e0d30d5ddfa89b5423167597dc618428dc7a03b104aed7b1a5b645a8e4a3fe39b25e60acffae3cdec7129650232d5424015678e8ac4d4d1f995"));
+        assert_eq!(opened_publickey, String::from("0494d6deea102c33307a5ae7e41515198f6fc19d3b11abeca5bff56f1011ed2d8e3d8f02cbd20e8c53d8050d681397775d0dc8b0ad406b261f9b4c94404201cab3"));
 
     }  
 
