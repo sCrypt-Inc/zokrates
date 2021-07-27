@@ -8,13 +8,18 @@ use zokrates_field::Secp256k1Field;
 use rand_0_5::{thread_rng, Rng};
 
 use sha2::{Sha256, Sha512, Digest};
-
+use lazy_static::lazy_static;
 
 fn random_32_bytes<T: Field>() -> T {
     let mut rng = thread_rng();
     let mut ret = [0u8; 32];
     rng.fill(&mut ret);
     T::from_byte_vector(ret.to_vec())
+}
+
+lazy_static! {
+    //let F = secp.commit_blind(key::ONE_KEY, key::ZERO_KEY).unwrap();
+    pub static ref F: Commitment = Commitment::from_vec(vec![9, 80, 146, 155, 116, 193, 160, 73, 84, 183, 139, 75, 96, 53, 233, 122, 94, 7, 138, 90, 15, 40, 236, 150, 213, 71, 191, 238, 154, 206, 128, 58, 192]);
 }
 
 
@@ -135,7 +140,6 @@ impl Proof {
                     Some(opening_keys) => {
                         
                         let secp = Secp256k1::with_caps(ContextFlag::Commit);
-                        let F = secp.commit(0, key::ONE_KEY).unwrap();
 
                         opening_keys.iter().map(| opening|  {
 
@@ -157,7 +161,6 @@ impl Proof {
                 match &proof.opening_keys {
                     Some(opening_keys) => {
                         let secp = Secp256k1::with_caps(ContextFlag::Commit);
-                        let F = secp.commit(0, key::ONE_KEY).unwrap();
                         opening_keys.iter().map(| opening|  {
 
                             let public_key = secp.commit_sum(
@@ -253,14 +256,18 @@ fn value_to_commit<T: Field>(secp: &Secp256k1, v: &T, blind: SecretKey) -> Commi
 
     let value = wrapp_value(v);
 
-    secp.commit_blind(to_secret_key(secp, &value), blind).unwrap()
+    secp.commit_blind(blind, to_secret_key(secp, &value)).unwrap()
+}
+
+fn secret_value_to_commit(secp: &Secp256k1, value: SecretKey, blind: SecretKey) -> Commitment {
+    secp.commit_blind(blind, value).unwrap()
 }
 
 
 pub static _2_128: SecretKey = SecretKey([0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 1,
     0, 0, 0, 0, 0, 0, 0, 0,
-    0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
-    0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff]);
+    0, 0, 0, 0, 0, 0, 0, 0]);
 
 
 fn open_public_key(
@@ -274,7 +281,7 @@ fn open_public_key(
 
     let data = hex::decode(public_keys[1].clone()).unwrap();
     let public_key_1 = PublicKey::from_slice(secp, &data).unwrap();
-
+    
     public_key_0.mul_assign(&secp, &_2_128).unwrap();
     let mut v: Vec<&PublicKey> = vec![];
     v.push(&public_key_0);
@@ -299,7 +306,7 @@ impl Pedersen {
         let r_b = SecretKey::new(&self.0, &mut thread_rng());
         let commit_add = CommitAdd {
             r_b: r_b.clone(),
-            b_commit: self.0.commit(0, r_b.clone()).unwrap(),
+            b_commit: value_to_commit(&self.0, &T::from(0), r_b.clone()),
         };
 
         let witness = PedersenWitness {
@@ -339,8 +346,6 @@ impl Pedersen {
             W_O: value_to_commit(&self.0, &value_o, r_o.clone()),
         };
 
-        let F = self.0.commit(0, key::ONE_KEY).unwrap();
-
         let c3_commit = self
             .0
             .commit_sum(
@@ -358,8 +363,8 @@ impl Pedersen {
             t3: t3.clone(),
             t4: t4.clone(),
             t5: t5.clone(),
-            c1_commit: self.0.commit_blind(t1, t3.clone()).unwrap(), //𝐶1 = 𝐶𝑜𝑚(𝑡1,𝑡3),
-            c2_commit: self.0.commit_blind(t2, t5.clone()).unwrap(), //𝐶2 = 𝐶𝑜𝑚(𝑡2,𝑡5)
+            c1_commit: secret_value_to_commit(&self.0, t1.clone(), t3.clone()), //𝐶1 = 𝐶𝑜𝑚(𝑡1,𝑡3),
+            c2_commit: secret_value_to_commit(&self.0, t2.clone(), t5.clone()), //𝐶2 = 𝐶𝑜𝑚(𝑡2,𝑡5)
             c3_commit: c3_commit,                                    //𝐶3 = 𝑡1×𝑊𝑅+𝑡4×𝐹
         };
 
@@ -455,7 +460,7 @@ impl Pedersen {
 
         let w_right = self.0.commit_sum(vec![w_sum, b_commit], vec![]).unwrap();
 
-        let w_left = self.0.commit(0, z.clone()).unwrap();
+        let w_left = value_to_commit(&self.0, &T::from(0), z);
 
         w_left == w_right
     }
@@ -476,7 +481,7 @@ impl Pedersen {
         };
 
         let verify_equation = |e: SecretKey, z: SecretKey, w: Commitment, c: Commitment| {
-            let w_left = self.0.commit_blind(e, z).unwrap();
+            let w_left = self.0.commit_blind(z, e).unwrap();
             let w_right = right_expr(w, c);
             w_left == w_right
         };
@@ -489,8 +494,6 @@ impl Pedersen {
 
         //𝑒1×𝑊𝑅+𝑧3×𝐹=𝑥×𝑊𝑂+𝐶3
         // 𝐶3 = 𝑡1×𝑊𝑅+𝑡4×𝐹
-
-        let F = self.0.commit(0, key::ONE_KEY).unwrap();
 
         let w_left = self
             .0
@@ -738,12 +741,16 @@ impl Pedersen {
     }
 
 
-    pub fn open_public_key(
+    pub fn verify_public_key(
         &self,
+        pubkey_origin: &str,
         public_keys: &Vec<String>
-    ) -> String {
+    ) -> bool {
 
-        open_public_key(&self.0, public_keys)
+        let pubkey = open_public_key(&self.0, public_keys);
+
+        pubkey.eq(&String::from(pubkey_origin))
+
     }
 
 }
@@ -933,7 +940,7 @@ mod test {
 
 
     #[test]
-    fn test_open_public_keys() {
+    fn test_open_origin_public_key() {
 
         let secp = Secp256k1::with_caps(ContextFlag::Commit);
 
@@ -947,6 +954,36 @@ mod test {
 
         assert_eq!(opened_publickey, String::from("0494d6deea102c33307a5ae7e41515198f6fc19d3b11abeca5bff56f1011ed2d8e3d8f02cbd20e8c53d8050d681397775d0dc8b0ad406b261f9b4c94404201cab3"));
 
+    }  
+
+
+
+
+    #[test]
+    fn test_open_public_key_of_partial_secret_key() {
+
+        let secp = Secp256k1::with_caps(ContextFlag::Commit);
+
+        let value = Secp256k1Field::try_from_str_no_mod("00000000000000000000000000000000ec4916dd28fc4c10d78e287ca5d9cc51", 16).unwrap();
+        let blind = string_to_secret_key(&secp,&String::from("0750b10b3b1124eb62484eddd27ace074168e310d3edae11f29129bb1d666241"));
+        
+
+        let commit = value_to_commit(&secp, &value, blind.clone());
+
+
+        let rf = mul_commit_secret(&secp, &F, &blind);
+
+        let public_key = secp.commit_sum(
+            vec![
+                commit
+            ],
+            vec![rf],
+        )
+        .unwrap().to_pubkey(&secp).unwrap();
+        
+        let public_key_str =  hex::encode(public_key.serialize_vec(&secp, false));
+
+        assert_eq!(public_key_str, "0490bccc7e8d1a49a38c497cfcc068cb014d9396e4ac8b6c0e58419ec0486144d7bc5e2b996f368cd67ac103fd2acf28117d13b2ec2525e12b4b4fc49fccd3aec5")
     }  
 
 }

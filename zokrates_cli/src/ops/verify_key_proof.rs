@@ -35,6 +35,15 @@ pub fn subcommand() -> App<'static, 'static> {
                 .required(true)
                 .default_value(constants::FLATTENED_PATH),
         )
+        .arg(
+            Arg::with_name("pubkey")
+                .short("p")
+                .long("pubkey")
+                .help("Public key of the secret key")
+                .value_name("PublicKey")
+                .takes_value(true)
+                .required(true)
+        )
 }
 
 pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
@@ -61,8 +70,7 @@ fn cli_verify(sub_matches: &ArgMatches) -> Result<(), String> {
     let proof_reader = BufReader::new(proof_file);
     let proofs:Vec<Proof> = serde_json::from_reader(proof_reader)
         .map_err(|why| format!("Could not deserialize proof: {}", why))?;
-    
-    
+
     let pedersen = Pedersen::new();
 
 
@@ -120,12 +128,17 @@ fn cli_verify(sub_matches: &ArgMatches) -> Result<(), String> {
         }
     }
 
-
-    let opening_public_key = pedersen.open_public_key(&public_keys_vec);
-
-
-    println!("Performing sucessfully, opening publickey: {:?}", opening_public_key);
     println!("total gates:  {}...", index);
+    let pubkey = String::from(sub_matches.value_of("pubkey").unwrap());
+
+    let success = pedersen.verify_public_key(pubkey.as_str(), &public_keys_vec);
+
+    if success {
+        println!("Performing sucessfully ");
+        println!("Private key corresponding to public key {} hashes to {}", pubkey, "todo");
+    } else {
+        println!("Private key corresponding to public key {} does not hash to {}", pubkey, "todo");
+    }
 
     Ok(())
 }
