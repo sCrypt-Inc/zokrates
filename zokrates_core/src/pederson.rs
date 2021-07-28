@@ -1,13 +1,11 @@
 use secp256k1zkp::{
-    constants, key, pedersen::Commitment, ContextFlag, PublicKey, Secp256k1, SecretKey,
+    key, pedersen::Commitment, ContextFlag, PublicKey, Secp256k1, SecretKey,
 };
 use serde::{Deserialize, Serialize};
 use zokrates_field::Field;
-use zokrates_field::Bn128Field;
-use zokrates_field::Secp256k1Field;
 use rand_0_5::{thread_rng, Rng};
 
-use sha2::{Sha256, Sha512, Digest};
+use sha2::{Sha256, Digest};
 use lazy_static::lazy_static;
 
 fn random_32_bytes<T: Field>() -> T {
@@ -424,15 +422,15 @@ impl Pedersen {
         //𝑧2=𝑟𝑅𝑥+𝑡5
         let z2 = computes_opening_value(&self.0, &prover.r_r, &x, &commit_mul.t5);
         //𝑧3=(𝑟𝑂−𝑤𝐿𝑟𝑅)𝑥+𝑡4
-        let mut 𝑤_l_𝑟_l = to_secret_key(&self.0, &prover.value_l);
-        𝑤_l_𝑟_l.mul_assign(&self.0, &prover.r_r.clone()).unwrap();
+        let mut w_l_r_l = to_secret_key(&self.0, &prover.value_l);
+        w_l_r_l.mul_assign(&self.0, &prover.r_r.clone()).unwrap();
 
-        let r_o_𝑤_l𝑟_r = self
+        let r_o_w_lr_r = self
             .0
-            .blind_sum(vec![prover.r_o.clone()], vec![𝑤_l_𝑟_l])
+            .blind_sum(vec![prover.r_o.clone()], vec![w_l_r_l])
             .unwrap();
 
-        let z3 = computes_opening_value(&self.0, &r_o_𝑤_l𝑟_r, &x, &commit_mul.t4);
+        let z3 = computes_opening_value(&self.0, &r_o_w_lr_r, &x, &commit_mul.t4);
         (e1, e2, z1, z2, z3)
     }
 

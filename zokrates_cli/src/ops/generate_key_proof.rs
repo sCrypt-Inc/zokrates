@@ -1,14 +1,12 @@
 use crate::constants;
-use crate::helpers::CurveParameter;
 use clap::{App, Arg, ArgMatches, SubCommand};
-use std::convert::TryFrom;
 use std::fs::File;
 use std::io::{BufReader, Read};
 use std::path::Path;
 use std::path::PathBuf;
 use zokrates_core::flat_absy::{FlatProg, FlatExpression, FlatStatement };
 use zokrates_core::ir::{self, Witness};
-use zokrates_field::{Bls12_377Field, Bls12_381Field, Bn128Field, Bw6_761Field, Field, Secp256k1Field};
+use zokrates_field::{ Field, Secp256k1Field};
 
 use zokrates_core::pederson::{GateProof, Pedersen, Proof};
 

@@ -1,9 +1,7 @@
 use crate::constants;
-use crate::helpers::*;
 use crate::ops::generate_key_proof::deserialize;
 use clap::{App, Arg, ArgMatches, SubCommand};
 use zokrates_core::pederson::Proof;
-use std::convert::TryFrom;
 use std::fs::File;
 use std::io::{BufReader, Read};
 use std::path::Path;
@@ -157,7 +155,6 @@ fn cli_verify(sub_matches: &ArgMatches) -> Result<(), String> {
 
 mod test {
 
-    use super::*;
 
     #[test]
     fn test_merge_hash() {
