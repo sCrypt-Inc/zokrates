@@ -170,6 +170,12 @@ impl GateProof {
 }
 
 
+#[derive(Debug,Serialize, Deserialize, Clone)]
+pub struct Proof {
+    pub proof: Vec<GateProof>,
+    pub inputs: Vec<String>,
+}
+
 pub struct Pedersen(Secp256k1);
 
 pub fn to_secret_key<T: Field>(secp: &Secp256k1, value: &T) -> SecretKey {

@@ -10,7 +10,7 @@ use zokrates_core::flat_absy::{FlatProg, FlatExpression, FlatStatement };
 use zokrates_core::ir::{self, Witness};
 use zokrates_field::{Bls12_377Field, Bls12_381Field, Bn128Field, Bw6_761Field, Field, Secp256k1Field};
 
-use zokrates_core::pederson::{Pedersen, GateProof};
+use zokrates_core::pederson::{GateProof, Pedersen, Proof};
 
 pub fn subcommand() -> App<'static, 'static> {
     SubCommand::with_name("generate-key-proof")
@@ -70,6 +70,17 @@ pub fn private_inputs_ids<T: Field>(flatprog: &FlatProg<T>) -> Vec<usize> {
     flatprog.main.arguments.iter().filter_map(|p| match p.private { 
         true => Some(p.id.id()),
         false => None
+     }).collect()
+}
+
+pub fn public_inputs<T: Field>(flatprog: &FlatProg<T>, witness: &Witness<T>) -> Vec<String> {
+    flatprog.main.arguments.iter().filter_map(|p| match p.private { 
+        false => {
+            let v = witness.getvariable(&p.id).unwrap();
+            Some(v.to_dec_string())
+        }
+        
+        true => None
      }).collect()
 }
 
@@ -143,7 +154,7 @@ fn cli_generate_key_proof<T: Field>(sub_matches: &ArgMatches) -> Result<(), Stri
     };
 
     let pedersen = Pedersen::new();
-    let mut proofs: Vec<GateProof> = vec![];
+    let mut gate_proofs: Vec<GateProof> = vec![];
     for statement in &flatprog.main.statements {
        
 
@@ -189,7 +200,7 @@ fn cli_generate_key_proof<T: Field>(sub_matches: &ArgMatches) -> Result<(), Stri
 
                 let proof = pedersen.generate_proof::<T>(&prover);
 
-                proofs.push(proof);
+                gate_proofs.push(proof);
 
             },
             FlatStatement::Condition(expr1, expr2, _) => {
@@ -234,7 +245,7 @@ fn cli_generate_key_proof<T: Field>(sub_matches: &ArgMatches) -> Result<(), Stri
 
                 let proof = pedersen.generate_proof::<T>(&prover);
 
-                proofs.push(proof);
+                gate_proofs.push(proof);
 
             },
             _ => (),
@@ -242,15 +253,19 @@ fn cli_generate_key_proof<T: Field>(sub_matches: &ArgMatches) -> Result<(), Stri
         }
     }
 
-    println!("proofs len {}", proofs.len());
+    println!("gate proofs count: {}", gate_proofs.len());
 
     let proofs_path = PathBuf::from(sub_matches.value_of("output").unwrap());
 
     let proofs_file = File::create(&proofs_path)
     .map_err(|why| format!("Could not create {}: {}", proofs_path.display(), why))?;
 
-    let result = serde_json::to_writer_pretty(std::io::BufWriter::new(proofs_file), &proofs);
+    let proof = Proof {
+        proof: gate_proofs,
+        inputs: public_inputs(&flatprog, &witness)
+    };
 
+    let result = serde_json::to_writer_pretty(std::io::BufWriter::new(proofs_file), &proof);
 
     match result {
         Ok(_) => println!("Output to proof.json"),

@@ -2,6 +2,7 @@ use crate::constants;
 use crate::helpers::*;
 use crate::ops::generate_key_proof::deserialize;
 use clap::{App, Arg, ArgMatches, SubCommand};
+use zokrates_core::pederson::Proof;
 use std::convert::TryFrom;
 use std::fs::File;
 use std::io::{BufReader, Read};
@@ -68,8 +69,10 @@ fn cli_verify(sub_matches: &ArgMatches) -> Result<(), String> {
         .map_err(|why| format!("Could not open {}: {}", proof_path.display(), why))?;
 
     let proof_reader = BufReader::new(proof_file);
-    let proofs:Vec<GateProof> = serde_json::from_reader(proof_reader)
+    let proof:Proof = serde_json::from_reader(proof_reader)
         .map_err(|why| format!("Could not deserialize proof: {}", why))?;
+
+    let proofs = proof.proof;
 
     let pedersen = Pedersen::new();
 
@@ -129,15 +132,42 @@ fn cli_verify(sub_matches: &ArgMatches) -> Result<(), String> {
     }
 
     println!("total gates:  {}...", index);
+
+    let public_inputs = proof.inputs;
+
+    let a = Secp256k1Field::try_from_str_no_mod(public_inputs[0].as_str(), 10).unwrap();
+    let b = Secp256k1Field::try_from_str_no_mod(public_inputs[1].as_str(), 10).unwrap();
+
+    let hash =  format!("{:#02x}{:#02x}", a, b);
+
     let pubkey = String::from(sub_matches.value_of("pubkey").unwrap());
 
     let success = pedersen.verify_public_key(pubkey.as_str(), &public_keys_vec);
 
     if success {
-        println!("Private key corresponding to public key {} hashes to {}", pubkey, "todo");
+        println!("Private key corresponding to public key {} hashes to {}", pubkey, hash);
     } else {
-        println!("Private key corresponding to public key {} does not hash to {}", pubkey, "todo");
+        println!("Private key corresponding to public key {} does not hash to {}", pubkey, hash);
     }
 
     Ok(())
+}
+
+
+
+mod test {
+
+    use super::*;
+
+    #[test]
+    fn test_merge_hash() {
+
+        let a = Secp256k1Field::try_from_str_no_mod("67428615251739275197038733346106089224", 10).unwrap();
+        let b = Secp256k1Field::try_from_str_no_mod("232995379825841761673536055030921300908", 10).unwrap();
+    
+        let hash =  format!("{:#02x}{:#02x}", a, b);
+
+        assert_eq!(hash, "32ba476771d01e37807990ead8719f08af494723de1d228f2c2c07cc0aa40bac");
+    }
+
 }
