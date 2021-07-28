@@ -10,7 +10,7 @@ use zokrates_core::flat_absy::{FlatProg, FlatExpression, FlatStatement };
 use zokrates_core::ir::{self, Witness};
 use zokrates_field::{Bls12_377Field, Bls12_381Field, Bn128Field, Bw6_761Field, Field, Secp256k1Field};
 
-use zokrates_core::pederson::{Pedersen, Proof};
+use zokrates_core::pederson::{Pedersen, GateProof};
 
 pub fn subcommand() -> App<'static, 'static> {
     SubCommand::with_name("generate-key-proof")
@@ -143,7 +143,7 @@ fn cli_generate_key_proof<T: Field>(sub_matches: &ArgMatches) -> Result<(), Stri
     };
 
     let pedersen = Pedersen::new();
-    let mut proofs: Vec<Proof> = vec![];
+    let mut proofs: Vec<GateProof> = vec![];
     for statement in &flatprog.main.statements {
        
 

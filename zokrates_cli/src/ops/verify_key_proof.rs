@@ -9,7 +9,7 @@ use std::path::Path;
 use std::path::PathBuf;
 use zokrates_field::{Field, Secp256k1Field};
 use zokrates_core::flat_absy::{FlatProg, FlatExpression, FlatStatement };
-use zokrates_core::pederson::{Pedersen, Proof};
+use zokrates_core::pederson::{Pedersen, GateProof};
 
 
 pub fn subcommand() -> App<'static, 'static> {
@@ -68,13 +68,13 @@ fn cli_verify(sub_matches: &ArgMatches) -> Result<(), String> {
         .map_err(|why| format!("Could not open {}: {}", proof_path.display(), why))?;
 
     let proof_reader = BufReader::new(proof_file);
-    let proofs:Vec<Proof> = serde_json::from_reader(proof_reader)
+    let proofs:Vec<GateProof> = serde_json::from_reader(proof_reader)
         .map_err(|why| format!("Could not deserialize proof: {}", why))?;
 
     let pedersen = Pedersen::new();
 
 
-    let check_proof = |proof: &Proof, expr| {
+    let check_proof = |proof: &GateProof, expr| {
         match expr {
             FlatExpression::Number(_) =>  {
 
@@ -98,7 +98,7 @@ fn cli_verify(sub_matches: &ArgMatches) -> Result<(), String> {
     for statement in &flatprog.main.statements {
         match statement {
             FlatStatement::Definition(_, expr) => {
-                let proof: Proof = proofs[index].clone();
+                let proof: GateProof = proofs[index].clone();
                 
                 check_proof(&proof, expr.clone());
 

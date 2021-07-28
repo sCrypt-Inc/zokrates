@@ -90,21 +90,26 @@ pub struct MulGateProof {
 }
 
 #[derive(Debug,Serialize, Deserialize, Clone)]
-pub enum Proof {
+pub enum GateProof {
     AddGate(AddGateProof),
     MulGate(MulGateProof),
 }
 
-impl Proof {
+
+
+
+
+
+impl GateProof {
     pub fn is_add_gate(&self) -> bool {
         match self {
-            Proof::AddGate(_) => true,
+            GateProof::AddGate(_) => true,
             _ => false,
         }
     }
     pub fn is_mul_gate(&self) -> bool {
         match self {
-            Proof::MulGate(_) => true,
+            GateProof::MulGate(_) => true,
             _ => false,
         }
     }
@@ -112,10 +117,10 @@ impl Proof {
 
     pub fn has_opening_key(&self) -> bool {
         match self {
-            Proof::MulGate(proof) => {
+            GateProof::MulGate(proof) => {
                 proof.opening_keys.is_some()
             },
-            Proof::AddGate(proof) => {
+            GateProof::AddGate(proof) => {
                 proof.opening_keys.is_some()
             },
         }
@@ -142,7 +147,7 @@ impl Proof {
         };
 
         match self {
-            Proof::MulGate(proof) => {
+            GateProof::MulGate(proof) => {
                 match &proof.opening_keys {
                     Some(opening_keys) => {
                         opening(&proof.commits, opening_keys)
@@ -150,7 +155,7 @@ impl Proof {
                     None => vec![]
                 }
             },
-            Proof::AddGate(proof) => {
+            GateProof::AddGate(proof) => {
                 match &proof.opening_keys {
                     Some(opening_keys) => {
                         opening(&proof.commits, opening_keys)
@@ -555,7 +560,7 @@ impl Pedersen {
     pub fn generate_proof<T: Field>(
         &self,
         prover: &Prover<T>,
-    ) -> Proof {
+    ) -> GateProof {
 
 
         let is_add_gate = match &prover.commit_add {
@@ -593,7 +598,7 @@ impl Pedersen {
      
             let z = self.prove_add_gate(T::from_byte_vector(result.to_vec()), &prover);
 
-            Proof::AddGate(AddGateProof {
+            GateProof::AddGate(AddGateProof {
                 z: hex::encode(z.0),
                 b_commit:hex::encode(b_commit.0) ,
                 commits: vec![hex::encode(prover.witness.W_L.0) , hex::encode(prover.witness.W_R.0),hex::encode(prover.witness.W_O.0) ],
@@ -617,7 +622,7 @@ impl Pedersen {
 
             let tuple = self.prove_mul_gate(T::from_byte_vector(result.to_vec()), &prover);
 
-            Proof::MulGate(MulGateProof {
+            GateProof::MulGate(MulGateProof {
                 tuple: (hex::encode(tuple.0.0),hex::encode(tuple.1.0),hex::encode(tuple.2.0),hex::encode(tuple.3.0),hex::encode(tuple.4.0) ),
                 c_commits: vec![hex::encode(commits_mul.c1_commit.0) , hex::encode(commits_mul.c2_commit.0), hex::encode(commits_mul.c3_commit.0)],
                 commits: vec![hex::encode(prover.witness.W_L.0) , hex::encode(prover.witness.W_R.0),hex::encode(prover.witness.W_O.0) ],
@@ -714,13 +719,13 @@ impl Pedersen {
 
     pub fn verify_proof<T: Field>(
         &self,
-        proof: &Proof,
+        proof: &GateProof,
     ) -> bool {
         match proof {
-            Proof::AddGate(p) => {
+            GateProof::AddGate(p) => {
                 self.verify_add_proof::<T>(&p)
             }
-            Proof::MulGate(p) => {
+            GateProof::MulGate(p) => {
                 self.verify_mul_proof::<T>(&p)
             }
         }
