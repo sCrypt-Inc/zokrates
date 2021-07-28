@@ -1,20 +1,23 @@
 use secp256k1zkp::{
-    constants, key, pedersen::Commitment, ContextFlag, PublicKey, Secp256k1, SecretKey,
+    key, pedersen::Commitment, ContextFlag, PublicKey, Secp256k1, SecretKey,
 };
 use serde::{Deserialize, Serialize};
 use zokrates_field::Field;
-use zokrates_field::Bn128Field;
-use zokrates_field::Secp256k1Field;
 use rand_0_5::{thread_rng, Rng};
 
-use sha2::{Sha256, Sha512, Digest};
-
+use sha2::{Sha256, Digest};
+use lazy_static::lazy_static;
 
 fn random_32_bytes<T: Field>() -> T {
     let mut rng = thread_rng();
     let mut ret = [0u8; 32];
     rng.fill(&mut ret);
     T::from_byte_vector(ret.to_vec())
+}
+
+lazy_static! {
+    //let F = secp.commit_blind(key::ONE_KEY, key::ZERO_KEY).unwrap();
+    pub static ref F: Commitment = Commitment::from_vec(vec![9, 80, 146, 155, 116, 193, 160, 73, 84, 183, 139, 75, 96, 53, 233, 122, 94, 7, 138, 90, 15, 40, 236, 150, 213, 71, 191, 238, 154, 206, 128, 58, 192]);
 }
 
 
@@ -55,6 +58,14 @@ pub struct Prover<T: Field> {
     witness: PedersenWitness,
     commit_add: Option<CommitAdd>,
     commit_mul: Option<CommitMul>,
+    opening_key_indices: Option<Vec<usize>>,
+}
+
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct OpeningKey {
+    r: String,
+    index: usize,
 }
 
 
@@ -63,6 +74,8 @@ pub struct AddGateProof {
     z: String,
     b_commit: String,
     commits: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    opening_keys: Option<Vec<OpeningKey>>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -70,29 +83,96 @@ pub struct MulGateProof {
     tuple:  (String, String, String, String, String),
     c_commits: Vec<String>,
     commits:Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    opening_keys: Option<Vec<OpeningKey>>,
 }
 
 #[derive(Debug,Serialize, Deserialize, Clone)]
-pub enum Proof {
+pub enum GateProof {
     AddGate(AddGateProof),
     MulGate(MulGateProof),
 }
 
-impl Proof {
+
+
+
+
+
+impl GateProof {
     pub fn is_add_gate(&self) -> bool {
         match self {
-            Proof::AddGate(_) => true,
+            GateProof::AddGate(_) => true,
             _ => false,
         }
     }
     pub fn is_mul_gate(&self) -> bool {
         match self {
-            Proof::MulGate(_) => true,
+            GateProof::MulGate(_) => true,
             _ => false,
         }
     }
+
+
+    pub fn has_opening_key(&self) -> bool {
+        match self {
+            GateProof::MulGate(proof) => {
+                proof.opening_keys.is_some()
+            },
+            GateProof::AddGate(proof) => {
+                proof.opening_keys.is_some()
+            },
+        }
+    }
+
+
+    pub fn opening_public_keys(&self) -> Vec<String> {
+
+        let opening = |commits: &Vec<String>, opening_keys: &Vec<OpeningKey>| {
+            let secp = Secp256k1::with_caps(ContextFlag::Commit);
+
+            opening_keys.iter().map(| opening|  {
+
+                let public_key = secp.commit_sum(
+                        vec![
+                            string_to_commit(&commits[opening.index])
+                        ],
+                        vec![mul_commit_secret(&secp, &F, &string_to_secret_key(&secp, &opening.r))],
+                    )
+                    .unwrap().to_pubkey(&secp).unwrap();
+
+                    hex::encode(public_key.serialize_vec(&secp, false))
+            }).collect()
+        };
+
+        match self {
+            GateProof::MulGate(proof) => {
+                match &proof.opening_keys {
+                    Some(opening_keys) => {
+                        opening(&proof.commits, opening_keys)
+                    }, 
+                    None => vec![]
+                }
+            },
+            GateProof::AddGate(proof) => {
+                match &proof.opening_keys {
+                    Some(opening_keys) => {
+                        opening(&proof.commits, opening_keys)
+                    }, 
+                    None => vec![]
+                }
+            },
+        }
+    }
+
+
 }
 
+
+#[derive(Debug,Serialize, Deserialize, Clone)]
+pub struct Proof {
+    pub proof: Vec<GateProof>,
+    pub inputs: Vec<String>,
+}
 
 pub struct Pedersen(Secp256k1);
 
@@ -166,7 +246,45 @@ fn value_to_commit<T: Field>(secp: &Secp256k1, v: &T, blind: SecretKey) -> Commi
 
     let value = wrapp_value(v);
 
-    secp.commit_blind(to_secret_key(secp, &value), blind).unwrap()
+    secp.commit_blind(blind, to_secret_key(secp, &value)).unwrap()
+}
+
+fn secret_value_to_commit(secp: &Secp256k1, value: SecretKey, blind: SecretKey) -> Commitment {
+    secp.commit_blind(blind, value).unwrap()
+}
+
+
+pub static POW_2_128: SecretKey = SecretKey([0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 1,
+    0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0]);
+
+// Since the private key is split into two parts and used as input, we can only calculate the public key 
+// corresponding to the partial private key from the witness, and then use these two public keys to calculate
+// the public key of the original private key
+// pubkey0 = Commit0 - keyopen0 * F
+// pubkey1 = Commit1 - keyopen1 * F 
+// original_pubkey = pubkey0 * 2^128 + pubkey1
+fn open_public_key(
+    secp: &Secp256k1,
+    public_keys: &Vec<String>
+) -> String {
+
+
+    let data = hex::decode(public_keys[0].clone()).unwrap();
+    let mut public_key_0 = PublicKey::from_slice(secp, &data).unwrap();
+
+    let data = hex::decode(public_keys[1].clone()).unwrap();
+    let public_key_1 = PublicKey::from_slice(secp, &data).unwrap();
+    
+    public_key_0.mul_assign(&secp, &POW_2_128).unwrap();
+    let mut v: Vec<&PublicKey> = vec![];
+    v.push(&public_key_0);
+    v.push(&public_key_1);
+    
+    let opened_publickey = PublicKey::from_combination(secp, v).unwrap();
+   
+    hex::encode(opened_publickey.serialize_vec(secp, false))
 }
 
 
@@ -175,7 +293,7 @@ impl Pedersen {
         Pedersen(Secp256k1::with_caps(ContextFlag::Commit))
     }
 
-    pub fn generate_add_prover<T: Field>(&self, value_l: T, value_r: T, value_o: T) -> Prover<T> {
+    pub fn generate_add_prover<T: Field>(&self, value_l: T, value_r: T, value_o: T, opening_key_indexs: Option<Vec<usize>>) -> Prover<T> {
         let r_l = SecretKey::new(&self.0, &mut thread_rng());
         let r_r = SecretKey::new(&self.0, &mut thread_rng());
         let r_o = SecretKey::new(&self.0, &mut thread_rng());
@@ -183,7 +301,7 @@ impl Pedersen {
         let r_b = SecretKey::new(&self.0, &mut thread_rng());
         let commit_add = CommitAdd {
             r_b: r_b.clone(),
-            b_commit: self.0.commit(0, r_b.clone()).unwrap(),
+            b_commit: value_to_commit(&self.0, &T::from(0), r_b.clone()),
         };
 
         let witness = PedersenWitness {
@@ -202,10 +320,11 @@ impl Pedersen {
             witness: witness,
             commit_add: Some(commit_add),
             commit_mul: None,
+            opening_key_indices: opening_key_indexs
         }
     }
 
-    pub fn generate_mul_prover<T: Field>(&self, value_l: T, value_r: T, value_o: T) -> Prover<T> {
+    pub fn generate_mul_prover<T: Field>(&self, value_l: T, value_r: T, value_o: T, opening_key_indexs: Option<Vec<usize>>) -> Prover<T> {
         let r_l = SecretKey::new(&self.0, &mut thread_rng());
         let r_r = SecretKey::new(&self.0, &mut thread_rng());
         let r_o = SecretKey::new(&self.0, &mut thread_rng());
@@ -221,8 +340,6 @@ impl Pedersen {
             W_R: value_to_commit(&self.0, &value_r, r_r.clone()),
             W_O: value_to_commit(&self.0, &value_o, r_o.clone()),
         };
-
-        let F = self.0.commit(0, key::ONE_KEY).unwrap();
 
         let c3_commit = self
             .0
@@ -241,8 +358,8 @@ impl Pedersen {
             t3: t3.clone(),
             t4: t4.clone(),
             t5: t5.clone(),
-            c1_commit: self.0.commit_blind(t1, t3.clone()).unwrap(), //𝐶1 = 𝐶𝑜𝑚(𝑡1,𝑡3),
-            c2_commit: self.0.commit_blind(t2, t5.clone()).unwrap(), //𝐶2 = 𝐶𝑜𝑚(𝑡2,𝑡5)
+            c1_commit: secret_value_to_commit(&self.0, t1.clone(), t3.clone()), //𝐶1 = 𝐶𝑜𝑚(𝑡1,𝑡3),
+            c2_commit: secret_value_to_commit(&self.0, t2.clone(), t5.clone()), //𝐶2 = 𝐶𝑜𝑚(𝑡2,𝑡5)
             c3_commit: c3_commit,                                    //𝐶3 = 𝑡1×𝑊𝑅+𝑡4×𝐹
         };
 
@@ -256,6 +373,7 @@ impl Pedersen {
             witness: witness,
             commit_add: None,
             commit_mul: Some(commit_mul),
+            opening_key_indices: opening_key_indexs
         }
     }
 
@@ -304,15 +422,15 @@ impl Pedersen {
         //𝑧2=𝑟𝑅𝑥+𝑡5
         let z2 = computes_opening_value(&self.0, &prover.r_r, &x, &commit_mul.t5);
         //𝑧3=(𝑟𝑂−𝑤𝐿𝑟𝑅)𝑥+𝑡4
-        let mut 𝑤_l_𝑟_l = to_secret_key(&self.0, &prover.value_l);
-        𝑤_l_𝑟_l.mul_assign(&self.0, &prover.r_r.clone()).unwrap();
+        let mut w_l_r_l = to_secret_key(&self.0, &prover.value_l);
+        w_l_r_l.mul_assign(&self.0, &prover.r_r.clone()).unwrap();
 
-        let r_o_𝑤_l𝑟_r = self
+        let r_o_w_lr_r = self
             .0
-            .blind_sum(vec![prover.r_o.clone()], vec![𝑤_l_𝑟_l])
+            .blind_sum(vec![prover.r_o.clone()], vec![w_l_r_l])
             .unwrap();
 
-        let z3 = computes_opening_value(&self.0, &r_o_𝑤_l𝑟_r, &x, &commit_mul.t4);
+        let z3 = computes_opening_value(&self.0, &r_o_w_lr_r, &x, &commit_mul.t4);
         (e1, e2, z1, z2, z3)
     }
 
@@ -337,7 +455,7 @@ impl Pedersen {
 
         let w_right = self.0.commit_sum(vec![w_sum, b_commit], vec![]).unwrap();
 
-        let w_left = self.0.commit(0, z.clone()).unwrap();
+        let w_left = value_to_commit(&self.0, &T::from(0), z);
 
         w_left == w_right
     }
@@ -358,7 +476,7 @@ impl Pedersen {
         };
 
         let verify_equation = |e: SecretKey, z: SecretKey, w: Commitment, c: Commitment| {
-            let w_left = self.0.commit_blind(e, z).unwrap();
+            let w_left = self.0.commit_blind(z, e).unwrap();
             let w_right = right_expr(w, c);
             w_left == w_right
         };
@@ -371,8 +489,6 @@ impl Pedersen {
 
         //𝑒1×𝑊𝑅+𝑧3×𝐹=𝑥×𝑊𝑂+𝐶3
         // 𝐶3 = 𝑡1×𝑊𝑅+𝑡4×𝐹
-
-        let F = self.0.commit(0, key::ONE_KEY).unwrap();
 
         let w_left = self
             .0
@@ -448,12 +564,24 @@ impl Pedersen {
     pub fn generate_proof<T: Field>(
         &self,
         prover: &Prover<T>,
-    ) -> Proof {
+    ) -> GateProof {
 
 
         let is_add_gate = match &prover.commit_add {
             Some(_) => true,
             None => false,
+        };
+
+        let opening_keys = match &prover.opening_key_indices {
+            Some(indexs) => indexs.iter().map(|index| {
+                match index {
+                    0 => OpeningKey { r: hex::encode(prover.r_l.0), index: 0 },
+                    1 => OpeningKey { r: hex::encode(prover.r_r.0), index: 1 },
+                    _ => panic!("opening_indexs should never be {}", index)
+                }
+
+            }).collect(),
+            None => vec![],
         };
 
         let sha256 = Sha256::new();
@@ -474,10 +602,11 @@ impl Pedersen {
      
             let z = self.prove_add_gate(T::from_byte_vector(result.to_vec()), &prover);
 
-            Proof::AddGate(AddGateProof {
+            GateProof::AddGate(AddGateProof {
                 z: hex::encode(z.0),
                 b_commit:hex::encode(b_commit.0) ,
-                commits: vec![hex::encode(prover.witness.W_L.0) , hex::encode(prover.witness.W_R.0),hex::encode(prover.witness.W_O.0) ]
+                commits: vec![hex::encode(prover.witness.W_L.0) , hex::encode(prover.witness.W_R.0),hex::encode(prover.witness.W_O.0) ],
+                opening_keys: if opening_keys.len() == 0 {None} else {Some(opening_keys)},
             })
 
         } else {
@@ -497,10 +626,11 @@ impl Pedersen {
 
             let tuple = self.prove_mul_gate(T::from_byte_vector(result.to_vec()), &prover);
 
-            Proof::MulGate(MulGateProof {
+            GateProof::MulGate(MulGateProof {
                 tuple: (hex::encode(tuple.0.0),hex::encode(tuple.1.0),hex::encode(tuple.2.0),hex::encode(tuple.3.0),hex::encode(tuple.4.0) ),
                 c_commits: vec![hex::encode(commits_mul.c1_commit.0) , hex::encode(commits_mul.c2_commit.0), hex::encode(commits_mul.c3_commit.0)],
-                commits: vec![hex::encode(prover.witness.W_L.0) , hex::encode(prover.witness.W_R.0),hex::encode(prover.witness.W_O.0) ]
+                commits: vec![hex::encode(prover.witness.W_L.0) , hex::encode(prover.witness.W_R.0),hex::encode(prover.witness.W_O.0) ],
+                opening_keys: if opening_keys.len() == 0 {None} else {Some(opening_keys)},
             })
         }
     }
@@ -593,16 +723,29 @@ impl Pedersen {
 
     pub fn verify_proof<T: Field>(
         &self,
-        proof: &Proof,
+        proof: &GateProof,
     ) -> bool {
         match proof {
-            Proof::AddGate(p) => {
+            GateProof::AddGate(p) => {
                 self.verify_add_proof::<T>(&p)
             }
-            Proof::MulGate(p) => {
+            GateProof::MulGate(p) => {
                 self.verify_mul_proof::<T>(&p)
             }
         }
+    }
+
+
+    pub fn verify_public_key(
+        &self,
+        pubkey_expected: &str,
+        public_keys: &Vec<String>
+    ) -> bool {
+
+        let pubkey = open_public_key(&self.0, public_keys);
+
+        pubkey.eq(&String::from(pubkey_expected))
+
     }
 
 }
@@ -620,7 +763,7 @@ mod test {
 
         let pederson = Pedersen::new();
         // 4 = 1 + 3
-        let prover = pederson.generate_add_prover(a.clone(), b.clone(), c.clone());
+        let prover = pederson.generate_add_prover(a.clone(), b.clone(), c.clone(), None);
 
     
         let b_commit = match prover.commit_add.clone() {
@@ -652,7 +795,7 @@ mod test {
         let x = T::from(rng.next_u32());
 
     
-        let prover = pederson.generate_mul_prover(a, b, c);
+        let prover = pederson.generate_mul_prover(a, b, c, None);
 
     
         let tuple = pederson.prove_mul_gate::<T>(x.clone(), &prover);
@@ -703,7 +846,7 @@ mod test {
     fn test_add_proof<T: Field>(a: T, b: T, c: T) {
 
         let pederson = Pedersen::new();
-        let prover = pederson.generate_add_prover(a.clone(), b.clone(), c.clone());
+        let prover = pederson.generate_add_prover(a.clone(), b.clone(), c.clone(), None);
         let proof = pederson.generate_proof::<T>(&prover);
         let success = pederson.verify_proof::<T>(&proof);
         assert!(success, "test_add_proof fail a: {}, b: {}, c: {}", a, b, c);
@@ -712,7 +855,7 @@ mod test {
     fn test_mul_proof<T: Field>(a: T, b: T, c: T) {
 
         let pederson = Pedersen::new();
-        let prover = pederson.generate_mul_prover(a.clone(), b.clone(), c.clone());
+        let prover = pederson.generate_mul_prover(a.clone(), b.clone(), c.clone(), None);
         let proof = pederson.generate_proof::<T>(&prover);
         let success = pederson.verify_proof::<T>(&proof);
         assert!(success, "test_mul_proof fail a: {}, b: {}, c: {}", a, b, c);
@@ -788,6 +931,54 @@ mod test {
         
         assert_eq!(c1, c3);
 
+    }  
+
+
+    #[test]
+    fn test_open_origin_public_key() {
+
+        let secp = Secp256k1::with_caps(ContextFlag::Commit);
+
+        let mut public_keys: Vec<String> = vec![];
+
+        public_keys.push(String::from("0490bccc7e8d1a49a38c497cfcc068cb014d9396e4ac8b6c0e58419ec0486144d7bc5e2b996f368cd67ac103fd2acf28117d13b2ec2525e12b4b4fc49fccd3aec5"));
+        public_keys.push(String::from("04551e82ce27bcb8d71cb0fa39b4caf3065c8c18179a0c8f548eacf5df52a2ebf7802b3de33ae8f0e94ec8e98ab0a17f5a9a300634f25e0af2bb11b6ef6225d343"));
+
+        
+        let opened_publickey = open_public_key(&secp, &public_keys);
+
+        assert_eq!(opened_publickey, String::from("0494d6deea102c33307a5ae7e41515198f6fc19d3b11abeca5bff56f1011ed2d8e3d8f02cbd20e8c53d8050d681397775d0dc8b0ad406b261f9b4c94404201cab3"));
+
+    }  
+
+
+
+
+    #[test]
+    fn test_open_public_key_of_partial_secret_key() {
+
+        let secp = Secp256k1::with_caps(ContextFlag::Commit);
+
+        let value = Secp256k1Field::try_from_str_no_mod("00000000000000000000000000000000ec4916dd28fc4c10d78e287ca5d9cc51", 16).unwrap();
+        let blind = string_to_secret_key(&secp,&String::from("0750b10b3b1124eb62484eddd27ace074168e310d3edae11f29129bb1d666241"));
+        
+
+        let commit = value_to_commit(&secp, &value, blind.clone());
+
+
+        let rf = mul_commit_secret(&secp, &F, &blind);
+
+        let public_key = secp.commit_sum(
+            vec![
+                commit
+            ],
+            vec![rf],
+        )
+        .unwrap().to_pubkey(&secp).unwrap();
+        
+        let public_key_str =  hex::encode(public_key.serialize_vec(&secp, false));
+
+        assert_eq!(public_key_str, "0490bccc7e8d1a49a38c497cfcc068cb014d9396e4ac8b6c0e58419ec0486144d7bc5e2b996f368cd67ac103fd2acf28117d13b2ec2525e12b4b4fc49fccd3aec5")
     }  
 
 }

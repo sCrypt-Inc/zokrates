@@ -1,16 +1,14 @@
 use crate::constants;
-use crate::helpers::CurveParameter;
 use clap::{App, Arg, ArgMatches, SubCommand};
-use std::convert::TryFrom;
 use std::fs::File;
 use std::io::{BufReader, Read};
 use std::path::Path;
 use std::path::PathBuf;
 use zokrates_core::flat_absy::{FlatProg, FlatExpression, FlatStatement };
 use zokrates_core::ir::{self, Witness};
-use zokrates_field::{Bls12_377Field, Bls12_381Field, Bn128Field, Bw6_761Field, Field, Secp256k1Field};
+use zokrates_field::{ Field, Secp256k1Field};
 
-use zokrates_core::pederson::{Pedersen, Proof};
+use zokrates_core::pederson::{GateProof, Pedersen, Proof};
 
 pub fn subcommand() -> App<'static, 'static> {
     SubCommand::with_name("generate-key-proof")
@@ -66,9 +64,20 @@ pub fn deserialize<T: Field>(source: String) -> Result<FlatProg<T>, serde_json::
 }
 
 
-pub fn public_inputs_values<T: Field>(flatprog: &FlatProg<T>, witness: &Witness<T> ) -> Vec<T> {
+pub fn private_inputs_ids<T: Field>(flatprog: &FlatProg<T>) -> Vec<usize> {
     flatprog.main.arguments.iter().filter_map(|p| match p.private { 
-        false => Some(witness.getvariable(&p.id).unwrap().clone()),
+        true => Some(p.id.id()),
+        false => None
+     }).collect()
+}
+
+pub fn public_inputs<T: Field>(flatprog: &FlatProg<T>, witness: &Witness<T>) -> Vec<String> {
+    flatprog.main.arguments.iter().filter_map(|p| match p.private { 
+        false => {
+            let v = witness.getvariable(&p.id).unwrap();
+            Some(v.to_dec_string())
+        }
+        
         true => None
      }).collect()
 }
@@ -91,7 +100,7 @@ fn cli_generate_key_proof<T: Field>(sub_matches: &ArgMatches) -> Result<(), Stri
     let witness = deserialize_witness::<T>(sub_matches).unwrap();
     
 
-    let public_inputs = public_inputs_values::<T>(&flatprog, &witness);
+    let private_inputs = private_inputs_ids::<T>(&flatprog);
 
 
     let fetch_expr_value_closure =  |a: &Box<FlatExpression<T>>, b: &Box<FlatExpression<T>>| {
@@ -114,8 +123,36 @@ fn cli_generate_key_proof<T: Field>(sub_matches: &ArgMatches) -> Result<(), Stri
         (a_value.clone(), b_value.clone())
     };
 
+    let fetch_opening_closure =  |a: &Box<FlatExpression<T>>, b: &Box<FlatExpression<T>>| {
+        let is_a_opening_key = match a.as_ref() {
+            FlatExpression::Identifier(v) => private_inputs.contains(&v.id()),
+            _ => false
+        };
+
+        let is_b_opening_key = match b.as_ref() {
+            FlatExpression::Identifier(v) => private_inputs.contains(&v.id()),
+            _ => false
+        };
+
+
+        let mut opening_key_indexs = None;
+        if is_a_opening_key || is_b_opening_key {
+            let mut indexs = vec![];
+            if is_a_opening_key {
+                indexs.push(0);
+            }
+
+            if is_b_opening_key {
+                indexs.push(1);
+            } 
+            opening_key_indexs = Some(indexs);
+        }
+
+        opening_key_indexs
+    };
+
     let pedersen = Pedersen::new();
-    let mut proofs: Vec<Proof> = vec![];
+    let mut gate_proofs: Vec<GateProof> = vec![];
     for statement in &flatprog.main.statements {
        
 
@@ -123,27 +160,30 @@ fn cli_generate_key_proof<T: Field>(sub_matches: &ArgMatches) -> Result<(), Stri
             
             FlatStatement::Definition(variable, expr) => {
                 
-
+                
                 let value_o = witness.getvariable(variable).unwrap().clone();
 
                 let prover = match expr {
                     FlatExpression::Number(v) =>  {
 
-                        pedersen.generate_mul_prover(T::from(1), v.clone(), value_o)
+                        pedersen.generate_mul_prover(T::from(1), v.clone(), value_o, None)
                     },
                     FlatExpression::Identifier(v) => {
                         let v = witness.getvariable(v).unwrap().clone();
 
-                        pedersen.generate_mul_prover(T::from(1), v.clone(), value_o)
+                        pedersen.generate_mul_prover(T::from(1), v.clone(), value_o, None)
                     },
                     FlatExpression::Add(a, b) => {
                         let (a_value,b_value ) = fetch_expr_value_closure(a, b);
-                        //pedersen.generate_add_prover(a_value.clone(), b_value, left_value);
-                        pedersen.generate_add_prover(a_value, b_value, value_o)
+                        let opening_key_indexs = fetch_opening_closure(a, b);
+  
+                        pedersen.generate_add_prover(a_value, b_value, value_o, opening_key_indexs)
+
                     },
                     FlatExpression::Mult(a, b) => {
                         let (a_value,b_value ) = fetch_expr_value_closure(a, b);
-                        pedersen.generate_mul_prover(a_value, b_value, value_o)
+                        let opening_key_indexs = fetch_opening_closure(a, b);
+                        pedersen.generate_mul_prover(a_value, b_value, value_o, opening_key_indexs)
                     }
                     FlatExpression::Sub(_, _) => panic!("There must NOT be Sub expr in FlatProg."),
 
@@ -158,7 +198,7 @@ fn cli_generate_key_proof<T: Field>(sub_matches: &ArgMatches) -> Result<(), Stri
 
                 let proof = pedersen.generate_proof::<T>(&prover);
 
-                proofs.push(proof);
+                gate_proofs.push(proof);
 
             },
             FlatStatement::Condition(expr1, expr2, _) => {
@@ -173,21 +213,22 @@ fn cli_generate_key_proof<T: Field>(sub_matches: &ArgMatches) -> Result<(), Stri
                 let prover = match expr2 {
                     FlatExpression::Number(v) =>  {
 
-                        pedersen.generate_mul_prover(T::from(1), v.clone(), value_o)
+                        pedersen.generate_mul_prover(T::from(1), v.clone(), value_o, None)
                     },
                     FlatExpression::Identifier(v) => {
                         let v = witness.getvariable(v).unwrap().clone();
 
-                        pedersen.generate_mul_prover(T::from(1), v.clone(), value_o)
+                        pedersen.generate_mul_prover(T::from(1), v.clone(), value_o, None)
                     },
                     FlatExpression::Add(a, b) => {
                         let (a_value,b_value ) = fetch_expr_value_closure(a, b);
-                        //pedersen.generate_add_prover(a_value.clone(), b_value, left_value);
-                        pedersen.generate_add_prover(a_value, b_value, value_o)
+                        let opening_key_indexs = fetch_opening_closure(a, b);
+                        pedersen.generate_add_prover(a_value, b_value, value_o, opening_key_indexs)
                     },
                     FlatExpression::Mult(a, b) => {
                         let (a_value,b_value ) = fetch_expr_value_closure(a, b);
-                        pedersen.generate_mul_prover(a_value, b_value, value_o)
+                        let opening_key_indexs = fetch_opening_closure(a, b);
+                        pedersen.generate_mul_prover(a_value, b_value, value_o, opening_key_indexs )
                     }
                     FlatExpression::Sub(_, _) => panic!("There must NOT be Sub expr in FlatProg."),
 
@@ -202,7 +243,7 @@ fn cli_generate_key_proof<T: Field>(sub_matches: &ArgMatches) -> Result<(), Stri
 
                 let proof = pedersen.generate_proof::<T>(&prover);
 
-                proofs.push(proof);
+                gate_proofs.push(proof);
 
             },
             _ => (),
@@ -210,15 +251,19 @@ fn cli_generate_key_proof<T: Field>(sub_matches: &ArgMatches) -> Result<(), Stri
         }
     }
 
-    println!("proofs len {}", proofs.len());
+    println!("gate proofs count: {}", gate_proofs.len());
 
     let proofs_path = PathBuf::from(sub_matches.value_of("output").unwrap());
 
     let proofs_file = File::create(&proofs_path)
     .map_err(|why| format!("Could not create {}: {}", proofs_path.display(), why))?;
 
-    let result = serde_json::to_writer_pretty(std::io::BufWriter::new(proofs_file), &proofs);
+    let proof = Proof {
+        proof: gate_proofs,
+        inputs: public_inputs(&flatprog, &witness)
+    };
 
+    let result = serde_json::to_writer_pretty(std::io::BufWriter::new(proofs_file), &proof);
 
     match result {
         Ok(_) => println!("Output to proof.json"),

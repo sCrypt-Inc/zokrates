@@ -297,6 +297,12 @@ mod prime_field {
                 }
             }
 
+            impl fmt::LowerHex for FieldPrime {
+                fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+                    f.pad_integral(true, "", &self.value.to_str_radix(16))
+                }
+            }
+
             impl Debug for FieldPrime {
                 fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
                     write!(f, "{}", self.value.to_str_radix(10))
