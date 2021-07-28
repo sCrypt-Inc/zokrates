@@ -60,7 +60,7 @@ pub struct Prover<T: Field> {
     witness: PedersenWitness,
     commit_add: Option<CommitAdd>,
     commit_mul: Option<CommitMul>,
-    opening_key_indexs: Option<Vec<usize>>,
+    opening_key_indices: Option<Vec<usize>>,
 }
 
 
@@ -113,46 +113,39 @@ impl Proof {
     pub fn has_opening_key(&self) -> bool {
         match self {
             Proof::MulGate(proof) => {
-                match &proof.opening_keys {
-                    Some(_) => {
-                        true
-                    }, 
-                    None => false
-                }
+                proof.opening_keys.is_some()
             },
             Proof::AddGate(proof) => {
-                match &proof.opening_keys {
-                    Some(_) => {
-                        true
-                    }, 
-                    None => false
-                }
+                proof.opening_keys.is_some()
             },
         }
     }
 
 
-    pub fn get_public_keys(&self) -> Vec<String> {
+    pub fn opening_public_keys(&self) -> Vec<String> {
+
+        let opening = |commits: &Vec<String>, opening_keys: &Vec<OpeningKey>| {
+            let secp = Secp256k1::with_caps(ContextFlag::Commit);
+
+            opening_keys.iter().map(| opening|  {
+
+                let public_key = secp.commit_sum(
+                        vec![
+                            string_to_commit(&commits[opening.index])
+                        ],
+                        vec![mul_commit_secret(&secp, &F, &string_to_secret_key(&secp, &opening.r))],
+                    )
+                    .unwrap().to_pubkey(&secp).unwrap();
+
+                    hex::encode(public_key.serialize_vec(&secp, false))
+            }).collect()
+        };
 
         match self {
             Proof::MulGate(proof) => {
                 match &proof.opening_keys {
                     Some(opening_keys) => {
-                        
-                        let secp = Secp256k1::with_caps(ContextFlag::Commit);
-
-                        opening_keys.iter().map(| opening|  {
-
-                            let public_key = secp.commit_sum(
-                                    vec![
-                                        string_to_commit(&proof.commits[opening.index])
-                                    ],
-                                    vec![mul_commit_secret(&secp, &F, &string_to_secret_key(&secp, &opening.r))],
-                                )
-                                .unwrap().to_pubkey(&secp).unwrap();
-
-                                hex::encode(public_key.serialize_vec(&secp, false))
-                        }).collect()
+                        opening(&proof.commits, opening_keys)
                     }, 
                     None => vec![]
                 }
@@ -160,19 +153,7 @@ impl Proof {
             Proof::AddGate(proof) => {
                 match &proof.opening_keys {
                     Some(opening_keys) => {
-                        let secp = Secp256k1::with_caps(ContextFlag::Commit);
-                        opening_keys.iter().map(| opening|  {
-
-                            let public_key = secp.commit_sum(
-                                    vec![
-                                        string_to_commit(&proof.commits[opening.index])
-                                    ],
-                                    vec![mul_commit_secret(&secp, &F, &string_to_secret_key(&secp, &opening.r))],
-                                )
-                                .unwrap().to_pubkey(&secp).unwrap();
-
-                                hex::encode(public_key.serialize_vec(&secp, false))
-                        }).collect()
+                        opening(&proof.commits, opening_keys)
                     }, 
                     None => vec![]
                 }
@@ -264,12 +245,17 @@ fn secret_value_to_commit(secp: &Secp256k1, value: SecretKey, blind: SecretKey) 
 }
 
 
-pub static _2_128: SecretKey = SecretKey([0, 0, 0, 0, 0, 0, 0, 0,
+pub static POW_2_128: SecretKey = SecretKey([0, 0, 0, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0, 0, 1,
     0, 0, 0, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0, 0, 0]);
 
-
+// Since the private key is split into two parts and used as input, we can only calculate the public key 
+// corresponding to the partial private key from the witness, and then use these two public keys to calculate
+// the public key of the original private key
+// pubkey0 = Commit0 - keyopen0 * F
+// pubkey1 = Commit1 - keyopen1 * F 
+// original_pubkey = pubkey0 * 2^128 + pubkey1
 fn open_public_key(
     secp: &Secp256k1,
     public_keys: &Vec<String>
@@ -282,7 +268,7 @@ fn open_public_key(
     let data = hex::decode(public_keys[1].clone()).unwrap();
     let public_key_1 = PublicKey::from_slice(secp, &data).unwrap();
     
-    public_key_0.mul_assign(&secp, &_2_128).unwrap();
+    public_key_0.mul_assign(&secp, &POW_2_128).unwrap();
     let mut v: Vec<&PublicKey> = vec![];
     v.push(&public_key_0);
     v.push(&public_key_1);
@@ -325,7 +311,7 @@ impl Pedersen {
             witness: witness,
             commit_add: Some(commit_add),
             commit_mul: None,
-            opening_key_indexs: opening_key_indexs
+            opening_key_indices: opening_key_indexs
         }
     }
 
@@ -378,7 +364,7 @@ impl Pedersen {
             witness: witness,
             commit_add: None,
             commit_mul: Some(commit_mul),
-            opening_key_indexs: opening_key_indexs
+            opening_key_indices: opening_key_indexs
         }
     }
 
@@ -577,7 +563,7 @@ impl Pedersen {
             None => false,
         };
 
-        let opening_keys = match &prover.opening_key_indexs {
+        let opening_keys = match &prover.opening_key_indices {
             Some(indexs) => indexs.iter().map(|index| {
                 match index {
                     0 => OpeningKey { r: hex::encode(prover.r_l.0), index: 0 },
@@ -743,13 +729,13 @@ impl Pedersen {
 
     pub fn verify_public_key(
         &self,
-        pubkey_origin: &str,
+        pubkey_expected: &str,
         public_keys: &Vec<String>
     ) -> bool {
 
         let pubkey = open_public_key(&self.0, public_keys);
 
-        pubkey.eq(&String::from(pubkey_origin))
+        pubkey.eq(&String::from(pubkey_expected))
 
     }
 

@@ -105,7 +105,7 @@ fn cli_verify(sub_matches: &ArgMatches) -> Result<(), String> {
                 pedersen.verify_proof::<Secp256k1Field>(&proof);
 
                 if proof.has_opening_key() {
-                    let public_keys = proof.get_public_keys();
+                    let public_keys = proof.opening_public_keys();
                     public_keys_vec.extend(public_keys.iter().cloned());
                 }
 
@@ -118,7 +118,7 @@ fn cli_verify(sub_matches: &ArgMatches) -> Result<(), String> {
                 pedersen.verify_proof::<Secp256k1Field>(&proof);
 
                 if proof.has_opening_key() {
-                    let public_keys = proof.get_public_keys();
+                    let public_keys = proof.opening_public_keys();
                     public_keys_vec.extend(public_keys.iter().cloned());
                 }
 
@@ -134,7 +134,6 @@ fn cli_verify(sub_matches: &ArgMatches) -> Result<(), String> {
     let success = pedersen.verify_public_key(pubkey.as_str(), &public_keys_vec);
 
     if success {
-        println!("Performing sucessfully ");
         println!("Private key corresponding to public key {} hashes to {}", pubkey, "todo");
     } else {
         println!("Private key corresponding to public key {} does not hash to {}", pubkey, "todo");
