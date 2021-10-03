@@ -17,7 +17,7 @@ Load the ZoKrates Plugin on [Remix](https://remix.ethereum.org) to write your fi
 Alternatively, you can install the ZoKrates CLI:
 
 ```bash
-curl -LSfs get.zokrat.es | sh
+cargo build --release
 ```
 
 Have a look at the [documentation](https://zokrates.github.io/) for more information about using ZoKrates.
@@ -49,7 +49,7 @@ git config core.hooksPath .githooks
 
 ### DSL
 
-root.zok
+examples/key_statement_proof.zok
 
 ```
 import "hashes/sha256/256bitPadded" as sha256
@@ -79,13 +79,11 @@ eg.
 
 ```bash
 # compile
-zokrates compile -i root.zok
-# perform the setup phase
-zokrates compute-witness -a 314077308411032793321278816725012958289 316495952764820137513325325447450102725 67428615251739275197038733346106089224   232995379825841761673536055030921300908 
+./target/release/zokrates compile -i examples/key_statement_proof.zok
+# compute witness 
+./target/release/zokrates compute-witness -a 314077308411032793321278816725012958289 316495952764820137513325325447450102725 67428615251739275197038733346106089224   232995379825841761673536055030921300908 
 # generate a proof of computation
-zokrates generate-key-proof
-# export a scrypt verifier
-zokrates export-scrypt
+./target/release/zokrates generate-key-proof
 # or verify natively
-zokrates verify-key-proof -p 0494d6deea102c33307a5ae7e41515198f6fc19d3b11abeca5bff56f1011ed2d8e3d8f02cbd20e8c53d8050d681397775d0dc8b0ad406b261f9b4c94404201cab3
+./target/release/zokrates verify-key-proof -p 0494d6deea102c33307a5ae7e41515198f6fc19d3b11abeca5bff56f1011ed2d8e3d8f02cbd20e8c53d8050d681397775d0dc8b0ad406b261f9b4c94404201cab3
 ```
