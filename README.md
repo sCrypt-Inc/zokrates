@@ -6,13 +6,12 @@
 [![Join the chat at https://gitter.im/ZoKrates/Lobby](https://badges.gitter.im/ZoKrates/Lobby.svg)](https://gitter.im/ZoKrates/Lobby?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 [![CircleCI develop](https://img.shields.io/circleci/project/github/Zokrates/ZoKrates/develop.svg?label=develop)](https://circleci.com/gh/Zokrates/ZoKrates/tree/develop)
 
-ZoKrates is a toolbox for zkSNARKs on Ethereum.
+This is a toolbox for zkSNARKs on Bitcoin SV.
 
 _This is a proof-of-concept implementation. It has not been tested for production._
 
 ## Getting Started
 
-Load the ZoKrates Plugin on [Remix](https://remix.ethereum.org) to write your first SNARK program!
 
 Alternatively, you can install the ZoKrates CLI:
 
@@ -25,7 +24,7 @@ Have a look at the [documentation](https://zokrates.github.io/) for more informa
 
 ## Getting Help
 
-If you run into problems, ZoKrates has a [Gitter](https://gitter.im/ZoKrates/Lobby) room.
+If you run into problems, ZoKrates has a [Slack](https://join.slack.com/t/scryptworkspace/shared_invite/enQtNzQ1OTMyNDk1ODU3LTJmYjE5MGNmNDZhYmYxZWM4ZGY2MTczM2NiNTIxYmFhNTVjNjE5MGYwY2UwNDYxMTQyNGU2NmFkNTY5MmI1MWM) room.
 
 ## License
 
@@ -33,7 +32,7 @@ ZoKrates is released under the GNU Lesser General Public License v3.
 
 ## Contributing
 
-We happily welcome contributions. You can either pick an existing issue or reach out on [Gitter](https://gitter.im/ZoKrates/Lobby).
+We happily welcome contributions. You can either pick an existing issue or reach out on [Slack](https://join.slack.com/t/scryptworkspace/shared_invite/enQtNzQ1OTMyNDk1ODU3LTJmYjE5MGNmNDZhYmYxZWM4ZGY2MTczM2NiNTIxYmFhNTVjNjE5MGYwY2UwNDYxMTQyNGU2NmFkNTY5MmI1MWM).
 
 Unless you explicitly state otherwise, any contribution you intentionally submit for inclusion in the work shall be licensed as above, without any additional terms or conditions.
 
