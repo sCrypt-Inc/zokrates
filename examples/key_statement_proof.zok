@@ -1,0 +1,14 @@
+import "hashes/sha256/256bitPadded" as sha256
+import "utils/pack/u32/unpack128" as unpack128
+import "utils/pack/u32/pack128" as pack128
+def main(private field[2] preimage, field h0, field h1):
+
+    u32[4] a_bits = unpack128(preimage[0])
+    u32[4] b_bits = unpack128(preimage[1])
+    u32[8] privkey = [...a_bits, ...b_bits]
+    u32[8] res = sha256(privkey)
+
+    assert(h0 == pack128(res[0..4]))
+    assert(h1 == pack128(res[4..8]))
+
+    return

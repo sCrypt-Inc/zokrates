@@ -743,7 +743,7 @@ impl Pedersen {
     ) -> bool {
 
         let pubkey = open_public_key(&self.0, public_keys);
-
+        
         pubkey.eq(&String::from(pubkey_expected))
 
     }
@@ -754,7 +754,7 @@ impl Pedersen {
 #[cfg(test)]
 mod test {
     use rand_0_5::RngCore;
-
+    use zokrates_field::{Secp256k1Field, Field, Bn128Field};
     use super::*;
     
 
@@ -981,4 +981,38 @@ mod test {
         assert_eq!(public_key_str, "0490bccc7e8d1a49a38c497cfcc068cb014d9396e4ac8b6c0e58419ec0486144d7bc5e2b996f368cd67ac103fd2acf28117d13b2ec2525e12b4b4fc49fccd3aec5")
     }  
 
+
+    #[test]
+    fn test_open_public_key() {
+        let mut public_keys_vec: Vec<String> = vec![];
+        let pederson = Pedersen::new();
+        let a = Secp256k1Field::try_from_str_no_mod("00000000000000000000000000000000ec4916dd28fc4c10d78e287ca5d9cc51", 16).unwrap();
+        let b = Secp256k1Field::try_from_str_no_mod("01", 16).unwrap();
+        let c = Secp256k1Field::try_from_str_no_mod("00000000000000000000000000000000ec4916dd28fc4c10d78e287ca5d9cc51", 16).unwrap();
+        let prover = pederson.generate_mul_prover(a.clone(), b.clone(), c.clone(), 
+        Some(vec![0]));
+        
+        let proof = pederson.generate_proof::<Secp256k1Field>(&prover);
+        let opening_public_keys = proof.opening_public_keys();
+        println!("opening_public_keys {:?}", opening_public_keys);
+        public_keys_vec.extend(opening_public_keys.iter().cloned());
+
+        let a = Secp256k1Field::try_from_str_no_mod("00000000000000000000000000000000ee1ae73cbfde08c6b37324cbfaac8bc5", 16).unwrap();
+        let b = Secp256k1Field::try_from_str_no_mod("01", 16).unwrap();
+        let c = Secp256k1Field::try_from_str_no_mod("00000000000000000000000000000000ee1ae73cbfde08c6b37324cbfaac8bc5", 16).unwrap();
+        let prover = pederson.generate_mul_prover(a.clone(), b.clone(), c.clone(), 
+        Some(vec![0]));
+        
+        let proof = pederson.generate_proof::<Secp256k1Field>(&prover);
+        let opening_public_keys = proof.opening_public_keys();
+        println!("opening_public_keys {:?}", opening_public_keys);
+        public_keys_vec.extend(opening_public_keys.iter().cloned());
+
+
+        let success = pederson.verify_public_key(
+            "0494d6deea102c33307a5ae7e41515198f6fc19d3b11abeca5bff56f1011ed2d8e3d8f02cbd20e8c53d8050d681397775d0dc8b0ad406b261f9b4c94404201cab3", 
+            &public_keys_vec);
+        assert!(success);
+        
+    }  
 }
