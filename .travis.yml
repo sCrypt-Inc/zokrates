@@ -1,0 +1,19 @@
+language: rust
+
+rust:
+  - nightly
+
+
+env:
+  global:
+    - RUST_BACKTRACE=1
+
+os:
+  - linux
+  - osx
+
+#before_install:
+#  - npm i -g npm@latest
+
+script:
+  - ./test.sh
