@@ -1,6 +1,10 @@
 use crate::scheme::{Scheme, UniversalScheme};
 use crate::solidity::{solidity_pairing_lib, SolidityCompatibleField, SolidityCompatibleScheme};
 use crate::{Fr, G1Affine, G2Affine};
+/* =============== add by sCrypt */
+use crate::scrypt::{scrypt_pairing_lib};
+use crate::{ScryptCompatibleField, ScryptCompatibleScheme};
+/* =============== end */
 use serde::{Deserialize, Serialize};
 use zokrates_field::Field;
 
@@ -689,3 +693,21 @@ contract Verifier {
     }
 }
 "#;
+
+/* =============== add by sCrypt */
+
+impl<T: ScryptCompatibleField> ScryptCompatibleScheme<T> for Marlin {
+    type Proof = SolidityProof<Fr, G1Affine>;
+
+    fn export_scrypt_verifier(vk: <Marlin as Scheme<T>>::VerificationKey) -> String {
+        
+        let scrypt_pairing_lib = scrypt_pairing_lib();
+
+        format!(
+            "{}",
+            scrypt_pairing_lib
+        )
+    }
+}
+
+/* =============== end */

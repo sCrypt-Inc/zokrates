@@ -1,6 +1,10 @@
 use crate::scheme::{NonUniversalScheme, Scheme};
 use crate::solidity::solidity_pairing_lib;
 use crate::{G1Affine, G2Affine, MpcScheme, SolidityCompatibleField, SolidityCompatibleScheme};
+/* =============== add by sCrypt */
+use crate::scrypt::{scrypt_pairing_lib};
+use crate::{ScryptCompatibleField, ScryptCompatibleScheme};
+/* =============== end */
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use zokrates_field::Field;
@@ -184,3 +188,22 @@ contract Verifier {
     }
 }
 "#;
+
+
+/* =============== add by sCrypt */
+
+impl<T: ScryptCompatibleField> ScryptCompatibleScheme<T> for G16 {
+    type Proof = Self::ProofPoints;
+
+    fn export_scrypt_verifier(vk: <G16 as Scheme<T>>::VerificationKey) -> String {
+        
+        let scrypt_pairing_lib = scrypt_pairing_lib();
+
+        format!(
+            "{}",
+            scrypt_pairing_lib
+        )
+    }
+}
+
+/* =============== end */

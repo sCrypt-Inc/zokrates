@@ -2,10 +2,12 @@ pub mod to_token;
 
 mod scheme;
 mod solidity;
+mod scrypt; // add by sCrypt
 mod tagged;
 
 pub use self::scheme::*;
 pub use self::solidity::*;
+pub use self::scrypt::*; // add by sCrypt
 pub use tagged::{TaggedKeypair, TaggedProof, TaggedVerificationKey};
 
 use zokrates_ast::ir;
