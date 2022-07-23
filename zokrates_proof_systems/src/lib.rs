@@ -97,6 +97,69 @@ impl ToString for G2AffineFq2 {
     }
 }
 
+/* =============== add by sCrypt */
+
+pub trait ToScryptString {
+    fn to_scrypt_string(&self) -> String;
+}
+
+
+impl ToScryptString for G1Affine {
+    fn to_scrypt_string(&self) -> String {
+        format!(
+            "{{
+                {},
+                {},
+                1, 0
+            }}", self.0, self.1)
+    }
+}
+
+impl ToScryptString for G2AffineFq {
+    fn to_scrypt_string(&self) -> String {
+        format!(
+            "{{
+                {},
+                {},
+                1, 0
+            }}", self.0, self.1)
+    }
+}
+
+
+impl ToScryptString for G2AffineFq2 {
+    fn to_scrypt_string(&self) -> String {
+        format!(
+            "{{
+                {{
+                    {},
+                    {}
+                }}, 
+                {{
+                    {},
+                    {}
+                }},
+                {{0, 1}},
+                {{0, 1}}
+            }}",
+            (self.0).0,
+            (self.0).1,
+            (self.1).0,
+            (self.1).1
+        )
+    }
+}
+
+impl ToScryptString for G2Affine {
+    fn to_scrypt_string(&self) -> String {
+        match self {
+            G2Affine::Fq(e) => e.to_scrypt_string(),
+            G2Affine::Fq2(e) => e.to_scrypt_string(),
+        }
+    }
+}
+/* =============== end */
+
 pub trait Backend<T: Field, S: Scheme<T>> {
     fn generate_proof<I: IntoIterator<Item = ir::Statement<T>>>(
         program: ir::ProgIterator<T, I>,
