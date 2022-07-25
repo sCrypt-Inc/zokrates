@@ -201,31 +201,88 @@ impl<T: ScryptCompatibleField> ScryptCompatibleScheme<T> for G16 {
         let (mut verifier_template_text, mut zksnark_template_text, scrypt_pairing_bn256) =
         (String::from(SCRYPT_CONTRACT_TEMPLATE), String::from(ZKSNARK_TEMPLATE), scrypt_pairing_lib());
 
-        let vk_regex = Regex::new(r#"(<%vk_[^i%]*%>)"#).unwrap();
+        let vk_regex = Regex::new(r#"(<%vk%>)"#).unwrap();
         let vk_gamma_abc_len_regex = Regex::new(r#"(<%vk_gamma_abc_length%>)"#).unwrap();
-        let vk_gamma_abc_repeat_regex = Regex::new(r#"(<%vk_gamma_abc_pts%>)"#).unwrap();
         let vk_input_len_regex = Regex::new(r#"(<%vk_input_length%>)"#).unwrap();
         let input_loop = Regex::new(r#"(<%input_loop%>)"#).unwrap();
         let input_argument = Regex::new(r#"(<%input_argument%>)"#).unwrap();
 
-
-        verifier_template_text = vk_regex
-            .replace(verifier_template_text.as_str(), vk.alpha.to_scrypt_string().as_str())
-            .into_owned();
-
-        verifier_template_text = vk_regex
-            .replace(verifier_template_text.as_str(), vk.beta.to_scrypt_string().as_str())
-            .into_owned();
-
-        verifier_template_text = vk_regex
-            .replace(verifier_template_text.as_str(), vk.gamma.to_scrypt_string().as_str())
-            .into_owned();
-
-        verifier_template_text = vk_regex
-            .replace(verifier_template_text.as_str(), vk.delta.to_scrypt_string().as_str())
-            .into_owned();
-
         let gamma_abc_count: usize = vk.gamma_abc.len();
+
+        let mut vk_repeat_text = String::new();
+
+        vk_repeat_text.push_str("{");
+
+        vk_repeat_text.push_str(format!(
+            "{}",
+            vk.alpha.to_scrypt_string().as_str()
+        )
+        .as_str());
+
+        vk_repeat_text.push_str(",");
+
+        vk_repeat_text.push_str(format!(
+            "{}",
+            vk.beta.to_scrypt_string().as_str()
+        )
+        .as_str());
+
+        vk_repeat_text.push_str(",");
+
+
+        vk_repeat_text.push_str(format!(
+            "{}",
+            vk.gamma.to_scrypt_string().as_str()
+        )
+        .as_str());
+
+        vk_repeat_text.push_str(",");
+
+        vk_repeat_text.push_str(format!(
+            "{}",
+            vk.delta.to_scrypt_string().as_str()
+        )
+        .as_str());
+
+        vk_repeat_text.push_str(",");
+
+        let mut gamma_abc_repeat_text = String::new();
+        gamma_abc_repeat_text.push_str("[");
+        for (i, g1) in vk.gamma_abc.iter().enumerate() {
+            gamma_abc_repeat_text.push_str(
+                format!(
+                    "{}",
+                    g1.to_scrypt_string().as_str()
+                )
+                .as_str(),
+            );
+            if i < gamma_abc_count - 1 {
+                gamma_abc_repeat_text.push_str(",");
+            }
+        }
+        gamma_abc_repeat_text.push_str("]");
+
+        vk_repeat_text.push_str(gamma_abc_repeat_text.as_str());
+
+        vk_repeat_text.push_str("}");
+
+
+        verifier_template_text = vk_regex
+        .replace(verifier_template_text.as_str(), vk_repeat_text.as_str())
+        .into_owned();
+
+
+        verifier_template_text = if gamma_abc_count > 1 {
+            input_argument.replace(
+                verifier_template_text.as_str(),
+                r#"int[ZKSNARK.N] inputs, "#,
+            )
+        } else {
+            input_argument.replace(verifier_template_text.as_str(), "")
+        }
+        .to_string();
+
+
 
         zksnark_template_text = vk_gamma_abc_len_regex
             .replace(
@@ -270,36 +327,6 @@ impl<T: ScryptCompatibleField> ScryptCompatibleScheme<T> for G16 {
         }
         .to_string();
 
-        verifier_template_text = if gamma_abc_count > 1 {
-            input_argument.replace(
-                verifier_template_text.as_str(),
-                r#"int[ZKSNARK.N] inputs, "#,
-            )
-        } else {
-            input_argument.replace(verifier_template_text.as_str(), "")
-        }
-        .to_string();
-
-        let mut gamma_abc_repeat_text = String::new();
-        gamma_abc_repeat_text.push_str("[");
-        for (i, g1) in vk.gamma_abc.iter().enumerate() {
-            gamma_abc_repeat_text.push_str(
-                format!(
-                    "{}",
-                    g1.to_scrypt_string().as_str()
-                )
-                .as_str(),
-            );
-            if i < gamma_abc_count - 1 {
-                gamma_abc_repeat_text.push_str(",");
-            }
-        }
-        gamma_abc_repeat_text.push_str("]");
-
-
-        verifier_template_text = vk_gamma_abc_repeat_regex
-        .replace(verifier_template_text.as_str(), gamma_abc_repeat_text.as_str())
-        .into_owned();
 
         format!(
             "{}{}{}",
@@ -352,23 +379,10 @@ library ZKSNARK {
 const SCRYPT_CONTRACT_TEMPLATE: &str = r#"
 contract Verifier {
 
-    static function verifyingKey() : VerifyingKey {
-
-        const CurvePoint alpha = <%vk_alpha%>;
-
-        const TwistPoint beta = <%vk_beta%>;
-
-        const TwistPoint gamma = <%vk_gamma%>;
-
-        const TwistPoint delta = <%vk_delta%>;
-
-        CurvePoint[ZKSNARK.N_1] gamma_abc = <%vk_gamma_abc_pts%>;
-
-        return {alpha, beta, gamma, delta, gamma_abc};
-    }
+    static const VerifyingKey vk = <%vk%>;
 
     public function unlock(<%input_argument%>Proof proof) {
-        require(ZKSNARK.verify(inputs, proof, Verifier.verifyingKey()));
+        require(ZKSNARK.verify(inputs, proof, vk));
     }
 }
 "#;

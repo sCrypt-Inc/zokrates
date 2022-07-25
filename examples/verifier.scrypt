@@ -1733,15 +1733,11 @@ library ZKSNARK {
 
 contract Verifier {
 
-    static function verifyingKey() : VerifyingKey {
-
-        const CurvePoint alpha = {
+    static const VerifyingKey vk = {{
                 0x0d415c4f2ff43838dc086a320a35ea4a49b2d77c2c79fab6896da884ce95d9c6,
                 0x27fa73352034ca614980227066b195455dc17f025a53746b9f7bf0d3ffa59b52,
                 1, 0
-            };
-
-        const TwistPoint beta = {
+            },{
                 {
                     0x209cc824400e325434c2bed27ce175a8eb628feda86f3ca3ebad40834d496635,
                     0x17916a518136c69157f3476074716537c8cd44de5f3b419f6e8fd444b401927c
@@ -1752,9 +1748,7 @@ contract Verifier {
                 },
                 {0, 1},
                 {0, 1}
-            };
-
-        const TwistPoint gamma = {
+            },{
                 {
                     0x19dae6ec2e4c2edf92537e3f4d11f2b9ca10b6b55ffe011417dccf3ebbef8966,
                     0x26483228e4fae6303247489673ff81e36ebda3e977d81d20f7390ca812b2e89c
@@ -1765,9 +1759,7 @@ contract Verifier {
                 },
                 {0, 1},
                 {0, 1}
-            };
-
-        const TwistPoint delta = {
+            },{
                 {
                     0x2ac3d4bed0a1686e9aaf679c52dace9b7a0de70a16a131eb897cb757fc86263f,
                     0x2a6cc8d1a434816810d6078b3120f5d6953ed08ca4c1d06b1e4cd3b02b902dc6
@@ -1778,9 +1770,7 @@ contract Verifier {
                 },
                 {0, 1},
                 {0, 1}
-            };
-
-        CurvePoint[ZKSNARK.N_1] gamma_abc = [{
+            },[{
                 0x043acb61c0e3b3a3470c569b019a93ef180128e6887792aa2fedb37ebe6da68e,
                 0x275c9ea6013df4b975e2896c8e07ce9599ecbe7d9a9c76b0eb9cfba8d9f332fd,
                 1, 0
@@ -1788,12 +1778,9 @@ contract Verifier {
                 0x1af2b1e9fb5687e5d5f4e9f0ac00ac43207c84ab2b5a4692c2313d4993699371,
                 0x105236755ee6af305dacef2723f1685670a0ee633e53abe056c6895fd239fac6,
                 1, 0
-            }];
-
-        return {alpha, beta, gamma, delta, gamma_abc};
-    }
+            }]};
 
     public function unlock(int[ZKSNARK.N] inputs, Proof proof) {
-        require(ZKSNARK.verify(inputs, proof, Verifier.verifyingKey()));
+        require(ZKSNARK.verify(inputs, proof, vk));
     }
 }
