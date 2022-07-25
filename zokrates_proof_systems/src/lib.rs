@@ -110,7 +110,7 @@ impl ToScryptString for G1Affine {
             "{{
                 {},
                 {},
-                1, 0
+                1, 1
             }}", self.0, self.1)
     }
 }
@@ -121,7 +121,7 @@ impl ToScryptString for G2AffineFq {
             "{{
                 {},
                 {},
-                1, 0
+                1, 1
             }}", self.0, self.1)
     }
 }
@@ -142,10 +142,10 @@ impl ToScryptString for G2AffineFq2 {
                 {{0, 1}},
                 {{0, 1}}
             }}",
-            (self.0).0,
             (self.0).1,
-            (self.1).0,
-            (self.1).1
+            (self.0).0,
+            (self.1).1,
+            (self.1).0
         )
     }
 }

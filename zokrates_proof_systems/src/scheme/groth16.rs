@@ -347,9 +347,19 @@ struct VerifyingKey {
 }
 
 struct Proof {
-    CurvePoint a;
-    TwistPoint b;
-    CurvePoint c;
+    CoordsCurvePoint a;
+    CoordsTwistPoint b;
+    CoordsCurvePoint c;
+}
+
+struct CoordsTwistPoint {
+    FQ2 x;
+    FQ2 y;
+}
+
+struct CoordsCurvePoint {
+    FQ x;
+    FQ y;
 }
 
 library ZKSNARK {
@@ -358,6 +368,14 @@ library ZKSNARK {
     static const int N = <%vk_input_length%>;
     static const int N_1 = <%vk_gamma_abc_length%>; // N + 1, gamma_abc length
 
+    static function createTwistPoint(CoordsTwistPoint ctp) : TwistPoint {
+        return {ctp.x, ctp.y, {0, 1}, {0, 1}}; 
+    }
+
+    static function createCurvePoint(CoordsCurvePoint ccp) : CurvePoint {
+        return {ccp.x, ccp.y, 1, 1}; 
+    }
+
     static function verify(<%input_argument%>Proof proof, VerifyingKey vk) : bool {
 
         CurvePoint vk_x = vk.gamma_abc[0];
@@ -365,10 +383,10 @@ library ZKSNARK {
         <%input_loop%>
 
         return BN256Pairing.pairCheckP4(
-                BN256.negCurvePoint(proof.a), proof.b,
-                vk.alpha, vk.beta,
-                vk_x, vk.gamma,
-                proof.c, vk.delta);
+            BN256.negCurvePoint(ZKSNARK.createCurvePoint(proof.a)), ZKSNARK.createTwistPoint(proof.b),
+            vk.alpha, vk.beta,
+            vk_x, vk.gamma,
+            ZKSNARK.createCurvePoint(proof.c), vk.delta);
     }
 
 }
