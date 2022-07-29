@@ -129,7 +129,7 @@ async function run() {
     sourceMap: false,
     desc: false
   }));
-  const { Proof, CoordsCurvePoint, CoordsTwistPoint, FQ2 } = buildTypeClasses(Verifier);
+  const { Proof, G1Point, G2Point, FQ2 } = buildTypeClasses(Verifier);
   verifier = new Verifier();
 
   const proof = JSON.parse(fs.readFileSync(path.join(__dirname, 'proof.json')));
@@ -140,11 +140,11 @@ async function run() {
   console.log("Simulate a verification call ...");
   const result = verifier.unlock(proof.inputs.map(input => new Int(input)),
     new Proof({
-      a: new CoordsCurvePoint({
+      a: new G1Point({
         x: new Int(proof.proof.a[0]),
         y: new Int(proof.proof.a[1]),
       }),
-      b: new CoordsTwistPoint({
+      b: new G2Point({
         x: new FQ2({
           x: new Int(proof.proof.b[0][1]),
           y: new Int(proof.proof.b[0][0]),
@@ -154,7 +154,7 @@ async function run() {
           y: new Int(proof.proof.b[1][0]),
         })
       }),
-      c: new CoordsCurvePoint({
+      c: new G1Point({
         x: new Int(proof.proof.c[0]),
         y: new Int(proof.proof.c[1]),
       })

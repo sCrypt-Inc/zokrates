@@ -40,6 +40,18 @@ struct TwistPoint {
     FQ2 t;
 }
 
+// These two are just to make it easier for users to interface with the code
+// by not having them to deal with z and t coords.
+struct G1Point {
+    FQ x;
+    FQ y;
+}
+
+struct G2Point {
+    FQ2 x;
+    FQ2 y;
+}
+
 // FQ12 implements the field of size p¹² as a quadratic extension of FQ6
 // where ω²=τ.
 struct FQ12 {
@@ -75,6 +87,19 @@ library BN256 {
         {0, 1}
     };
 
+    static const FQ2 FQ2Zero = {0, 0};
+    static const FQ2 FQ2One = {0, 1};
+
+    static const FQ6 FQ6Zero = {
+        FQ2Zero, FQ2Zero, FQ2Zero
+    };
+
+    static const FQ6 FQ6One = {
+        FQ2Zero, FQ2Zero, FQ2One
+    };
+
+    static const FQ12 FQ12Zero = {FQ6Zero, FQ6Zero};
+    static const FQ12 FQ12One = {FQ6Zero, FQ6One};
 
     // Curve field modulus:
     static const int P = 21888242871839275222246405745257275088696311157297823662689037894645226208583;
@@ -117,7 +142,7 @@ library BN256 {
 
     // xiTo2PSquaredMinus2Over3 is ξ^((2p²-2)/3) where ξ = i+9 (a cubic root of unity, mod p).
     static const FQ xiTo2PSquaredMinus2Over3 = 2203960485148121921418603742825762020974279258880205651966;
-
+    
     // xiToPSquaredMinus1Over3 is ξ^((p²-1)/3) where ξ = i+9.
     static const FQ xiToPSquaredMinus1Over3 = 21888242871839275220042445260109153167277707414472061641714758635765020556616;
 
@@ -137,7 +162,7 @@ library BN256 {
         int ty = a.y * b.y;
         int t_2 = a.x * b.x;
         int ty_2 = ty - t_2;
-
+        
         return {modReduce(tx_2, P), modReduce(ty_2, P)};
     }
 
@@ -248,7 +273,7 @@ library BN256 {
 
         t0 = addFQ2(a.y, a.z);
         t1 = addFQ2(b.y, b.z);
-
+        
         FQ2 ty = mulFQ2(t0, t1);
         ty = subFQ2(ty, v0);
         ty = subFQ2(ty, v1);
@@ -361,7 +386,7 @@ library BN256 {
         FQ2 t1 = mulFQ2(a.x, a.y);
         t1 = mulXiFQ2(t1);
         A = subFQ2(A, t1);
-
+        
         FQ2 B = squareFQ2(a.x);
         B = mulXiFQ2(B);
         t1 = mulFQ2(a.y, a.z);
@@ -370,7 +395,7 @@ library BN256 {
         FQ2 C = squareFQ2(a.y);
         t1 = mulFQ2(a.x, a.z);
         C = subFQ2(C, t1);
-
+        
         FQ2 F = mulFQ2(C, a.y);
         F = mulXiFQ2(F);
         t1 = mulFQ2(A, a.z);
@@ -409,7 +434,7 @@ library BN256 {
             negFQ6(a.x),
             a.y
         };
-
+        
         return mulScalarFQ12(e, t2_2);
     }
 
@@ -421,7 +446,7 @@ library BN256 {
         FQ6 ty = mulFQ6(a.y, b.y);
         FQ6 t2 = mulFQ6(a.x, b.x);
         FQ6 t3 = mulTauFQ6(t2);
-
+        
         return {tx2, addFQ6(ty, t3)};
     }
 
@@ -498,10 +523,7 @@ library BN256 {
         // u is the BN parameter that determines the prime.
         // u = 4965661367192848881;
 
-        FQ12 sum = {
-            {{0, 0}, {0, 0}, {0, 0}},
-            {{0, 0}, {0, 0}, {0, 1}}
-        };
+        FQ12 sum = FQ12One;
 
         // Unrolled loop. Reference impl.:
         // https://github.com/ethereum/go-ethereum/blob/bd6879ac518431174a490ba42f7e6e822dcb3ee1/crypto/bn256/google/gfp12.go#L138
@@ -596,33 +618,27 @@ library BN256 {
         FQ12 sum88 = squareFQ12(sum87);
         FQ12 sum89 = squareFQ12(sum88);
         FQ12 sum90 = mulFQ12(sum89, a);
-
+        
         return sum90;
 
     }
 
     static function expFQ12(FQ12 a, int power) : FQ12 {
-        FQ12 sum = {
-            {{0, 0}, {0, 0}, {0, 0}},
-            {{0, 0}, {0, 0}, {0, 1}}
-        };
-        FQ12 t = sum;
+        FQ12 sum = FQ12One;
+        FQ12 t = FQ12One;
 
         bytes mb = reverseBytes(num2bin(power, S), S);
-
         bool firstOne = false;
 
-        loop (63) : iNeg {
-            int i = 62 - iNeg;
-
+        loop (CURVE_BITS_P8) : i {
             if (firstOne) {
                 t = squareFQ12(sum);
             }
 
-            if ((mb & (mask << i)) != zero) {
+            if ((mb & (mask << ((CURVE_BITS_P8 - 1) - i))) != zero) {
                 firstOne = true;
                 sum = mulFQ12(t, a);
-            } else if (firstOne) {
+            } else {
                 sum = t;
             }
         }
@@ -631,6 +647,14 @@ library BN256 {
     }
 
     // ----------------------------------------------------
+
+    static function doubleG1Point(G1Point a) : G1Point {
+        CurvePoint res = doubleCurvePoint(
+                createCurvePoint(a)
+        );
+        
+        return getG1Point(res);
+    }
 
     static function doubleCurvePoint(CurvePoint a) : CurvePoint {
         // See http://hyperelliptic.org/EFD/g1p/auto-code/shortw/jacobian-0/doubling/dbl-2009-l.op3
@@ -672,10 +696,19 @@ library BN256 {
         return res;
     }
 
+    static function addG1Points(G1Point a, G1Point b) : G1Point {
+        CurvePoint res = addCurvePoints(
+                createCurvePoint(a),
+                createCurvePoint(b)
+        );
+        
+        return getG1Point(res);
+    }
+
     static function addCurvePoints(CurvePoint a, CurvePoint b) : CurvePoint {
         // See http://hyperelliptic.org/EFD/g1p/auto-code/shortw/jacobian-0/addition/add-2007-bl.op3
         CurvePoint res = {0, 0, 0, 0};
-
+        
         if (a.z == 0) {
             res = b;
         } else if (b.z == 0) {
@@ -684,10 +717,10 @@ library BN256 {
             // Normalize the points by replacing a = [x1:y1:z1] and b = [x2:y2:z2]
             // by [u1:s1:z1·z2] and [u2:s2:z1·z2]
             // where u1 = x1·z2², s1 = y1·z2³ and u1 = x2·z1², s2 = y2·z1³
-
+            
             int z12 = modReduce(a.z * a.z, P);
             int z22 = modReduce(b.z * b.z, P);
-
+            
             int u1 = modReduce(a.x * z22, P);
             int u2 = modReduce(b.x * z12, P);
 
@@ -738,7 +771,7 @@ library BN256 {
                 t6 = t4 * 2;
                 t4 = modReduce(r * t, P);
                 res.y = t4 - t6;
-
+                
                 // Set z = 2(u2-u1)·z1·z2 = 2h·z1·z2
                 t = a.z + b.z;
                 t4 = modReduce(t * t, P);
@@ -751,6 +784,15 @@ library BN256 {
         return res;
     }
 
+    static function mulG1Point(G1Point a, int m) : G1Point {
+        CurvePoint res = mulCurvePoint(
+                createCurvePoint(a),
+                m
+        );
+        
+        return getG1Point(res);
+    }
+        
     static function mulCurvePoint(CurvePoint a, int m) : CurvePoint {
         // Double and add method.
         // Lowest bit to highest.
@@ -790,7 +832,7 @@ library BN256 {
                 FQ zInv2 = modReduce(zInv * zInv, P);
                 FQ ay = modReduce(t * zInv2, P);
                 FQ ax = modReduce(a.x * zInv2, P);
-
+                
                 res = {ax, ay, 1, 1};
             }
         }
@@ -807,11 +849,32 @@ library BN256 {
         };
     }
 
+    static function isInfCurvePoint(CurvePoint a) : bool {
+        return a.z == 0;
+    }
+
+    static function createCurvePoint(G1Point ccp) : CurvePoint {
+        return {ccp.x, ccp.y, 1, 1}; 
+    }
+
+    static function getG1Point(CurvePoint cp) : G1Point {
+        CurvePoint acp = makeAffineCurvePoint(cp);
+        return {acp.x, acp.y};
+    }
+
     // ----------------------------------------------------
+
+    static function doubleG2Point(G2Point a) : G2Point {
+        TwistPoint res = doubleTwistPoint(
+                createTwistPoint(a)
+        );
+        
+        return getG2Point(res);
+    }
 
     static function doubleTwistPoint(TwistPoint a) : TwistPoint {
         // See http://hyperelliptic.org/EFD/g1p/auto-code/shortw/jacobian-0/doubling/dbl-2009-l.op3
-        TwistPoint res = {{0, 0}, {0, 0}, {0, 0}, {0, 0}};
+        TwistPoint res = {FQ2Zero, FQ2Zero, FQ2Zero, FQ2Zero};
 
         FQ2 A = squareFQ2(a.x);
         FQ2 B = squareFQ2(a.y);
@@ -842,12 +905,21 @@ library BN256 {
         return res;
     }
 
-    static function addTwistPoints(TwistPoint a, TwistPoint b) : TwistPoint {
-        TwistPoint res = {{0, 0}, {0, 0}, {0, 0}, a.t};
+    static function addG2Points(G2Point a, G2Point b) : G2Point {
+        TwistPoint res = addTwistPoints(
+                createTwistPoint(a),
+                createTwistPoint(b)
+        );
+        
+        return getG2Point(res);
+    }
 
-        if (a.z == {0, 0}) {
+    static function addTwistPoints(TwistPoint a, TwistPoint b) : TwistPoint {
+        TwistPoint res = {FQ2Zero, FQ2Zero, FQ2Zero, a.t};
+        
+        if (a.z == FQ2Zero) {
             res = b;
-        } else if (b.z == {0, 0}) {
+        } else if (b.z == FQ2Zero) {
             res = a;
         } else {
             // See http://hyperelliptic.org/EFD/g1p/auto-code/shortw/jacobian-0/addition/add-2007-bl.op3
@@ -855,10 +927,10 @@ library BN256 {
             // Normalize the points by replacing a = [x1:y1:z1] and b = [x2:y2:z2]
             // by [u1:s1:z1·z2] and [u2:s2:z1·z2]
             // where u1 = x1·z2², s1 = y1·z2³ and u1 = x2·z1², s2 = y2·z1³
-
+            
             FQ2 z12 = squareFQ2(a.z);
             FQ2 z22 = squareFQ2(b.z);
-
+            
             FQ2 u1 = mulFQ2(a.x, z22);
             FQ2 u2 = mulFQ2(b.x, z12);
 
@@ -877,7 +949,7 @@ library BN256 {
             // with the notations below.
 
             FQ2 h = subFQ2(u2, u1);
-            bool xEqual = h == {0, 0};
+            bool xEqual = h == FQ2Zero;
 
             t = mulScalarFQ2(h, 2);
             // i = 4h²
@@ -886,7 +958,7 @@ library BN256 {
             FQ2 j = mulFQ2(h, i);
 
             t = subFQ2(s2, s1);
-            bool yEqual = t == {0, 0};
+            bool yEqual = t == FQ2Zero;
             if (xEqual && yEqual) {
                 res = doubleTwistPoint(a);
             } else {
@@ -908,7 +980,7 @@ library BN256 {
                 t6 = mulScalarFQ2(t4, 2);
                 t4 = mulFQ2(r, t);
                 res.y = subFQ2(t4, t6);
-
+                
                 // Set z = 2(u2-u1)·z1·z2 = 2h·z1·z2
                 t = addFQ2(a.z, b.z);
                 t4 = squareFQ2(t);
@@ -921,15 +993,49 @@ library BN256 {
         return res;
     }
 
+    static function mulG2Point(G2Point a, int n) : G2Point {
+        TwistPoint res = mulTwistPoint(
+                createTwistPoint(a),
+                n
+        );
+        
+        return getG2Point(res);
+    }
+
+    static function mulTwistPoint(TwistPoint a, int m) : TwistPoint {
+        // Double and add method.
+        // Lowest bit to highest.
+        TwistPoint t =   {FQ2Zero, FQ2Zero, FQ2Zero, FQ2Zero};
+        TwistPoint sum = {FQ2Zero, FQ2Zero, FQ2Zero, FQ2Zero};
+
+        bytes mb = reverseBytes(num2bin(m, S), S);
+        bool firstOne = false;
+
+        loop (CURVE_BITS_P8) : i {
+            if (firstOne) {
+                t = doubleTwistPoint(sum);
+            }
+
+            if ((mb & (mask << ((CURVE_BITS_P8 - 1) - i))) != zero) {
+                firstOne = true;
+                sum = addTwistPoints(t, a);
+            } else {
+                sum = t;
+            }
+        }
+
+        return sum;
+    }
+
     static function makeAffineTwistPoint(TwistPoint a) : TwistPoint {
         TwistPoint res = a; 
         if (a.z != {0, 1}) {
-            if (a.z == {0, 0}) {
+            if (a.z == FQ2Zero) {
                 res = {
-                    {0, 0},
-                    {0, 1},
-                    {0, 0},
-                    {0, 0}
+                    FQ2Zero,
+                    FQ2One,
+                    FQ2Zero,
+                    FQ2Zero
                 };
             } else {
                 FQ2 zInv = inverseFQ2(a.z);
@@ -949,10 +1055,23 @@ library BN256 {
     static function negTwistPoint(TwistPoint a) : TwistPoint {
         return {
             a.x,
-            subFQ2({0, 0}, a.y),
+            subFQ2(FQ2Zero, a.y),
             a.z,
-            {0, 0}
+            FQ2Zero
         };
+    }
+
+    static function isInfTwistPoint(TwistPoint a) : bool {
+        return a.z == FQ2Zero;
+    }
+
+    static function createTwistPoint(G2Point ctp) : TwistPoint {
+        return {ctp.x, ctp.y, {0, 1}, {0, 1}}; 
+    }
+
+    static function getG2Point(TwistPoint tp) : G2Point {
+        TwistPoint atp = makeAffineTwistPoint(tp);
+        return {atp.x, atp.y};
     }
 
 }
@@ -961,6 +1080,9 @@ library BN256 {
 
 
 let pairing_lib = r#"
+
+
+
 struct LineFuncRes {
     FQ2 a;
     FQ2 b;
@@ -1025,7 +1147,7 @@ library BN256Pairing {
         FQ2 c = BN256.mulScalarFQ2(rOutZ, q.y);
         c = BN256.addFQ2(c, c);
 
-        FQ2 b = BN256.subFQ2({0, 0}, L1);
+        FQ2 b = BN256.subFQ2(BN256.FQ2Zero, L1);
         b = BN256.mulScalarFQ2(b, q.x);
         b = BN256.addFQ2(b, b);
 
@@ -1074,7 +1196,7 @@ library BN256Pairing {
 
         t = BN256.mulFQ2(E, r.t);
         t = BN256.addFQ2(t, t);
-        FQ2 b = BN256.subFQ2({0, 0}, t);
+        FQ2 b = BN256.subFQ2(BN256.FQ2Zero, t);
         b = BN256.mulScalarFQ2(b, q.x);
 
         FQ2 a = BN256.addFQ2(r.x, E);
@@ -1097,12 +1219,12 @@ library BN256Pairing {
     }
 
     static function mulLine(FQ12 ret, FQ2 a, FQ2 b, FQ2 c) : FQ12 {
-        FQ6 a2 = {{0, 0}, a, b};
+        FQ6 a2 = {BN256.FQ2Zero, a, b};
         a2 = BN256.mulFQ6(a2, ret.x);
         FQ6 t3 = BN256.mulScalarFQ6(ret.y, c);
 
         FQ2 t = BN256.addFQ2(b, c);
-        FQ6 t2 = {{0, 0}, a, t};
+        FQ6 t2 = {BN256.FQ2Zero, a, t};
 
         FQ6 resX = BN256.addFQ6(ret.x, ret.y);
         FQ6 resY = t3;
@@ -1117,10 +1239,7 @@ library BN256Pairing {
     }
 
     static function miller(TwistPoint q, CurvePoint p) : FQ12 {
-        FQ12 ret = {
-            {{0, 0}, {0, 0}, {0, 0}},
-            {{0, 0}, {0, 0}, {0, 1}}
-        };
+        FQ12 ret = BN256.FQ12One;
 
         TwistPoint aAffine = BN256.makeAffineTwistPoint(q);
         CurvePoint bAffine = BN256.makeAffineCurvePoint(p);
@@ -1138,7 +1257,7 @@ library BN256Pairing {
         //                           0, 1, 1, 0, -1, 0, 0, 1, 0, -1, 0, 0, 0, 0, 1, 1,
         //                           1, 0, 0, -1, 0, 0, 1, 0, 0, 0, 0, 0, -1, 0, 0, 1,
         //                           1, 0, 0, -1, 0, 0, 0, 1, 1, 0, -1, 0, 0, 1, 0, 1, 1}
-
+        
         //---- 1
         LineFuncRes lfr = lineFuncDouble(r, bAffine);
         ret = mulLine(ret, lfr.a, lfr.b, lfr.c);
@@ -1658,56 +1777,72 @@ library BN256Pairing {
         return t0;
     }
 
-    static function pair(CurvePoint g1, TwistPoint g2) : FQ12 {
+    static function pairInternal(CurvePoint g1, TwistPoint g2) : FQ12 {
         FQ12 e = miller(g2, g1);
         FQ12 ret = finalExponentiation(e);
 
-        if (g2.z == {0, 0} || g1.z == 0) {
-            ret = {
-                {{0, 0}, {0, 0}, {0, 0}},
-                {{0, 0}, {0, 0}, {0, 1}}
-            };
+        if (BN256.isInfTwistPoint(g2) || BN256.isInfCurvePoint(g1)) {
+            ret = BN256.FQ12One;
         }
 
         return ret;
     }
 
-    // Check four pairs.
-    // e(a0, b0) * ... * e(a3, b3) == 1
-    static function pairCheckP4(
+    static function pairCheckP4Internal(
             CurvePoint a0, TwistPoint b0,
             CurvePoint a1, TwistPoint b1,
             CurvePoint a2, TwistPoint b2,
             CurvePoint a3, TwistPoint b3) : bool {
-        FQ12 acc = {
-            {{0, 0}, {0, 0}, {0, 0}},
-            {{0, 0}, {0, 0}, {0, 1}}
-        };
+        FQ12 acc = BN256.FQ12One;
 
         a0 = BN256.makeAffineCurvePoint(a0);
         a1 = BN256.makeAffineCurvePoint(a1);
         a2 = BN256.makeAffineCurvePoint(a2);
         a3 = BN256.makeAffineCurvePoint(a3);
 
-        if (a0.z != 0 && b0.z != {0, 0}) {
+        if (!BN256.isInfCurvePoint(a0) && !BN256.isInfTwistPoint(b0)) {
             acc = BN256.mulFQ12(acc, miller(b0, a0));
         }
-        if (a1.z != 0 && b1.z != {0, 0}) {
+        if (!BN256.isInfCurvePoint(a1) && !BN256.isInfTwistPoint(b1)) {
             acc = BN256.mulFQ12(acc, miller(b1, a1));
         }
-        if (a2.z != 0 && b2.z != {0, 0}) {
+        if (!BN256.isInfCurvePoint(a2) && !BN256.isInfTwistPoint(b2)) {
             acc = BN256.mulFQ12(acc, miller(b2, a2));
         }
-        if (a3.z != 0 && b3.z != {0, 0}) {
+        if (!BN256.isInfCurvePoint(a3) && !BN256.isInfTwistPoint(b3)) {
             acc = BN256.mulFQ12(acc, miller(b3, a3));
         }
 
         acc = finalExponentiation(acc);
 
-        return acc == {{{0, 0}, {0, 0}, {0, 0}}, {{0, 0}, {0, 0}, {0, 1}}};
+        return acc == BN256.FQ12One;
     }
 
-}"#;
+    static function pair(G1Point g1, G2Point g2) : FQ12 {
+        return pairInternal(
+                BN256.createCurvePoint(g1), 
+                BN256.createTwistPoint(g2)
+            );
+    }
+
+    // Check four pairs.
+    // e(a0, b0) * ... * e(a3, b3) == 1
+    static function pairCheckP4(
+            G1Point a0, G2Point b0,
+            G1Point a1, G2Point b1,
+            G1Point a2, G2Point b2,
+            G1Point a3, G2Point b3) : bool {
+        return pairCheckP4Internal(
+                BN256.createCurvePoint(a0), BN256.createTwistPoint(b0),
+                BN256.createCurvePoint(a1), BN256.createTwistPoint(b1),
+                BN256.createCurvePoint(a2), BN256.createTwistPoint(b2),
+                BN256.createCurvePoint(a3), BN256.createTwistPoint(b3)
+            );
+    }
+            
+
+}
+"#;
 
     [
         bn256_lib,

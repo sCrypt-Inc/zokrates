@@ -306,8 +306,11 @@ impl<T: ScryptCompatibleField> ScryptCompatibleScheme<T> for G16 {
                 zksnark_template_text.as_str(),
                 r#"
         loop (N) : i {
-            CurvePoint p = BN256.mulCurvePoint(vk.gamma_abc[i + 1], inputs[i]);
-            vk_x = BN256.addCurvePoints(vk_x, p);
+            G1Point p = BN256.mulG1Point(
+                vk.gamma_abc[i + 1],
+                inputs[i]
+            );
+            vk_x = BN256.addG1Points(vk_x, p);
         }"#,
             )
         } else {
@@ -339,28 +342,19 @@ impl<T: ScryptCompatibleField> ScryptCompatibleScheme<T> for G16 {
 const ZKSNARK_TEMPLATE: &str = r#"
 
 struct VerifyingKey {
-    CurvePoint alpha;
-    TwistPoint beta;
-    TwistPoint gamma;
-    TwistPoint delta;
-    CurvePoint[ZKSNARK.N_1] gamma_abc;
+    G1Point alpha;
+    G2Point beta;
+    G2Point gamma;
+    G2Point delta;
+    G1Point[ZKSNARK.N_1] gamma_abc;
 }
 
 struct Proof {
-    CoordsCurvePoint a;
-    CoordsTwistPoint b;
-    CoordsCurvePoint c;
+    G1Point a;
+    G2Point b;
+    G1Point c;
 }
 
-struct CoordsTwistPoint {
-    FQ2 x;
-    FQ2 y;
-}
-
-struct CoordsCurvePoint {
-    FQ x;
-    FQ y;
-}
 
 library ZKSNARK {
 
@@ -368,25 +362,18 @@ library ZKSNARK {
     static const int N = <%vk_input_length%>;
     static const int N_1 = <%vk_gamma_abc_length%>; // N + 1, gamma_abc length
 
-    static function createTwistPoint(CoordsTwistPoint ctp) : TwistPoint {
-        return {ctp.x, ctp.y, {0, 1}, {0, 1}}; 
-    }
-
-    static function createCurvePoint(CoordsCurvePoint ccp) : CurvePoint {
-        return {ccp.x, ccp.y, 1, 1}; 
-    }
 
     static function verify(<%input_argument%>Proof proof, VerifyingKey vk) : bool {
 
-        CurvePoint vk_x = vk.gamma_abc[0];
+        G1Point vk_x = vk.gamma_abc[0];
 
         <%input_loop%>
 
         return BN256Pairing.pairCheckP4(
-            BN256.negCurvePoint(ZKSNARK.createCurvePoint(proof.a)), ZKSNARK.createTwistPoint(proof.b),
+            {proof.a.x, -proof.a.y}, proof.b,
             vk.alpha, vk.beta,
             vk_x, vk.gamma,
-            ZKSNARK.createCurvePoint(proof.c), vk.delta);
+            proof.c, vk.delta);
     }
 
 }
