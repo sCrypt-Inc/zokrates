@@ -117,10 +117,24 @@ fn cli_export_verifier<T: ScryptCompatibleField, S: ScryptCompatibleScheme<T>>(
 
 
 const JS_TEMPLATE: &str = r#"
-const { buildContractClass, Int, buildTypeClasses, compileContractAsync } = require('scryptlib');
+
+const { buildContractClass, Int, buildTypeClasses, compileContractAsync, bsv } = require('scryptlib');
 const fs = require('fs');
 const path = require('path');
 const assert = require('assert');
+const axios = require('axios');
+const { exit } = require('process');
+const API_PREFIX = 'https://api.whatsonchain.com/v1/bsv/test'
+
+
+// put your testnet privkey here.
+const key = '';
+
+if (!key) {
+  genPrivKey()
+}
+const privateKey = new bsv.PrivateKey.fromWIF(key)
+
 
 async function run() {
 
@@ -138,7 +152,8 @@ async function run() {
   console.log(JSON.stringify(proof, null, 1));
 
   console.log("Simulate a verification call ...");
-  const result = verifier.unlock(proof.inputs.map(input => new Int(input)),
+
+  const unlockCall = verifier.unlock(proof.inputs.map(input => new Int(input)),
     new Proof({
       a: new G1Point({
         x: new Int(proof.proof.a[0]),
@@ -159,14 +174,131 @@ async function run() {
         y: new Int(proof.proof.c[1]),
       })
     })
+  );
 
-  ).verify();
+  const result = unlockCall.verify();
 
   assert.ok(result.success, result.error)
+
+  console.log("Verification OK");
+
+  console.log('start deploying zkSNARK verifier ... ')
+  const tx = await deployContract(verifier, 10000);
+  console.log('deployed txid:     ', tx.id)
+
+  const unlockingTx = new bsv.Transaction();
+  unlockingTx.addInput(createInputFromPrevTx(tx))
+  .change(privateKey.toAddress())
+  .setInputScript(0, (_) => {
+      return unlockCall.toScript();
+  })
+  .seal()
+
+  await sleep(10000);
+  
+  // unlock
+  console.log('start calling zkSNARK verifier ... ')
+  await sendTx(unlockingTx)
+
+  console.log('unlocking txid:     ', unlockingTx.id)
+
+  console.log('Succeeded on testnet')
+
 }
 
+
 run().then(() => {
-  console.log("Verification OK");
   process.exit(0);
 });
+
+
+
+
+
+function genPrivKey() {
+  const newPrivKey = new bsv.PrivateKey.fromRandom('testnet')
+  console.log(`Missing private key, generating a new one ...
+Private key generated: '${newPrivKey.toWIF()}'
+You can fund its address '${newPrivKey.toAddress()}' from sCrypt faucet https://scrypt.io/#faucet`)
+  exit(-1)
+}
+
+
+
+async function fetchUtxos(address) {
+  let {
+    data: utxos
+  } = await axios.get(`${API_PREFIX}/address/${address}/unspent`)
+
+  return utxos.map((utxo) => ({
+    txId: utxo.tx_hash,
+    outputIndex: utxo.tx_pos,
+    satoshis: utxo.value,
+    script: bsv.Script.buildPublicKeyHashOut(address).toHex(),
+  }))
+}
+
+
+
+async function sendTx(tx) {
+  const hex = tx.toString();
+
+  try {
+
+    const {
+      data: txid
+    } = await axios({
+      method: 'post',
+      url: `${API_PREFIX}/tx/raw`,
+      data: {
+        txhex: hex
+      },
+      maxBodyLength: Infinity
+    });
+      
+    return txid
+  } catch (error) {
+    if (error.response && error.response.data === '66: insufficient priority') {
+      throw new Error(`Rejected by miner. Transaction with fee is too low: expected Fee is ${expectedFee}, but got ${fee}, hex: ${hex}`)
+    } else if (error.response) {
+      throw new Error(error.response.data)
+    } 
+
+    console.error(error.response.data)
+    throw error
+  }
+}
+
+//create an input spending from prevTx's output, with empty script
+function createInputFromPrevTx(tx, outputIndex) {
+  const outputIdx = outputIndex || 0
+  return new bsv.Transaction.Input({
+    prevTxId: tx.id,
+    outputIndex: outputIdx,
+    script: new bsv.Script(), // placeholder
+    output: tx.outputs[outputIdx]
+  })
+}
+
+async function deployContract(contract, amount) {
+  const address = privateKey.toAddress()
+  const tx = new bsv.Transaction()
+  
+  tx.from(await fetchUtxos(address))
+  .addOutput(new bsv.Transaction.Output({
+    script: contract.lockingScript,
+    satoshis: amount,
+  }))
+  .change(address)
+  .sign(privateKey)
+
+  await sendTx(tx)
+  return tx
+}
+
+function sleep(time){
+  return new Promise(function(resolve){
+    setTimeout(resolve, time);
+  });
+}
 "#;
