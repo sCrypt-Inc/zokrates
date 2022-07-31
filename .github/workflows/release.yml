@@ -10,18 +10,23 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        build: [linux, macos]
+        build: [linux, macos, windows]
         include:
           - build: linux
             os: ubuntu-latest
             rust: nightly
             target: x86_64-unknown-linux-musl
-            archive-name: zokrates-linux.tar.gz
+            archive-name: zokrates-linux-x86_64.tar.gz
           - build: macos
             os: macos-latest
             rust: nightly
             target: aarch64-apple-darwin
-            archive-name: zokrates-macos.tar.gz
+            archive-name: zokrates-macos-aarch64.tar.gz
+          - build: windows
+            os: windows-latest
+            rust: nightly
+            target: x86_64-pc-windows-msvc
+            archive-name: zokrates-windows-x86_64.7z
     steps:
       - name: Checkout repository
         uses: actions/checkout@v2
