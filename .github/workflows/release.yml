@@ -39,9 +39,13 @@ jobs:
           target: ${{ matrix.target }}
 
       - name: Build binary
-        run: ./build_release.sh
+        run: cargo build --release --package zokrates_cli --target ${{ matrix.target }}
         env:
           RUST_BACKTRACE: 1
+      
+      - name: Strip binary (linux and macos)
+        if: matrix.build == 'linux' || matrix.build == 'macos'
+        run: strip "target/${{ matrix.target }}/release/zokrates"
 
       - name: Build archive
         shell: bash
