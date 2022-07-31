@@ -22,11 +22,6 @@ jobs:
             rust: nightly
             target: aarch64-apple-darwin
             archive-name: zokrates-macos.tar.gz
-          - build: windows-latest
-            os: windows-latest
-            rust: nightly-x86_64-msvc
-            target: x86_64-pc-windows-gnu
-            archive-name: zokrates-windows.7z
     steps:
       - name: Checkout repository
         uses: actions/checkout@v2
