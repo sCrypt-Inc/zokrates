@@ -6,14 +6,14 @@ on:
 jobs:
   release:
     name: release ${{ matrix.target }}
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         build: [linux, macos, windows]
         include:
           - build: linux
-            os: ubuntu-18.04
+            os: ubuntu-latest
             rust: nightly
             target: x86_64-unknown-linux-musl
             archive-name: zokrates-linux.tar.gz
@@ -22,7 +22,7 @@ jobs:
             rust: nightly
             target: aarch64-apple-darwin
             archive-name: zokrates-macos.tar.gz
-          - build: windows
+          - build: windows-latest
             os: windows-2019
             rust: nightly-x86_64-msvc
             target: x86_64-pc-windows-gnu
