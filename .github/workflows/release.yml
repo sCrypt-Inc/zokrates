@@ -1,7 +1,7 @@
 on:
   push:
-    branches:
-      - main
+    tags:
+      - 'v*'
 
 jobs:
   release:
@@ -60,11 +60,6 @@ jobs:
             cp "../target/${{ matrix.target }}/release/zokrates" ./
             tar -czf "${{ matrix.archive-name }}" LICENSE README.md zokrates
           fi
-      - name: Upload archive
-        uses: actions/upload-artifact@v1
-        with:
-          name: ${{ matrix.archive-name }}
-          path: archive/${{ matrix.archive-name }}
 
       - name: Create Release
         id: create_release
