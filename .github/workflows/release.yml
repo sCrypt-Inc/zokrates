@@ -43,10 +43,6 @@ jobs:
         env:
           RUST_BACKTRACE: 1
 
-      - name: Strip binary (linux and macos)
-        if: matrix.build == 'linux' || matrix.build == 'macos'
-        run: strip "target/${{ matrix.target }}/release/zokrates"
-
       - name: Build archive
         shell: bash
         run: |
