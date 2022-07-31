@@ -11,6 +11,8 @@ proving.key
 verification.key
 verifier.sol
 proof.json
+verifier.scrypt
+verifier.js
 universal_setup.dat
 witness
 
