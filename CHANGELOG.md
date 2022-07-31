@@ -4,6 +4,15 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 https://github.com/Zokrates/ZoKrates/compare/latest...develop
 
+
+## [0.8.0-scrypt] - 2022-07-31
+
+### Release
+- https://github.com/Zokrates/ZoKrates/releases/tag/0.8.0-scrypt <!-- markdown-link-check-disable-line -->
+
+### Changes
+- Add `export-verifier-scrypt` command
+
 ## [0.8.0] - 2022-07-07
 
 ### Release
