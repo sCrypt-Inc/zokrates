@@ -58,8 +58,6 @@ zokrates compute-witness -a 337 113569
 zokrates generate-proof
 # export a solidity verifier
 zokrates export-verifier-scrypt
-# verify local
-node --max-old-space-size=8192 verifier.js
 # or verify natively
 zokrates verify
 ```

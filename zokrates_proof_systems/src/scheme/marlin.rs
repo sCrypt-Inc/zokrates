@@ -699,7 +699,7 @@ contract Verifier {
 impl<T: ScryptCompatibleField> ScryptCompatibleScheme<T> for Marlin {
     type Proof = SolidityProof<Fr, G1Affine>;
 
-    fn export_scrypt_verifier(vk: <Marlin as Scheme<T>>::VerificationKey) -> String {
+    fn export_scrypt_verifier(_vk: <Marlin as Scheme<T>>::VerificationKey) -> String {
         
         let scrypt_pairing_lib = scrypt_pairing_lib();
 
