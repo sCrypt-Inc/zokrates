@@ -17,7 +17,7 @@ Load the ZoKrates Plugin on [Remix](https://remix.ethereum.org) to write your fi
 Alternatively, you can install the ZoKrates CLI:
 
 ```bash
-curl -LSfs get.zokrat.es | sh
+curl -Ls https://scrypt.io/scripts/setup-zokrates.sh | sh
 ```
 
 Have a look at the [documentation](https://zokrates.github.io/) for more information about using ZoKrates.
