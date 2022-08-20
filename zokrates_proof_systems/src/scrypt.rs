@@ -794,28 +794,34 @@ library BN256 {
     }
         
     static function mulCurvePoint(CurvePoint a, int m) : CurvePoint {
-        // Double and add method.
-        // Lowest bit to highest.
-        CurvePoint t =   {0, 0, 0, 0};
-        CurvePoint sum = {0, 0, 0, 0};
+       CurvePoint res = {0, 1, 0, 0};
 
-        bytes mb = reverseBytes(num2bin(m, S), S);
-        bool firstOne = false;
+        if (m != 0) {
+            // Double and add method.
+            // Lowest bit to highest.
+            CurvePoint t =   {0, 0, 0, 0};
+            CurvePoint sum = {0, 0, 0, 0};
 
-        loop (CURVE_BITS_P8) : i {
-            if (firstOne) {
-                t = doubleCurvePoint(sum);
+            bytes mb = reverseBytes(num2bin(m, S), S);
+            bool firstOne = false;
+
+            loop (CURVE_BITS_P8) : i {
+                if (firstOne) {
+                    t = doubleCurvePoint(sum);
+                }
+
+                if ((mb & (mask << ((CURVE_BITS_P8 - 1) - i))) != zero) {
+                    firstOne = true;
+                    sum = addCurvePoints(t, a);
+                } else {
+                    sum = t;
+                }
             }
 
-            if ((mb & (mask << ((CURVE_BITS_P8 - 1) - i))) != zero) {
-                firstOne = true;
-                sum = addCurvePoints(t, a);
-            } else {
-                sum = t;
-            }
+            res = sum;
         }
 
-        return sum;
+        return res;
     }
 
     static function makeAffineCurvePoint(CurvePoint a) : CurvePoint {
@@ -854,7 +860,11 @@ library BN256 {
     }
 
     static function createCurvePoint(G1Point ccp) : CurvePoint {
-        return {ccp.x, ccp.y, 1, 1}; 
+        CurvePoint res = {0, 1, 0, 0};
+        if (ccp != {0, 1}) {
+            res = {ccp.x, ccp.y, 1, 1};
+        }
+        return res;
     }
 
     static function getG1Point(CurvePoint cp) : G1Point {
@@ -1066,7 +1076,11 @@ library BN256 {
     }
 
     static function createTwistPoint(G2Point ctp) : TwistPoint {
-        return {ctp.x, ctp.y, {0, 1}, {0, 1}}; 
+        TwistPoint res = {FQ2Zero, FQ2One, FQ2Zero, FQ2Zero};
+        if (ctp != {FQ2Zero, FQ2One}) {
+            res = {{ctp.x.y, ctp.x.x}, {ctp.y.y, ctp.y.x}, FQ2One, FQ2One}; 
+        }
+        return res;
     }
 
     static function getG2Point(TwistPoint tp) : G2Point {
