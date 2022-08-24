@@ -151,6 +151,51 @@ impl<T: Field + BellmanFieldExtensions> MpcBackend<T, G16> for Bellman {
         let vk = serialization::parameters_to_verification_key::<T>(params);
         Ok(SetupKeypair::new(vk, pk))
     }
+
+    fn get_millerBetaAlpha_string(vk: <G16 as Scheme<T>>::VerificationKey) -> String {
+        let vk = VerifyingKey {
+            alpha_g1: serialization::to_g1::<T>(vk.alpha),
+            beta_g1: <T::BellmanEngine as Engine>::G1Affine::one(), // not used during verification
+            beta_g2: serialization::to_g2::<T>(vk.beta),
+            gamma_g2: serialization::to_g2::<T>(vk.gamma),
+            delta_g1: <T::BellmanEngine as Engine>::G1Affine::one(), // not used during verification
+            delta_g2: serialization::to_g2::<T>(vk.delta),
+            ic: vk
+                .gamma_abc
+                .into_iter()
+                .map(serialization::to_g1::<T>)
+                .collect(),
+        };
+
+        let pvk: PreparedVerifyingKey<T::BellmanEngine> = prepare_verifying_key(&vk);
+        return format!("TODO");
+        //return format!(
+        //    "{{
+        //        {{
+        //            {{ {}, {} }},
+        //            {{ {}, {} }},
+        //            {{ {}, {} }}
+        //        }},
+        //        {{
+        //            {{ {}, {} }},
+        //            {{ {}, {} }},
+        //            {{ {}, {} }}
+        //        }}
+        //    }}",
+        //    (( pvk.alpha_g1_beta_g2.0).0).0,
+        //    (( pvk.alpha_g1_beta_g2.0).0).1,
+        //    (( pvk.alpha_g1_beta_g2.0).1).0,
+        //    (( pvk.alpha_g1_beta_g2.0).1).1,
+        //    (( pvk.alpha_g1_beta_g2.0).2).0,
+        //    (( pvk.alpha_g1_beta_g2.0).2).1,
+        //    (( pvk.alpha_g1_beta_g2.1).0).0,
+        //    (( pvk.alpha_g1_beta_g2.1).0).1,
+        //    (( pvk.alpha_g1_beta_g2.1).1).0,
+        //    (( pvk.alpha_g1_beta_g2.1).1).1,
+        //    (( pvk.alpha_g1_beta_g2.1).2).0,
+        //    (( pvk.alpha_g1_beta_g2.1).2).1
+        //)
+    }
 }
 
 pub mod serialization {

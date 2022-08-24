@@ -197,11 +197,11 @@ impl<T: ScryptCompatibleField> ScryptCompatibleScheme<T> for G16 {
 
     fn export_scrypt_verifier(vk: <G16 as Scheme<T>>::VerificationKey) -> String {
         
-
         let (mut verifier_template_text, mut zksnark_template_text, scrypt_pairing_bn256) =
         (String::from(SCRYPT_CONTRACT_TEMPLATE), String::from(ZKSNARK_TEMPLATE), scrypt_pairing_lib());
 
         let vk_regex = Regex::new(r#"(<%vk%>)"#).unwrap();
+        let vk_millerb1a1_regex = Regex::new(r#"(<%vk_millerb1a1%>)"#).unwrap();  // TODO
         let vk_gamma_abc_len_regex = Regex::new(r#"(<%vk_gamma_abc_length%>)"#).unwrap();
         let vk_input_len_regex = Regex::new(r#"(<%vk_input_length%>)"#).unwrap();
         let input_loop = Regex::new(r#"(<%input_loop%>)"#).unwrap();
@@ -363,17 +363,17 @@ library ZKSNARK {
     static const int N_1 = <%vk_gamma_abc_length%>; // N + 1, gamma_abc length
 
 
-    static function verify(<%input_argument%>Proof proof, VerifyingKey vk) : bool {
+    static function verifyOptimized(<%input_argument%>Proof proof, VerifyingKey vk, FQ12 millerb1a1) : bool {
 
         G1Point vk_x = vk.gamma_abc[0];
 
         <%input_loop%>
 
-        return BN256Pairing.pairCheckP4(
-            {proof.a.x, -proof.a.y}, proof.b,
-            vk.alpha, vk.beta,
-            vk_x, vk.gamma,
-            proof.c, vk.delta);
+        return BN256Pairing.pairCheckP4Precalc(
+                {proof.a.x, -proof.a.y}, proof.b,
+                millerb1a1,
+                vk_x, vk.gamma,
+                proof.c, vk.delta);
     }
 
 }
@@ -385,9 +385,10 @@ const SCRYPT_CONTRACT_TEMPLATE: &str = r#"
 contract Verifier {
 
     static const VerifyingKey vk = <%vk%>;
+    static const FQ12 millerb1a1 = <%vk_millerb1a1%>;
 
     public function unlock(<%input_argument%>Proof proof) {
-        require(ZKSNARK.verify(inputs, proof, vk));
+        require(ZKSNARK.verifyOptimized(inputs, proof, vk, millerb1a1));
     }
 }
 "#;
