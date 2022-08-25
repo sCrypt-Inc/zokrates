@@ -195,8 +195,10 @@ contract Verifier {
 impl<T: ScryptCompatibleField> ScryptCompatibleScheme<T> for G16 {
     type Proof = Self::ProofPoints;
 
-    fn export_scrypt_verifier(vk: <G16 as Scheme<T>>::VerificationKey) -> String {
+    fn export_scrypt_verifier(vk: <G16 as Scheme<T>>::VerificationKey, alpha_g1_beta_g2: String) -> String {
         
+
+        println!("alpha_g1_beta_g2 {}", alpha_g1_beta_g2);
         let (mut verifier_template_text, mut zksnark_template_text, scrypt_pairing_bn256) =
         (String::from(SCRYPT_CONTRACT_TEMPLATE), String::from(ZKSNARK_TEMPLATE), scrypt_pairing_lib());
 

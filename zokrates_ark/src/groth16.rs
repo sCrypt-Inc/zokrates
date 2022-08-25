@@ -83,6 +83,30 @@ impl<T: Field + ArkFieldExtensions> Backend<T, G16> for Ark {
 
         verify_proof(&pvk, &ark_proof, &public_inputs).unwrap()
     }
+
+
+    fn get_miller_beta_alpha_string(vk: <G16 as Scheme<T>>::VerificationKey) -> String {
+
+        let vk = VerifyingKey {
+            alpha_g1: serialization::to_g1::<T>(vk.alpha),
+            beta_g2: serialization::to_g2::<T>(vk.beta),
+            gamma_g2: serialization::to_g2::<T>(vk.gamma),
+            delta_g2: serialization::to_g2::<T>(vk.delta),
+            gamma_abc_g1: vk
+                .gamma_abc
+                .into_iter()
+                .map(serialization::to_g1::<T>)
+                .collect(),
+        };
+
+
+        let pvk: PreparedVerifyingKey<T::ArkEngine> = prepare_verifying_key(&vk);
+
+        
+        return  pvk.alpha_g1_beta_g2.to_string()
+    }
+
+
 }
 
 impl<T: Field + ArkFieldExtensions> NonUniversalBackend<T, G16> for Ark {

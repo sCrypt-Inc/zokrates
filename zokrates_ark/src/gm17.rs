@@ -106,6 +106,12 @@ impl<T: Field + ArkFieldExtensions> Backend<T, GM17> for Ark {
 
         verify_proof(&pvk, &ark_proof, &public_inputs).unwrap()
     }
+
+    fn get_miller_beta_alpha_string(vk: <GM17 as Scheme<T>>::VerificationKey) -> String {
+
+        return String::from("TODO");
+    }
+
 }
 
 #[cfg(test)]
