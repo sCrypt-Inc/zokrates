@@ -3,6 +3,7 @@ use ark_groth16::{
     prepare_verifying_key, verify_proof, Groth16, PreparedVerifyingKey, Proof as ArkProof,
     ProvingKey, VerifyingKey,
 };
+use ark_ec::PairingEngine;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use zokrates_field::ArkFieldExtensions;
 use zokrates_field::Field;
@@ -102,8 +103,16 @@ impl<T: Field + ArkFieldExtensions> Backend<T, G16> for Ark {
 
         let pvk: PreparedVerifyingKey<T::ArkEngine> = prepare_verifying_key(&vk);
 
-        
-        return  pvk.alpha_g1_beta_g2.to_string()
+
+        // return  pvk.alpha_g1_beta_g2.to_string()
+
+        let g1_prep =  <T::ArkEngine as PairingEngine>::G1Prepared::from(vk.alpha_g1);
+        let g2_prep =  <T::ArkEngine as PairingEngine>::G2Prepared::from(vk.beta_g2);
+
+        let alpha_g1_beta_g2 = <T::ArkEngine as PairingEngine>::miller_loop(core::iter::once(&(g1_prep, g2_prep)));
+
+
+        alpha_g1_beta_g2.to_string()
     }
 
 
