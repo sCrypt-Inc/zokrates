@@ -198,8 +198,8 @@ impl<T: ScryptCompatibleField> ScryptCompatibleScheme<T> for G16 {
     fn export_scrypt_verifier(vk: <G16 as Scheme<T>>::VerificationKey) -> String {
         
 
-        let (mut verifier_template_text, mut zksnark_template_text, scrypt_pairing_bn256) =
-        (String::from(SCRYPT_CONTRACT_TEMPLATE), String::from(ZKSNARK_TEMPLATE), scrypt_pairing_lib());
+        let (mut zksnark_template_text, scrypt_pairing_bn256) =
+        (String::from(ZKSNARK_TEMPLATE), scrypt_pairing_lib());
 
         let vk_regex = Regex::new(r#"(<%vk%>)"#).unwrap();
         let vk_gamma_abc_len_regex = Regex::new(r#"(<%vk_gamma_abc_length%>)"#).unwrap();
@@ -267,18 +267,18 @@ impl<T: ScryptCompatibleField> ScryptCompatibleScheme<T> for G16 {
         vk_repeat_text.push_str("}");
 
 
-        verifier_template_text = vk_regex
-        .replace(verifier_template_text.as_str(), vk_repeat_text.as_str())
+        zksnark_template_text = vk_regex
+        .replace(zksnark_template_text.as_str(), vk_repeat_text.as_str())
         .into_owned();
 
 
-        verifier_template_text = if gamma_abc_count > 1 {
+        zksnark_template_text = if gamma_abc_count > 1 {
             input_argument.replace(
-                verifier_template_text.as_str(),
+                zksnark_template_text.as_str(),
                 r#"int[ZKSNARK.N] inputs, "#,
             )
         } else {
-            input_argument.replace(verifier_template_text.as_str(), "")
+            input_argument.replace(zksnark_template_text.as_str(), "")
         }
         .to_string();
 
@@ -332,8 +332,8 @@ impl<T: ScryptCompatibleField> ScryptCompatibleScheme<T> for G16 {
 
 
         format!(
-            "{}{}{}",
-            scrypt_pairing_bn256, zksnark_template_text, verifier_template_text
+            "{}{}",
+            scrypt_pairing_bn256, zksnark_template_text
         )
     }
 }
@@ -358,12 +358,14 @@ struct Proof {
 
 library ZKSNARK {
 
+    static const VerifyingKey vk = <%vk%>;
+
     // Number of inputs.
     static const int N = <%vk_input_length%>;
     static const int N_1 = <%vk_gamma_abc_length%>; // N + 1, gamma_abc length
 
 
-    static function verify(<%input_argument%>Proof proof, VerifyingKey vk) : bool {
+    static function verify(<%input_argument%>Proof proof) : bool {
 
         G1Point vk_x = vk.gamma_abc[0];
 
@@ -376,19 +378,6 @@ library ZKSNARK {
             proof.c, vk.delta);
     }
 
-}
-"#;
-
-
-
-const SCRYPT_CONTRACT_TEMPLATE: &str = r#"
-contract Verifier {
-
-    static const VerifyingKey vk = <%vk%>;
-
-    public function unlock(<%input_argument%>Proof proof) {
-        require(ZKSNARK.verify(inputs, proof, vk));
-    }
 }
 "#;
 
