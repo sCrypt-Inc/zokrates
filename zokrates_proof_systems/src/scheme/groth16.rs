@@ -333,7 +333,7 @@ struct VerifyingKey {
     FQ12 millerb1a1;
     G2Point gamma;
     G2Point delta;
-    G1Point[2] gamma_abc;    // Size of array should be N + 1
+    G1Point[ZKSNARK.N_1] gamma_abc; 
 }
 
 struct Proof {
