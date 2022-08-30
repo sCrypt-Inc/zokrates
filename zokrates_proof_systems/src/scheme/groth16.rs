@@ -350,7 +350,7 @@ library ZKSNARK {
     static const int N_1 = <%vk_gamma_abc_length%>; // N + 1, gamma_abc length
 
 
-    static function verifyOptimized(<%input_argument%>Proof proof, VerifyingKey vk, FQ12 millerb1a1) : bool {
+    static function verifyOptimized(<%input_argument%>Proof proof, VerifyingKey vk) : bool {
 
         G1Point vk_x = vk.gamma_abc[0];
 
