@@ -9,6 +9,7 @@ use regex::Regex;
 use serde::{Deserialize, Serialize};
 use zokrates_field::Field;
 
+
 #[derive(Serialize)]
 pub struct G16;
 
@@ -197,13 +198,10 @@ impl<T: ScryptCompatibleField> ScryptCompatibleScheme<T> for G16 {
 
     fn export_scrypt_verifier(vk: <G16 as Scheme<T>>::VerificationKey, alpha_g1_beta_g2: String) -> String {
         
-
-        println!("alpha_g1_beta_g2 {}", alpha_g1_beta_g2);
         let (mut verifier_template_text, mut zksnark_template_text, scrypt_pairing_bn256) =
         (String::from(SCRYPT_CONTRACT_TEMPLATE), String::from(ZKSNARK_TEMPLATE), scrypt_pairing_lib());
 
         let vk_regex = Regex::new(r#"(<%vk%>)"#).unwrap();
-        let vk_millerb1a1_regex = Regex::new(r#"(<%vk_millerb1a1%>)"#).unwrap();  // TODO
         let vk_gamma_abc_len_regex = Regex::new(r#"(<%vk_gamma_abc_length%>)"#).unwrap();
         let vk_input_len_regex = Regex::new(r#"(<%vk_input_length%>)"#).unwrap();
         let input_loop = Regex::new(r#"(<%input_loop%>)"#).unwrap();
@@ -214,20 +212,8 @@ impl<T: ScryptCompatibleField> ScryptCompatibleScheme<T> for G16 {
         let mut vk_repeat_text = String::new();
 
         vk_repeat_text.push_str("{");
-
-        vk_repeat_text.push_str(format!(
-            "{}",
-            vk.alpha.to_scrypt_string().as_str()
-        )
-        .as_str());
-
-        vk_repeat_text.push_str(",");
-
-        vk_repeat_text.push_str(format!(
-            "{}",
-            vk.beta.to_scrypt_string().as_str()
-        )
-        .as_str());
+        
+        vk_repeat_text.push_str(&alpha_g1_beta_g2);
 
         vk_repeat_text.push_str(",");
 
@@ -344,11 +330,10 @@ impl<T: ScryptCompatibleField> ScryptCompatibleScheme<T> for G16 {
 const ZKSNARK_TEMPLATE: &str = r#"
 
 struct VerifyingKey {
-    G1Point alpha;
-    G2Point beta;
+    FQ12 millerb1a1;
     G2Point gamma;
     G2Point delta;
-    G1Point[ZKSNARK.N_1] gamma_abc;
+    G1Point[2] gamma_abc;    // Size of array should be N + 1
 }
 
 struct Proof {
@@ -373,7 +358,7 @@ library ZKSNARK {
 
         return BN256Pairing.pairCheckP4Precalc(
                 {proof.a.x, -proof.a.y}, proof.b,
-                millerb1a1,
+                vk.millerb1a1,
                 vk_x, vk.gamma,
                 proof.c, vk.delta);
     }
@@ -387,10 +372,9 @@ const SCRYPT_CONTRACT_TEMPLATE: &str = r#"
 contract Verifier {
 
     static const VerifyingKey vk = <%vk%>;
-    static const FQ12 millerb1a1 = <%vk_millerb1a1%>;
 
     public function unlock(<%input_argument%>Proof proof) {
-        require(ZKSNARK.verifyOptimized(inputs, proof, vk, millerb1a1));
+        require(ZKSNARK.verifyOptimized(inputs, proof, vk));
     }
 }
 "#;

@@ -1,3 +1,4 @@
+use regex::Regex;
 use bellman::groth16::{
     prepare_verifying_key, verify_proof, Parameters, PreparedVerifyingKey, Proof as BellmanProof,
     VerifyingKey,
@@ -84,7 +85,59 @@ impl<T: Field + BellmanFieldExtensions> Backend<T, G16> for Bellman {
 
     fn get_miller_beta_alpha_string(vk: <G16 as Scheme<T>>::VerificationKey) -> String {
 
-        return String::from("TODO");
+        let vk = VerifyingKey {
+            alpha_g1: serialization::to_g1::<T>(vk.alpha),
+            beta_g1: <T::BellmanEngine as Engine>::G1Affine::one(), // not used during verification
+            beta_g2: serialization::to_g2::<T>(vk.beta),
+            gamma_g2: serialization::to_g2::<T>(vk.gamma),
+            delta_g1: <T::BellmanEngine as Engine>::G1Affine::one(), // not used during verification
+            delta_g2: serialization::to_g2::<T>(vk.delta),
+            ic: vk
+                .gamma_abc
+                .into_iter()
+                .map(serialization::to_g1::<T>)
+                .collect(),
+        };
+
+        let pvk: PreparedVerifyingKey<T::BellmanEngine> = prepare_verifying_key(&vk);
+
+        let alpha_g1_beta_g2 = <T::BellmanEngine as Engine>::miller_loop(
+            core::iter::once(&(&vk.alpha_g1.prepare(), &vk.beta_g2.prepare()))
+        );
+
+        let re = Regex::new(r#"(0x[a-fA-F0-9]+)"#).unwrap();
+        let text = alpha_g1_beta_g2.to_string();
+        //let caps: regex::Captures = re.captures(&text).unwrap();
+        
+        let captures = re.captures_iter(&text);
+        let vals: Vec<_> = captures.collect();
+
+        return format!(
+            r#"{{
+                {{
+                    {{{}, {}}},
+                    {{{}, {}}},
+                    {{{}, {}}}
+                }},
+                {{
+                    {{{}, {}}},
+                    {{{}, {}}},
+                    {{{}, {}}}
+                }}
+            }}"#,
+            vals[11].get(1).map_or("", |m| m.as_str()),
+            vals[10].get(1).map_or("", |m| m.as_str()),
+            vals[9].get(1).map_or("", |m| m.as_str()),
+            vals[8].get(1).map_or("", |m| m.as_str()),
+            vals[7].get(1).map_or("", |m| m.as_str()),
+            vals[6].get(1).map_or("", |m| m.as_str()),
+            vals[5].get(1).map_or("", |m| m.as_str()),
+            vals[4].get(1).map_or("", |m| m.as_str()),
+            vals[3].get(1).map_or("", |m| m.as_str()),
+            vals[2].get(1).map_or("", |m| m.as_str()),
+            vals[1].get(1).map_or("", |m| m.as_str()),
+            vals[0].get(1).map_or("", |m| m.as_str()),
+        );
     }
 
 }
