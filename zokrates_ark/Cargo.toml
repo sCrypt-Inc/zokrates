@@ -8,7 +8,7 @@ edition = "2021"
 [dependencies]
 zokrates_field = { version = "0.5", path = "../zokrates_field", default-features = false }
 zokrates_ast = { version = "0.1", path = "../zokrates_ast", default-features = false }
-zokrates_proof_systems = { version = "0.1", path = "../zokrates_proof_systems", default-features = false }
+zokrates_proof_systems = { version = "0.2", path = "../zokrates_proof_systems", default-features = false }
 
 ark-ff = { version = "^0.3.0", default-features = false }
 ark-ec = { version = "^0.3.0", default-features = false }

@@ -2993,7 +2993,7 @@ dependencies = [
 
 [[package]]
 name = "zokrates_ark"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "ark-bls12-377",
  "ark-bn254",
@@ -3038,7 +3038,7 @@ dependencies = [
 
 [[package]]
 name = "zokrates_bellman"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "bellman_ce",
  "getrandom",
@@ -3068,7 +3068,7 @@ dependencies = [
 
 [[package]]
 name = "zokrates_cli"
-version = "0.8.5"
+version = "0.8.6"
 dependencies = [
  "assert_cli",
  "blake2 0.8.1",
@@ -3253,7 +3253,7 @@ dependencies = [
 
 [[package]]
 name = "zokrates_proof_systems"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "cfg-if 0.1.10",
  "ethabi",
