@@ -164,6 +164,10 @@ pub trait Backend<T: Field, S: Scheme<T>> {
     ) -> Proof<T, S>;
 
     fn verify(vk: S::VerificationKey, proof: Proof<T, S>) -> bool;
+
+    fn get_miller_beta_alpha_string(vk: S::VerificationKey) -> String;
+
+    
 }
 pub trait NonUniversalBackend<T: Field, S: NonUniversalScheme<T>>: Backend<T, S> {
     fn setup<I: IntoIterator<Item = ir::Statement<T>>>(

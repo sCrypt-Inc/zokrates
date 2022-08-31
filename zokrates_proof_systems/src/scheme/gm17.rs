@@ -209,7 +209,7 @@ contract Verifier {
 impl<T: ScryptCompatibleField> ScryptCompatibleScheme<T> for GM17 {
     type Proof = Self::ProofPoints;
 
-    fn export_scrypt_verifier(_vk: <GM17 as Scheme<T>>::VerificationKey) -> String {
+    fn export_scrypt_verifier(_vk: <GM17 as Scheme<T>>::VerificationKey, alpha_g1_beta_g2: String) -> String {
         
         let scrypt_pairing_lib = scrypt_pairing_lib();
 

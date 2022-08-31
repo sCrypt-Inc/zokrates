@@ -1,8 +1,10 @@
+use regex::Regex;
 use ark_crypto_primitives::SNARK;
 use ark_groth16::{
     prepare_verifying_key, verify_proof, Groth16, PreparedVerifyingKey, Proof as ArkProof,
     ProvingKey, VerifyingKey,
 };
+use ark_ec::PairingEngine;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use zokrates_field::ArkFieldExtensions;
 use zokrates_field::Field;
@@ -15,6 +17,10 @@ use rand_0_8::{rngs::StdRng, SeedableRng};
 use zokrates_ast::ir::{ProgIterator, Statement, Witness};
 use zokrates_proof_systems::groth16::{ProofPoints, VerificationKey, G16};
 use zokrates_proof_systems::Scheme;
+
+fn print_type_of<T>(_: &T) {
+    println!("{}", std::any::type_name::<T>())
+}
 
 const G16_WARNING: &str = "WARNING: You are using the G16 scheme which is subject to malleability. See zokrates.github.io/toolbox/proving_schemes.html#g16-malleability for implications.";
 
@@ -65,6 +71,7 @@ impl<T: Field + ArkFieldExtensions> Backend<T, G16> for Ark {
         };
 
         let pvk: PreparedVerifyingKey<T::ArkEngine> = prepare_verifying_key(&vk);
+
         let ark_proof = ArkProof {
             a: serialization::to_g1::<T>(proof.proof.a),
             b: serialization::to_g2::<T>(proof.proof.b),
@@ -83,6 +90,66 @@ impl<T: Field + ArkFieldExtensions> Backend<T, G16> for Ark {
 
         verify_proof(&pvk, &ark_proof, &public_inputs).unwrap()
     }
+
+
+    fn get_miller_beta_alpha_string(vk: <G16 as Scheme<T>>::VerificationKey) -> String {
+
+        let _vk = VerifyingKey {
+            alpha_g1: serialization::to_g1::<T>(vk.alpha),
+            beta_g2: serialization::to_g2::<T>(vk.beta),
+            gamma_g2: serialization::to_g2::<T>(vk.gamma),
+            delta_g2: serialization::to_g2::<T>(vk.delta),
+            gamma_abc_g1: vk
+                .gamma_abc
+                .into_iter()
+                .map(serialization::to_g1::<T>)
+                .collect(),
+        };
+
+
+        let pvk: PreparedVerifyingKey<T::ArkEngine> = prepare_verifying_key(&_vk);
+
+        let g1_prep =  <T::ArkEngine as PairingEngine>::G1Prepared::from(_vk.alpha_g1);
+        let g2_prep =  <T::ArkEngine as PairingEngine>::G2Prepared::from(_vk.beta_g2);
+
+        let alpha_g1_beta_g2 = <T::ArkEngine as PairingEngine>::miller_loop(core::iter::once(&(g1_prep, g2_prep)));
+
+        let re = Regex::new(r#""\(([a-fA-F0-9]+)\)""#).unwrap();
+        let text = alpha_g1_beta_g2.to_string();
+        //let caps: regex::Captures = re.captures(&text).unwrap();
+        
+        let captures = re.captures_iter(&text);
+        let vals: Vec<_> = captures.collect();
+
+        return format!(
+            r#"{{
+                {{
+                    {{ 0x{}, 0x{} }},
+                    {{ 0x{}, 0x{} }},
+                    {{ 0x{}, 0x{} }}
+                }},
+                {{
+                    {{ 0x{}, 0x{} }},
+                    {{ 0x{}, 0x{} }},
+                    {{ 0x{}, 0x{} }}
+                }}
+            }}"#,
+            vals[11].get(1).map_or("", |m| m.as_str()),
+            vals[10].get(1).map_or("", |m| m.as_str()),
+            vals[9].get(1).map_or("", |m| m.as_str()),
+            vals[8].get(1).map_or("", |m| m.as_str()),
+            vals[7].get(1).map_or("", |m| m.as_str()),
+            vals[6].get(1).map_or("", |m| m.as_str()),
+            vals[5].get(1).map_or("", |m| m.as_str()),
+            vals[4].get(1).map_or("", |m| m.as_str()),
+            vals[3].get(1).map_or("", |m| m.as_str()),
+            vals[2].get(1).map_or("", |m| m.as_str()),
+            vals[1].get(1).map_or("", |m| m.as_str()),
+            vals[0].get(1).map_or("", |m| m.as_str()),
+        );
+    }
+
+
 }
 
 impl<T: Field + ArkFieldExtensions> NonUniversalBackend<T, G16> for Ark {

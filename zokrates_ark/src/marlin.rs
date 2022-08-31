@@ -382,6 +382,12 @@ impl<T: Field + ArkFieldExtensions> Backend<T, marlin::Marlin> for Ark {
 
         MarlinInst::<T>::verify(&vk, &inputs, &proof, rng).unwrap()
     }
+
+    fn get_miller_beta_alpha_string(vk: <marlin::Marlin as Scheme<T>>::VerificationKey) -> String {
+
+        return String::from("TODO");
+    }
+
 }
 
 #[cfg(test)]

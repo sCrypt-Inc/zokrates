@@ -9,6 +9,7 @@ use regex::Regex;
 use serde::{Deserialize, Serialize};
 use zokrates_field::Field;
 
+
 #[derive(Serialize)]
 pub struct G16;
 
@@ -195,11 +196,10 @@ contract Verifier {
 impl<T: ScryptCompatibleField> ScryptCompatibleScheme<T> for G16 {
     type Proof = Self::ProofPoints;
 
-    fn export_scrypt_verifier(vk: <G16 as Scheme<T>>::VerificationKey) -> String {
+    fn export_scrypt_verifier(vk: <G16 as Scheme<T>>::VerificationKey, alpha_g1_beta_g2: String) -> String {
         
-
-        let (mut zksnark_template_text, scrypt_pairing_bn256) =
-        (String::from(ZKSNARK_TEMPLATE), scrypt_pairing_lib());
+        let (mut verifier_template_text, mut zksnark_template_text, scrypt_pairing_bn256) =
+        (String::from(SCRYPT_CONTRACT_TEMPLATE), String::from(ZKSNARK_TEMPLATE), scrypt_pairing_lib());
 
         let vk_regex = Regex::new(r#"(<%vk%>)"#).unwrap();
         let vk_gamma_abc_len_regex = Regex::new(r#"(<%vk_gamma_abc_length%>)"#).unwrap();
@@ -212,20 +212,8 @@ impl<T: ScryptCompatibleField> ScryptCompatibleScheme<T> for G16 {
         let mut vk_repeat_text = String::new();
 
         vk_repeat_text.push_str("{");
-
-        vk_repeat_text.push_str(format!(
-            "{}",
-            vk.alpha.to_scrypt_string().as_str()
-        )
-        .as_str());
-
-        vk_repeat_text.push_str(",");
-
-        vk_repeat_text.push_str(format!(
-            "{}",
-            vk.beta.to_scrypt_string().as_str()
-        )
-        .as_str());
+        
+        vk_repeat_text.push_str(&alpha_g1_beta_g2);
 
         vk_repeat_text.push_str(",");
 
@@ -342,11 +330,10 @@ impl<T: ScryptCompatibleField> ScryptCompatibleScheme<T> for G16 {
 const ZKSNARK_TEMPLATE: &str = r#"
 
 struct VerifyingKey {
-    G1Point alpha;
-    G2Point beta;
+    FQ12 millerb1a1;
     G2Point gamma;
     G2Point delta;
-    G1Point[ZKSNARK.N_1] gamma_abc;
+    G1Point[ZKSNARK.N_1] gamma_abc; 
 }
 
 struct Proof {
@@ -365,19 +352,30 @@ library ZKSNARK {
     static const int N_1 = <%vk_gamma_abc_length%>; // N + 1, gamma_abc length
 
 
-    static function verify(<%input_argument%>Proof proof) : bool {
+    static function verifyOptimized(<%input_argument%>Proof proof, VerifyingKey vk) : bool {
 
         G1Point vk_x = vk.gamma_abc[0];
 
         <%input_loop%>
 
-        return BN256Pairing.pairCheckP4(
-            {proof.a.x, -proof.a.y}, proof.b,
-            vk.alpha, vk.beta,
-            vk_x, vk.gamma,
-            proof.c, vk.delta);
+        return BN256Pairing.pairCheckP4Precalc(
+                {proof.a.x, -proof.a.y}, proof.b,
+                vk.millerb1a1,
+                vk_x, vk.gamma,
+                proof.c, vk.delta);
     }
 
+}
+"#;
+
+const SCRYPT_CONTRACT_TEMPLATE: &str = r#"
+contract Verifier {
+
+    static const VerifyingKey vk = <%vk%>;
+
+    public function unlock(<%input_argument%>Proof proof) {
+        require(ZKSNARK.verifyOptimized(inputs, proof, vk));
+    }
 }
 "#;
 
