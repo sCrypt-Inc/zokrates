@@ -58,7 +58,7 @@ pub fn subcommand() -> App<'static, 'static> {
 
 pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
     let parameters = Parameters::try_from((
-        constants::ARK,
+        constants::BELLMAN,
         sub_matches.value_of("curve").unwrap(),
         sub_matches.value_of("proving-scheme").unwrap(),
     ))?;
