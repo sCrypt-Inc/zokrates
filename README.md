@@ -45,15 +45,29 @@ You can enable zokrates git hooks locally by running:
 git config core.hooksPath .githooks
 ```
 
+
+
 ### Workflow
 
+A circuit:
 
+
+```python
+def main(private field p, private field q, field n) {
+    assert(p * q == n);
+    assert(p > 1);
+    assert(q > 1);
+    return;
+}
 ```
+
+
+```bash
 zokrates compile -i root.zok
 # perform the setup phase
 zokrates setup
 # execute the program
-zokrates compute-witness -a 337 113569
+zokrates compute-witness -a 2 2 4
 # generate a proof of computation
 zokrates generate-proof
 # export a solidity verifier
@@ -61,3 +75,8 @@ zokrates export-verifier-scrypt
 # or verify natively
 zokrates verify
 ```
+
+
+-------------------------
+
+[1] we use bellman as default backend.
