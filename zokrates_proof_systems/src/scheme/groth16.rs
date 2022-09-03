@@ -352,7 +352,7 @@ library ZKSNARK {
     static const int N_1 = <%vk_gamma_abc_length%>; // N + 1, gamma_abc length
 
 
-    static function verifyOptimized(<%input_argument%>Proof proof, VerifyingKey vk) : bool {
+    static function verify(<%input_argument%>Proof proof) : bool {
 
         G1Point vk_x = vk.gamma_abc[0];
 
@@ -369,14 +369,6 @@ library ZKSNARK {
 "#;
 
 const SCRYPT_CONTRACT_TEMPLATE: &str = r#"
-contract Verifier {
-
-    static const VerifyingKey vk = <%vk%>;
-
-    public function unlock(<%input_argument%>Proof proof) {
-        require(ZKSNARK.verifyOptimized(inputs, proof, vk));
-    }
-}
 "#;
 
 /* =============== end */
