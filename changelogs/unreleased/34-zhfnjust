@@ -1,0 +1,7 @@
+## [1.8.2] - 2022-09-17
+
+### Release
+- https://github.com/Zokrates/ZoKrates/releases/tag/1.8.2 <!-- markdown-link-check-disable-line -->
+
+### Changes
+- support bellman in zokrates_js

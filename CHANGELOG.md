@@ -4,14 +4,30 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 https://github.com/Zokrates/ZoKrates/compare/latest...develop
 
-
-## [0.8.0-scrypt] - 2022-07-31
+## [0.8.2] - 2022-09-05
 
 ### Release
-- https://github.com/Zokrates/ZoKrates/releases/tag/0.8.0-scrypt <!-- markdown-link-check-disable-line -->
+- https://github.com/Zokrates/ZoKrates/releases/tag/0.8.2 <!-- markdown-link-check-disable-line -->
 
 ### Changes
-- Add `export-verifier-scrypt` command
+- Make return statement optional if no returns are expected (#1222, @dark64)
+- Add a casting utility module to stdlib (#1215, @dark64)
+- Introduce dead code elimination (#1206, @schaeff)
+- Add magic square in javascript example to the book (#1198, @dark64)
+- Fix circom r1cs export to avoid generating unverified proofs (#1220, @schaeff)
+- Allow shadowing (#1193, @schaeff)
+
+## [0.8.1] - 2022-08-22
+
+### Release
+- https://github.com/Zokrates/ZoKrates/releases/tag/0.8.1 <!-- markdown-link-check-disable-line -->
+
+### Changes
+- Error out at compile time if the type of a logged value could not be inferred (#1209, @dark64)
+- Add `backend` option in `zokrates-js`, bring back bellman, add a log writer to support printing logs in js (#1199, @dark64)
+- Fix padding bug in keccak implementation, add support for keccak-224 and sha3-224 (#1197, @dark64)
+- Update syntax highlighters (#1195, @schaeff)
+- Avoid validity checks on the deserialization of the proving key to improve proving time (#1192, @dark64)
 
 ## [0.8.0] - 2022-07-07
 
