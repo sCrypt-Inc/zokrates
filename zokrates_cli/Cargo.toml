@@ -1,6 +1,6 @@
 [package]
 name = "zokrates_cli"
-version = "0.8.7"
+version = "1.8.2"
 authors = ["Jacob Eberhardt <jacob.eberhardt@tu-berlin.de>", "Dennis Kuhnert <mail@kyroy.com>", "Thibaut Schaeffer <thibaut@schaeff.fr>"]
 repository = "https://github.com/Zokrates/ZoKrates.git"
 edition = "2018"
@@ -39,7 +39,7 @@ sha2 = "0.10.0"
 
 # Backends
 zokrates_proof_systems = { version = "0.2", path = "../zokrates_proof_systems", default-features = false }
-zokrates_ark = { version = "0.2", path = "../zokrates_ark", default-features = false, optional = true }
+zokrates_ark = { version = "0.1.1", path = "../zokrates_ark", default-features = false, optional = true }
 zokrates_bellman = { version = "0.2", path = "../zokrates_bellman", default-features = false, optional = true }
 
 [dev-dependencies]
