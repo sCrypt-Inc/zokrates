@@ -80,6 +80,7 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
     let parameters =
         Parameters::try_from((sub_matches.value_of("backend").unwrap(), curve, scheme))?;
 
+    // TODO: How to disable unsupported options?
     let alpha_g1_beta_g2 = match parameters {
         #[cfg(feature = "bellman")]
         Parameters(BackendParameter::Bellman, CurveParameter::Bn128, SchemeParameter::G16) => {

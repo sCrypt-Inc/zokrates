@@ -69,8 +69,14 @@ module.exports = (pkg) => {
     verify: (vk, proof, options) => {
       return pkg.verify(vk, proof, options);
     },
+    computeMillerBetaAlpha: (vk, options) => {
+      return pkg.compute_miller_beta_alpha(vk, options);
+    },
     exportSolidityVerifier: (vk) => {
       return pkg.export_solidity_verifier(vk);
+    },
+    exportScryptVerifier: (vk, options) => {
+      return pkg.export_scrypt_verifier(vk, options);
     },
     utils: {
       formatProof: (proof) => {
@@ -97,8 +103,11 @@ module.exports = (pkg) => {
       generateProof: (program, witness, provingKey) =>
         defaultProvider.generateProof(program, witness, provingKey, options),
       verify: (vk, proof) => defaultProvider.verify(vk, proof, options),
+      computeMillerBetaAlpha: (vk) => defaultProvider.computeMillerBetaAlpha(vk, options),
       exportSolidityVerifier: (vk) =>
         defaultProvider.exportSolidityVerifier(vk),
+      exportScryptVerifier: (vk) =>
+        defaultProvider.exportScryptVerifier(vk, options),
       utils: {
         formatProof: (proof) => defaultProvider.utils.formatProof(proof),
       },

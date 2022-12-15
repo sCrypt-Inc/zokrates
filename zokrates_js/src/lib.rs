@@ -29,7 +29,9 @@ use zokrates_field::{Bls12_377Field, Bls12_381Field, Bn128Field, Bw6_761Field, F
 use zokrates_proof_systems::groth16::G16;
 use zokrates_proof_systems::{
     Backend, Marlin, NonUniversalBackend, NonUniversalScheme, Proof, Scheme,
-    SolidityCompatibleField, SolidityCompatibleScheme, TaggedKeypair, TaggedProof,
+    SolidityCompatibleField, SolidityCompatibleScheme,
+    ScryptCompatibleField, ScryptCompatibleScheme,
+    TaggedKeypair, TaggedProof,
     UniversalBackend, UniversalScheme, GM17,
 };
 
@@ -428,6 +430,29 @@ mod internal {
 
         Ok(JsValue::from_str(&S::export_solidity_verifier(vk)))
     }
+
+    pub fn export_scrypt_verifier<T: ScryptCompatibleField, S: ScryptCompatibleScheme<T>, B: Backend<T, S>>(
+        vk: serde_json::Value,
+    ) -> Result<JsValue, JsValue> {
+        let _vk0: S::VerificationKey =
+            serde_json::from_value(vk.clone()).map_err(|err| JsValue::from_str(&format!("{}", err)))?;
+        let _vk1: S::VerificationKey =
+            serde_json::from_value(vk.clone()).map_err(|err| JsValue::from_str(&format!("{}", err)))?;
+
+        let miller_alpha_beta = B::get_miller_beta_alpha_string(_vk0);
+
+        Ok(JsValue::from_str(&S::export_scrypt_verifier(_vk1, miller_alpha_beta)))
+    }
+
+    pub fn get_miller_beta_alpha_string<T: Field, S: Scheme<T>, B: Backend<T, S>>(
+        vk: &serde_json::Value,
+    ) -> Result<JsValue, JsValue>  {
+    
+        let vk = serde_json::from_value(vk.clone())
+        .map_err(|why| format!("Could not deserialize verification key: {}", why))?;
+        
+        Ok(JsValue::from_str(&B::get_miller_beta_alpha_string(vk)))
+    }
 }
 
 #[wasm_bindgen]
@@ -477,6 +502,69 @@ pub fn compute_witness(
 }
 
 #[wasm_bindgen]
+pub fn compute_miller_beta_alpha(
+    vk: JsValue,
+    options: JsValue
+) -> Result<JsValue, JsValue> {
+    let options: serde_json::Value = options.into_serde().unwrap();
+    let backend = BackendParameter::try_from(
+        options["backend"]
+            .as_str()
+            .ok_or_else(|| JsValue::from_str("Invalid options: missing field `backend`"))?,
+    )
+    .map_err(|e| JsValue::from_str(&e))?;
+
+    let vk: serde_json::Value = vk
+        .into_serde()
+        .map_err(|e| JsValue::from_str(&e.to_string()))?;
+
+    let vk_curve = CurveParameter::try_from(
+        vk["curve"]
+            .as_str()
+            .ok_or_else(|| JsValue::from_str("Invalid verification key: missing field `curve`"))?,
+    )
+    .map_err(|e| JsValue::from_str(&e))?;
+
+    let vk_scheme =
+        SchemeParameter::try_from(vk["scheme"].as_str().ok_or_else(|| {
+            JsValue::from_str("Invalid verification key: missing field `scheme`")
+        })?)
+        .map_err(|e| JsValue::from_str(&e))?;
+
+    let scheme = vk_scheme;
+    let curve = vk_curve;
+
+    match (backend, scheme) {
+        (BackendParameter::Bellman, SchemeParameter::G16) => match curve {
+            CurveParameter::Bn128 => internal::get_miller_beta_alpha_string::<Bn128Field, G16, Bellman>(&vk),
+            CurveParameter::Bls12_381 => Err(JsValue::from_str(
+                "Not supported: https://github.com/Zokrates/ZoKrates/issues/1200",
+            )),
+            _ => Err(JsValue::from_str("Not supported")),
+        },
+        (BackendParameter::Ark, SchemeParameter::G16) => match curve {
+            CurveParameter::Bn128 => internal::get_miller_beta_alpha_string::<Bn128Field, G16, Ark>(&vk),
+            CurveParameter::Bls12_381 => internal::get_miller_beta_alpha_string::<Bls12_381Field, G16, Ark>(&vk),
+            CurveParameter::Bls12_377 => internal::get_miller_beta_alpha_string::<Bls12_377Field, G16, Ark>(&vk),
+            CurveParameter::Bw6_761 => internal::get_miller_beta_alpha_string::<Bw6_761Field, G16, Ark>(&vk),
+        },
+        (BackendParameter::Ark, SchemeParameter::GM17) => match curve {
+            CurveParameter::Bn128 => internal::get_miller_beta_alpha_string::<Bn128Field, GM17, Ark>(&vk),
+            CurveParameter::Bls12_381 => internal::get_miller_beta_alpha_string::<Bls12_381Field, GM17, Ark>(&vk),
+            CurveParameter::Bls12_377 => internal::get_miller_beta_alpha_string::<Bls12_377Field, GM17, Ark>(&vk),
+            CurveParameter::Bw6_761 => internal::get_miller_beta_alpha_string::<Bw6_761Field, GM17, Ark>(&vk),
+        },
+        (BackendParameter::Ark, SchemeParameter::MARLIN) => match curve {
+            CurveParameter::Bn128 => internal::get_miller_beta_alpha_string::<Bn128Field, Marlin, Ark>(&vk),
+            CurveParameter::Bls12_381 => internal::get_miller_beta_alpha_string::<Bls12_381Field, Marlin, Ark>(&vk),
+            CurveParameter::Bls12_377 => internal::get_miller_beta_alpha_string::<Bls12_377Field, Marlin, Ark>(&vk),
+            CurveParameter::Bw6_761 => internal::get_miller_beta_alpha_string::<Bw6_761Field, Marlin, Ark>(&vk),
+        },
+        _ => Err(JsValue::from_str("Unsupported options")),
+    }
+}
+
+#[wasm_bindgen]
 pub fn export_solidity_verifier(vk: JsValue) -> Result<JsValue, JsValue> {
     let vk: serde_json::Value = vk
         .into_serde()
@@ -505,6 +593,47 @@ pub fn export_solidity_verifier(vk: JsValue) -> Result<JsValue, JsValue> {
         (CurveParameter::Bn128, SchemeParameter::MARLIN) => {
             internal::export_solidity_verifier::<Bn128Field, Marlin>(vk)
         }
+        _ => Err(JsValue::from_str("Not supported")),
+    }
+}
+
+#[wasm_bindgen]
+pub fn export_scrypt_verifier(vk: JsValue, options: JsValue) -> Result<JsValue, JsValue> {
+
+    // We need the backend because it provides the function for precalculating miller(beta, alpha).
+    let options: serde_json::Value = options.into_serde().unwrap();
+    let backend = BackendParameter::try_from(
+        options["backend"]
+            .as_str()
+            .ok_or_else(|| JsValue::from_str("Invalid options: missing field `backend`"))?,
+    )
+
+    .map_err(|e| JsValue::from_str(&e))?;
+    let vk: serde_json::Value = vk
+        .into_serde()
+        .map_err(|e| JsValue::from_str(&e.to_string()))?;
+
+    let curve = CurveParameter::try_from(
+        vk["curve"]
+            .as_str()
+            .ok_or_else(|| JsValue::from_str("Invalid verification key: missing field `curve`"))?,
+    )
+    .map_err(|e| JsValue::from_str(&e))?;
+
+    let scheme =
+        SchemeParameter::try_from(vk["scheme"].as_str().ok_or_else(|| {
+            JsValue::from_str("Invalid verification key: missing field `scheme`")
+        })?)
+        .map_err(|e| JsValue::from_str(&e))?;
+
+    match (curve, scheme, backend) {
+        (CurveParameter::Bn128, SchemeParameter::G16, BackendParameter::Bellman) => {
+            internal::export_scrypt_verifier::<Bn128Field, G16, Bellman>(vk)
+        }
+        (CurveParameter::Bn128, SchemeParameter::G16, BackendParameter::Ark) => {
+            internal::export_scrypt_verifier::<Bn128Field, G16, Ark>(vk)
+        }
+        // TODO: add Bls12_381
         _ => Err(JsValue::from_str("Not supported")),
     }
 }

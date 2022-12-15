@@ -217,8 +217,25 @@ describe("tests", () => {
       });
     }
 
+    if (options.scheme === "g16" && options.curve == "bn128") {
+      it("precompute miller(beta, alpha)", () => {
+          let millerBetaAlpha = provider.computeMillerBetaAlpha(keypair.vk);
+          assert.ok(millerBetaAlpha);
+      });
+    }
+
+    if (options.scheme === "g16" && options.curve == "bn128") {
+      it("export verifier sCrypt", () => {
+        assert.doesNotThrow(() => {
+          let millerBetaAlpha = provider.computeMillerBetaAlpha(keypair.vk);
+          let verifier = provider.exportScryptVerifier(keypair.vk, millerBetaAlpha);
+          assert.ok(verifier);
+        });
+      });
+    }
+
     if (options.curve === "bn128" && ["g16", "gm17"].includes(options.scheme)) {
-      it("export verifier", () => {
+      it("export verifier Solidity", () => {
         assert.doesNotThrow(() => {
           let verifier = provider.exportSolidityVerifier(keypair.vk);
           assert.ok(verifier.includes("contract"));
