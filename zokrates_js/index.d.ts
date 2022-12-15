@@ -93,7 +93,9 @@ declare module "zokrates-js" {
       provingKey: Uint8Array
     ): Proof;
     verify(verificationKey: VerificationKey, proof: Proof): boolean;
+    exportScryptVerifier(verificationKey: VerificationKey): string;
     exportSolidityVerifier(verificationKey: VerificationKey): string;
+    computeMillerBetaAlpha(verificationKey: VerificationKey): string;
     utils: {
       formatProof(proof: Proof): any[];
     };
