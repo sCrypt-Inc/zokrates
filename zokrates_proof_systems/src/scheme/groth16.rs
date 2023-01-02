@@ -2,12 +2,13 @@ use crate::scheme::{NonUniversalScheme, Scheme};
 use crate::solidity::solidity_pairing_lib;
 use crate::{G1Affine, G2Affine, MpcScheme, SolidityCompatibleField, SolidityCompatibleScheme, ToScryptString};
 /* =============== add by sCrypt */
-use crate::scrypt::{scrypt_pairing_lib};
+use crate::scrypt::{scrypt_pairing_lib_bn128, scrypt_pairing_lib_bls12_381};
 use crate::{ScryptCompatibleField, ScryptCompatibleScheme};
 /* =============== end */
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use zokrates_field::Field;
+use zokrates_common::helpers::{CurveParameter, Parameters, SchemeParameter, BackendParameter};
 
 
 #[derive(Serialize)]
@@ -44,7 +45,7 @@ impl<T: SolidityCompatibleField> SolidityCompatibleScheme<T> for G16 {
 
     fn export_solidity_verifier(vk: <G16 as Scheme<T>>::VerificationKey) -> String {
         let (mut template_text, solidity_pairing_lib_sans_bn256g2) =
-            (String::from(CONTRACT_TEMPLATE), solidity_pairing_lib(false));
+            (String::from(CONTRACT_TEMPLATE_BN128), solidity_pairing_lib(false));
 
         let vk_regex = Regex::new(r#"(<%vk_[^i%]*%>)"#).unwrap();
         let vk_gamma_abc_len_regex = Regex::new(r#"(<%vk_gamma_abc_length%>)"#).unwrap();
@@ -135,7 +136,7 @@ impl<T: SolidityCompatibleField> SolidityCompatibleScheme<T> for G16 {
     }
 }
 
-const CONTRACT_TEMPLATE: &str = r#"
+const CONTRACT_TEMPLATE_BN128: &str = r#"
 contract Verifier {
     using Pairing for *;
     struct VerifyingKey {
@@ -196,10 +197,22 @@ contract Verifier {
 impl<T: ScryptCompatibleField> ScryptCompatibleScheme<T> for G16 {
     type Proof = Self::ProofPoints;
 
-    fn export_scrypt_verifier(vk: <G16 as Scheme<T>>::VerificationKey, alpha_g1_beta_g2: String) -> String {
-        
-        let (mut verifier_template_text, mut zksnark_template_text, scrypt_pairing_bn256) =
-        (String::from(SCRYPT_CONTRACT_TEMPLATE), String::from(ZKSNARK_TEMPLATE), scrypt_pairing_lib());
+    fn export_scrypt_verifier(vk: <G16 as Scheme<T>>::VerificationKey, alpha_g1_beta_g2: String, curve_parameter: CurveParameter) -> String {
+        //let (mut verifier_template_text, mut zksnark_template_text, scrypt_pairing_bn256) =
+        //(String::from(SCRYPT_CONTRACT_TEMPLATE), String::from(ZKSNARK_TEMPLATE_BN128), scrypt_pairing_lib_bn128());
+        let mut zksnark_template_text: String;
+        let mut scrypt_pairing: String;
+        if curve_parameter == CurveParameter::Bn128 {
+            zksnark_template_text = String::from(ZKSNARK_TEMPLATE_BN128);
+            scrypt_pairing = scrypt_pairing_lib_bn128();
+        } else if curve_parameter == CurveParameter::Bls12_381  {
+            zksnark_template_text = String::from(ZKSNARK_TEMPLATE_BLS12_381);
+            scrypt_pairing = scrypt_pairing_lib_bls12_381();
+        } else {
+            // TODO
+            zksnark_template_text = "".to_owned();
+            scrypt_pairing = "".to_owned();
+        }
 
         let vk_regex = Regex::new(r#"(<%vk%>)"#).unwrap();
         let vk_gamma_abc_len_regex = Regex::new(r#"(<%vk_gamma_abc_length%>)"#).unwrap();
@@ -321,13 +334,13 @@ impl<T: ScryptCompatibleField> ScryptCompatibleScheme<T> for G16 {
 
         format!(
             "{}{}",
-            scrypt_pairing_bn256, zksnark_template_text
+            scrypt_pairing, zksnark_template_text
         )
     }
 }
 
 
-const ZKSNARK_TEMPLATE: &str = r#"
+const ZKSNARK_TEMPLATE_BN128: &str = r#"
 
 struct VerifyingKey {
     FQ12 millerb1a1;
@@ -368,7 +381,63 @@ library ZKSNARK {
 }
 "#;
 
-const SCRYPT_CONTRACT_TEMPLATE: &str = r#"
+const ZKSNARK_TEMPLATE_BLS12_381: &str = r#"
+
+struct VerifyingKey {
+    fe12 millerb1a1;
+    PointG2 gamma;
+    PointG2 delta;
+    PointG1[2] ic; // Size of array should be N + 1
+}
+
+struct Proof {
+    PointG1 a;
+    PointG2 b;
+    PointG1 c;
+}
+
+library ZKSNARK {
+    static const VerifyingKey vk = <%vk%>;
+
+    // Number of inputs.
+    static const int N = <%vk_input_length%>;
+    static const int N_1 = <%vk_gamma_abc_length%>; // N + 1, gamma_abc length
+
+    static function vkXSetup(int[N] inputs, PointG1[N_1] ic) : PointG1 {
+	    PointG1 vk_x = ic[0];
+        loop (N) : i {
+            PointG1 p = BLS12381.MulScalarG1(ic[i + 1], inputs[i]);
+            vk_x = BLS12381.AddG1(vk_x, p);
+        }
+	    return vk_x;
+    }
+
+    static function verify(int[N] inputs, Proof proof) : bool {
+        loop(3) : k {
+            proof.a[k] = BLS12381.toMont(proof.a[k]);
+            proof.c[k] = BLS12381.toMont(proof.c[k]);
+            loop(N_1) : m {
+                vk.ic[m][k] = BLS12381.toMont(vk.ic[m][k]);
+            }
+        }
+        loop(3) : j {
+            loop(2) : k {
+                proof.b[j][k] = BLS12381.toMont(proof.b[j][k]);
+                vk.gamma[j][k] = BLS12381.toMont(vk.gamma[j][k]);
+                vk.delta[j][k] = BLS12381.toMont(vk.delta[j][k]);
+            }
+        }
+
+        PointG1 vk_x = vkXSetup(inputs, vk.ic);
+
+        return BLS12381Pairing.pairCheck3Point(
+                proof.a, proof.b,
+                vk.millerb1a1,
+                vk_x, vk.gamma,
+                proof.c, vk.delta);
+    }
+
+}
 "#;
 
 /* =============== end */

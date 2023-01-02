@@ -2,10 +2,11 @@ use crate::scheme::{Scheme, UniversalScheme};
 use crate::solidity::{solidity_pairing_lib, SolidityCompatibleField, SolidityCompatibleScheme};
 use crate::{Fr, G1Affine, G2Affine};
 /* =============== add by sCrypt */
-use crate::scrypt::{scrypt_pairing_lib};
+use crate::scrypt::{scrypt_pairing_lib_bn128};
 use crate::{ScryptCompatibleField, ScryptCompatibleScheme};
 /* =============== end */
 use serde::{Deserialize, Serialize};
+use zokrates_common::helpers::CurveParameter;
 use zokrates_field::Field;
 
 #[derive(Serialize)]
@@ -699,9 +700,9 @@ contract Verifier {
 impl<T: ScryptCompatibleField> ScryptCompatibleScheme<T> for Marlin {
     type Proof = SolidityProof<Fr, G1Affine>;
 
-    fn export_scrypt_verifier(_vk: <Marlin as Scheme<T>>::VerificationKey, alpha_g1_beta_g2: String) -> String {
+    fn export_scrypt_verifier(_vk: <Marlin as Scheme<T>>::VerificationKey, alpha_g1_beta_g2: String, curve_paramter: CurveParameter) -> String {
         
-        let scrypt_pairing_lib = scrypt_pairing_lib();
+        let scrypt_pairing_lib = scrypt_pairing_lib_bn128();
 
         format!(
             "{}",

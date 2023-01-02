@@ -441,7 +441,14 @@ mod internal {
 
         let miller_alpha_beta = B::get_miller_beta_alpha_string(_vk0);
 
-        Ok(JsValue::from_str(&S::export_scrypt_verifier(_vk1, miller_alpha_beta)))
+        let vk_curve = vk
+            .get("curve")
+            .ok_or_else(|| "Field `curve` not found in verification key".to_string())?
+            .as_str()
+            .ok_or_else(|| "`curve` should be a string".to_string())?;
+        let curve_parameter = CurveParameter::try_from(vk_curve)?;
+
+        Ok(JsValue::from_str(&S::export_scrypt_verifier(_vk1, miller_alpha_beta, curve_parameter)))
     }
 
     pub fn get_miller_beta_alpha_string<T: Field, S: Scheme<T>, B: Backend<T, S>>(

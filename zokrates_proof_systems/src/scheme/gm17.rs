@@ -2,11 +2,12 @@ use crate::scheme::{NonUniversalScheme, Scheme};
 use crate::solidity::{solidity_pairing_lib, SOLIDITY_G2_ADDITION_LIB};
 use crate::{G1Affine, G2Affine, SolidityCompatibleField, SolidityCompatibleScheme};
 /* =============== add by sCrypt */
-use crate::scrypt::{scrypt_pairing_lib};
+use crate::scrypt::{scrypt_pairing_lib_bn128};
 use crate::{ScryptCompatibleField, ScryptCompatibleScheme};
 /* =============== end */
 use regex::Regex;
 use serde::{Deserialize, Serialize};
+use zokrates_common::helpers::CurveParameter;
 use zokrates_field::Field;
 
 #[allow(clippy::upper_case_acronyms)]
@@ -209,9 +210,9 @@ contract Verifier {
 impl<T: ScryptCompatibleField> ScryptCompatibleScheme<T> for GM17 {
     type Proof = Self::ProofPoints;
 
-    fn export_scrypt_verifier(_vk: <GM17 as Scheme<T>>::VerificationKey, alpha_g1_beta_g2: String) -> String {
+    fn export_scrypt_verifier(_vk: <GM17 as Scheme<T>>::VerificationKey, alpha_g1_beta_g2: String, curve_parameter: CurveParameter) -> String {
         
-        let scrypt_pairing_lib = scrypt_pairing_lib();
+        let scrypt_pairing_lib = scrypt_pairing_lib_bn128();
 
         format!(
             "{}",

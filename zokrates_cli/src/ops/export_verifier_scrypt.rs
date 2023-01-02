@@ -1,5 +1,6 @@
 use crate::cli_constants;
 use clap::{App, Arg, ArgMatches, SubCommand};
+use std::borrow::Borrow;
 use std::convert::TryFrom;
 use std::fs::File;
 use std::io::{BufReader, BufWriter, Write};
@@ -143,13 +144,16 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
 
     match (curve_parameter, scheme_parameter) {
         (CurveParameter::Bn128, SchemeParameter::G16) => {
-            cli_export_verifier::<Bn128Field, G16>(sub_matches, vk, alpha_g1_beta_g2.unwrap())
+            cli_export_verifier::<Bn128Field, G16>(sub_matches, vk, alpha_g1_beta_g2.unwrap(), CurveParameter::Bn128)
         }
         (CurveParameter::Bn128, SchemeParameter::GM17) => {
-            cli_export_verifier::<Bn128Field, GM17>(sub_matches, vk, alpha_g1_beta_g2.unwrap())
+            cli_export_verifier::<Bn128Field, GM17>(sub_matches, vk, alpha_g1_beta_g2.unwrap(), CurveParameter::Bn128)
         }
         (CurveParameter::Bn128, SchemeParameter::MARLIN) => {
-            cli_export_verifier::<Bn128Field, Marlin>(sub_matches, vk, alpha_g1_beta_g2.unwrap())
+            cli_export_verifier::<Bn128Field, Marlin>(sub_matches, vk, alpha_g1_beta_g2.unwrap(), CurveParameter::Bn128)
+        }
+        (CurveParameter::Bls12_381, SchemeParameter::G16) => {
+            cli_export_verifier::<Bls12_381Field, G16>(sub_matches, vk, alpha_g1_beta_g2.unwrap(), CurveParameter::Bls12_381)
         }
         (curve_parameter, scheme_parameter) => Err(format!("Could not export verifier with given parameters (curve: {}, scheme: {}): not supported", curve_parameter, scheme_parameter))
     }
@@ -159,12 +163,13 @@ fn cli_export_verifier<T: ScryptCompatibleField, S: ScryptCompatibleScheme<T>>(
     sub_matches: &ArgMatches,
     vk: serde_json::Value,
     alpha_g1_beta_g2: String,
+    curve_parameter: CurveParameter
 ) -> Result<(), String> {
     println!("Exporting verifier...");
 
     let vk = serde_json::from_value(vk).map_err(|why| format!("{}", why))?;
 
-    let verifier = S::export_scrypt_verifier(vk, alpha_g1_beta_g2);
+    let verifier = S::export_scrypt_verifier(vk, alpha_g1_beta_g2, curve_parameter);
 
     //write output file
     let output_path = Path::new(sub_matches.value_of("output").unwrap());

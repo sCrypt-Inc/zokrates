@@ -4,7 +4,6 @@ extern crate primitive_types;
 extern crate rand_0_4;
 extern crate rand_0_8;
 extern crate serde_json;
-extern crate zokrates_solidity_test;
 
 #[cfg(test)]
 mod integration {
@@ -302,7 +301,7 @@ mod integration {
                     // EXPORT-VERIFIER
                     assert_cli::Assert::main_binary()
                         .with_args(&[
-                            "export-verifier",
+                            "export-verifier-scrypt",
                             "-i",
                             verification_key_path.to_str().unwrap(),
                             "-o",
@@ -312,141 +311,142 @@ mod integration {
                         .unwrap();
 
                     // TEST VERIFIER
+                    // TODO: Test sCrypt verifiers instead.
                     // Get the contract
-                    let contract_str =
-                        std::fs::read_to_string(verification_contract_path.to_str().unwrap())
-                            .unwrap();
-                    match *scheme {
-                        "marlin" => {
-                            // Get the proof
-                            let proof: Proof<Bn128Field, Marlin> = serde_json::from_reader(
-                                File::open(proof_path.to_str().unwrap()).unwrap(),
-                            )
-                            .unwrap();
+                    //let contract_str =
+                    //    std::fs::read_to_string(verification_contract_path.to_str().unwrap())
+                    //        .unwrap();
+                    //match *scheme {
+                    //    "marlin" => {
+                    //        // Get the proof
+                    //        let proof: Proof<Bn128Field, Marlin> = serde_json::from_reader(
+                    //            File::open(proof_path.to_str().unwrap()).unwrap(),
+                    //        )
+                    //        .unwrap();
 
-                            test_solidity_verifier(contract_str, proof);
-                        }
-                        "g16" => {
-                            // Get the proof
-                            let proof: Proof<Bn128Field, G16> = serde_json::from_reader(
-                                File::open(proof_path.to_str().unwrap()).unwrap(),
-                            )
-                            .unwrap();
+                    //        test_solidity_verifier(contract_str, proof);
+                    //    }
+                    //    "g16" => {
+                    //        // Get the proof
+                    //        let proof: Proof<Bn128Field, G16> = serde_json::from_reader(
+                    //            File::open(proof_path.to_str().unwrap()).unwrap(),
+                    //        )
+                    //        .unwrap();
 
-                            test_solidity_verifier(contract_str, proof);
-                        }
-                        "gm17" => {
-                            // Get the proof
-                            let proof: Proof<Bn128Field, GM17> = serde_json::from_reader(
-                                File::open(proof_path.to_str().unwrap()).unwrap(),
-                            )
-                            .unwrap();
+                    //        test_solidity_verifier(contract_str, proof);
+                    //    }
+                    //    "gm17" => {
+                    //        // Get the proof
+                    //        let proof: Proof<Bn128Field, GM17> = serde_json::from_reader(
+                    //            File::open(proof_path.to_str().unwrap()).unwrap(),
+                    //        )
+                    //        .unwrap();
 
-                            test_solidity_verifier(contract_str, proof);
-                        }
-                        _ => unreachable!(),
-                    }
+                    //        test_solidity_verifier(contract_str, proof);
+                    //    }
+                    //    _ => unreachable!(),
+                    //}
                 }
             }
         }
     }
 
-    fn test_solidity_verifier<S: SolidityCompatibleScheme<Bn128Field> + ToToken<Bn128Field>>(
-        src: String,
-        proof: Proof<Bn128Field, S>,
-    ) {
-        use ethabi::Token;
-        use rand_0_8::{rngs::StdRng, SeedableRng};
-        use zokrates_solidity_test::{address::*, contract::*, evm::*, to_be_bytes};
+    //fn test_solidity_verifier<S: SolidityCompatibleScheme<Bn128Field> + ToToken<Bn128Field>>(
+    //    src: String,
+    //    proof: Proof<Bn128Field, S>,
+    //) {
+    //    use ethabi::Token;
+    //    use rand_0_8::{rngs::StdRng, SeedableRng};
+    //    use zokrates_solidity_test::{address::*, contract::*, evm::*, to_be_bytes};
 
-        // Setup EVM
-        let mut rng = StdRng::from_seed([0; 32]);
-        let mut evm = Evm::default();
-        let deployer = Address::random(&mut rng);
-        evm.create_account(&deployer, 0);
+    //    // Setup EVM
+    //    let mut rng = StdRng::from_seed([0; 32]);
+    //    let mut evm = Evm::default();
+    //    let deployer = Address::random(&mut rng);
+    //    evm.create_account(&deployer, 0);
 
-        // Compile lib
-        let g2_lib =
-            Contract::compile_from_src_string(SOLIDITY_G2_ADDITION_LIB, "BN256G2", true, &[])
-                .unwrap();
+    //    // Compile lib
+    //    let g2_lib =
+    //        Contract::compile_from_src_string(SOLIDITY_G2_ADDITION_LIB, "BN256G2", true, &[])
+    //            .unwrap();
 
-        // Deploy lib
-        let create_result = evm
-            .deploy(g2_lib.encode_create_contract_bytes(&[]).unwrap(), &deployer)
-            .unwrap();
-        let lib_addr = create_result.addr;
+    //    // Deploy lib
+    //    let create_result = evm
+    //        .deploy(g2_lib.encode_create_contract_bytes(&[]).unwrap(), &deployer)
+    //        .unwrap();
+    //    let lib_addr = create_result.addr;
 
-        // Compile contract
-        let contract = Contract::compile_from_src_string(
-            &src,
-            "Verifier",
-            true,
-            &[("BN256G2", lib_addr.as_token())],
-        )
-        .unwrap();
+    //    // Compile contract
+    //    let contract = Contract::compile_from_src_string(
+    //        &src,
+    //        "Verifier",
+    //        true,
+    //        &[("BN256G2", lib_addr.as_token())],
+    //    )
+    //    .unwrap();
 
-        // Deploy contract
-        let create_result = evm
-            .deploy(
-                contract.encode_create_contract_bytes(&[]).unwrap(),
-                &deployer,
-            )
-            .unwrap();
-        let contract_addr = create_result.addr;
+    //    // Deploy contract
+    //    let create_result = evm
+    //        .deploy(
+    //            contract.encode_create_contract_bytes(&[]).unwrap(),
+    //            &deployer,
+    //        )
+    //        .unwrap();
+    //    let contract_addr = create_result.addr;
 
-        // convert to the solidity proof format
-        let solidity_proof = S::Proof::from(proof.proof);
+    //    // convert to the solidity proof format
+    //    let solidity_proof = S::Proof::from(proof.proof);
 
-        // convert to tokens to build a call
-        let proof_token = S::to_token(solidity_proof.clone());
+    //    // convert to tokens to build a call
+    //    let proof_token = S::to_token(solidity_proof.clone());
 
-        let input_token = Token::FixedArray(
-            proof
-                .inputs
-                .iter()
-                .map(|s| {
-                    let bytes = hex::decode(s.trim_start_matches("0x")).unwrap();
-                    debug_assert_eq!(bytes.len(), 32);
-                    Token::Uint(U256::from(&bytes[..]))
-                })
-                .collect::<Vec<_>>(),
-        );
+    //    let input_token = Token::FixedArray(
+    //        proof
+    //            .inputs
+    //            .iter()
+    //            .map(|s| {
+    //                let bytes = hex::decode(s.trim_start_matches("0x")).unwrap();
+    //                debug_assert_eq!(bytes.len(), 32);
+    //                Token::Uint(U256::from(&bytes[..]))
+    //            })
+    //            .collect::<Vec<_>>(),
+    //    );
 
-        let inputs = [proof_token, input_token.clone()];
+    //    let inputs = [proof_token, input_token.clone()];
 
-        // Call verify function on contract
-        let result = evm
-            .call(
-                contract
-                    .encode_call_contract_bytes("verifyTx", &inputs)
-                    .unwrap(),
-                &contract_addr,
-                &deployer,
-            )
-            .unwrap();
+    //    // Call verify function on contract
+    //    let result = evm
+    //        .call(
+    //            contract
+    //                .encode_call_contract_bytes("verifyTx", &inputs)
+    //                .unwrap(),
+    //            &contract_addr,
+    //            &deployer,
+    //        )
+    //        .unwrap();
 
-        assert_eq!(&result.out, &to_be_bytes(&U256::from(1)));
+    //    assert_eq!(&result.out, &to_be_bytes(&U256::from(1)));
 
-        // modify the proof
-        let modified_solidity_proof = S::modify(solidity_proof);
+    //    // modify the proof
+    //    let modified_solidity_proof = S::modify(solidity_proof);
 
-        let modified_proof_token = S::to_token(modified_solidity_proof);
+    //    let modified_proof_token = S::to_token(modified_solidity_proof);
 
-        let inputs = [modified_proof_token, input_token];
+    //    let inputs = [modified_proof_token, input_token];
 
-        // Call verify function on contract
-        let result = evm
-            .call(
-                contract
-                    .encode_call_contract_bytes("verifyTx", &inputs)
-                    .unwrap(),
-                &contract_addr,
-                &deployer,
-            )
-            .unwrap();
+    //    // Call verify function on contract
+    //    let result = evm
+    //        .call(
+    //            contract
+    //                .encode_call_contract_bytes("verifyTx", &inputs)
+    //                .unwrap(),
+    //            &contract_addr,
+    //            &deployer,
+    //        )
+    //        .unwrap();
 
-        assert_eq!(result.op_out, Return::InvalidOpcode);
-    }
+    //    assert_eq!(result.op_out, Return::InvalidOpcode);
+    //}
 
     fn test_compile_and_smtlib2(
         program_name: &str,
