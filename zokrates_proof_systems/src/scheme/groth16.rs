@@ -8,7 +8,7 @@ use crate::{ScryptCompatibleField, ScryptCompatibleScheme};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use zokrates_field::Field;
-use zokrates_common::helpers::{CurveParameter, Parameters, SchemeParameter, BackendParameter};
+use zokrates_common::helpers::{CurveParameter};
 
 
 #[derive(Serialize)]
@@ -202,16 +202,33 @@ impl<T: ScryptCompatibleField> ScryptCompatibleScheme<T> for G16 {
         //(String::from(SCRYPT_CONTRACT_TEMPLATE), String::from(ZKSNARK_TEMPLATE_BN128), scrypt_pairing_lib_bn128());
         let mut zksnark_template_text: String;
         let mut scrypt_pairing: String;
+
+        let mut vk_gamma_str: String;
+        let mut vk_delta_str: String;
+
         if curve_parameter == CurveParameter::Bn128 {
             zksnark_template_text = String::from(ZKSNARK_TEMPLATE_BN128);
             scrypt_pairing = scrypt_pairing_lib_bn128();
+            
+            vk_gamma_str = vk.gamma.to_scrypt_string();
+            vk_delta_str = vk.delta.to_scrypt_string();
         } else if curve_parameter == CurveParameter::Bls12_381  {
             zksnark_template_text = String::from(ZKSNARK_TEMPLATE_BLS12_381);
             scrypt_pairing = scrypt_pairing_lib_bls12_381();
+
+            vk_gamma_str = vk.gamma.to_scrypt_string().replace("{", "[").replace("}", "]");
+            vk_gamma_str.truncate(vk_gamma_str.len() - 1);
+            vk_gamma_str.push_str(", [0x1, 0x0]]");
+            vk_delta_str = vk.delta.to_scrypt_string().replace("{", "[").replace("}", "]");
+            vk_delta_str.truncate(vk_delta_str.len() - 1);
+            vk_delta_str.push_str(", [0x1, 0x0]]");
         } else {
             // TODO
             zksnark_template_text = "".to_owned();
             scrypt_pairing = "".to_owned();
+
+            vk_gamma_str = "".to_owned();
+            vk_delta_str = "".to_owned();
         }
 
         let vk_regex = Regex::new(r#"(<%vk%>)"#).unwrap();
@@ -226,14 +243,18 @@ impl<T: ScryptCompatibleField> ScryptCompatibleScheme<T> for G16 {
 
         vk_repeat_text.push_str("{");
         
-        vk_repeat_text.push_str(&alpha_g1_beta_g2);
+        if curve_parameter == CurveParameter::Bls12_381 {
+            vk_repeat_text.push_str(&alpha_g1_beta_g2.replace("{", "[").replace("}", "]"));
+        } else {
+            vk_repeat_text.push_str(&alpha_g1_beta_g2);
+        }
 
         vk_repeat_text.push_str(",");
 
 
         vk_repeat_text.push_str(format!(
             "{}",
-            vk.gamma.to_scrypt_string().as_str()
+            vk_gamma_str.as_str()
         )
         .as_str());
 
@@ -241,7 +262,7 @@ impl<T: ScryptCompatibleField> ScryptCompatibleScheme<T> for G16 {
 
         vk_repeat_text.push_str(format!(
             "{}",
-            vk.delta.to_scrypt_string().as_str()
+            vk_delta_str.as_str()
         )
         .as_str());
 
@@ -250,10 +271,15 @@ impl<T: ScryptCompatibleField> ScryptCompatibleScheme<T> for G16 {
         let mut gamma_abc_repeat_text = String::new();
         gamma_abc_repeat_text.push_str("[");
         for (i, g1) in vk.gamma_abc.iter().enumerate() {
+            let mut to_add = g1.to_scrypt_string();
+            if curve_parameter == CurveParameter::Bls12_381 {
+                to_add.truncate(to_add.len() - 1);
+                to_add.push_str(", 0x1]");
+            }
             gamma_abc_repeat_text.push_str(
                 format!(
                     "{}",
-                    g1.to_scrypt_string().as_str()
+                    to_add.as_str()
                 )
                 .as_str(),
             );
@@ -262,9 +288,12 @@ impl<T: ScryptCompatibleField> ScryptCompatibleScheme<T> for G16 {
             }
         }
         gamma_abc_repeat_text.push_str("]");
-
-        vk_repeat_text.push_str(gamma_abc_repeat_text.as_str());
-
+        
+        if curve_parameter == CurveParameter::Bls12_381 {
+            vk_repeat_text.push_str(&gamma_abc_repeat_text.as_str().replace("{", "[").replace("}", "]"));
+        } else {
+            vk_repeat_text.push_str(gamma_abc_repeat_text.as_str());
+        }
         vk_repeat_text.push_str("}");
 
 
@@ -397,7 +426,7 @@ struct Proof {
 }
 
 library ZKSNARK {
-    static const VerifyingKey vk = <%vk%>;
+    static VerifyingKey vk = <%vk%>;
 
     // Number of inputs.
     static const int N = <%vk_input_length%>;
