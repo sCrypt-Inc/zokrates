@@ -332,8 +332,7 @@ impl<T: ScryptCompatibleField> ScryptCompatibleScheme<T> for G16 {
 
         // feed input values only if there are any
         zksnark_template_text = if gamma_abc_count > 1 {
-            input_loop.replace(
-                zksnark_template_text.as_str(),
+            let repStr = if curve_parameter == CurveParameter::Bn128 {
                 r#"
         loop (N) : i {
             G1Point p = BN256.mulG1Point(
@@ -341,7 +340,16 @@ impl<T: ScryptCompatibleField> ScryptCompatibleScheme<T> for G16 {
                 inputs[i]
             );
             vk_x = BN256.addG1Points(vk_x, p);
-        }"#,
+        }"#
+            } else {
+                r#"
+            loop(N_1) : m {
+                vk.ic[m][k] = BLS12381.toMont(vk.ic[m][k]);
+            }"#
+            };
+
+            input_loop.replace(
+                &zksnark_template_text.as_str(), repStr,
             )
         } else {
             input_loop.replace(zksnark_template_text.as_str(), "")
@@ -353,7 +361,7 @@ impl<T: ScryptCompatibleField> ScryptCompatibleScheme<T> for G16 {
         zksnark_template_text = if gamma_abc_count > 1 {
             input_argument.replace(
                 zksnark_template_text.as_str(),
-                r#"int[ZKSNARK.N] inputs, "#,
+                r#"int[N] inputs, "#,
             )
         } else {
             input_argument.replace(zksnark_template_text.as_str(), "")
@@ -441,13 +449,11 @@ library ZKSNARK {
 	    return vk_x;
     }
 
-    static function verify(int[N] inputs, Proof proof) : bool {
+    static function verify(<%input_argument%>Proof proof) : bool {
         loop(3) : k {
             proof.a[k] = BLS12381.toMont(proof.a[k]);
             proof.c[k] = BLS12381.toMont(proof.c[k]);
-            loop(N_1) : m {
-                vk.ic[m][k] = BLS12381.toMont(vk.ic[m][k]);
-            }
+            <%input_loop%>
         }
         loop(3) : j {
             loop(2) : k {
