@@ -203,6 +203,8 @@ impl<T: ScryptCompatibleField> ScryptCompatibleScheme<T> for G16 {
         let mut zksnark_template_text: String;
         let mut scrypt_pairing: String;
 
+        let mut vk_alpha_str: String;
+        let mut vk_beta_str: String;
         let mut vk_gamma_str: String;
         let mut vk_delta_str: String;
 
@@ -210,12 +212,20 @@ impl<T: ScryptCompatibleField> ScryptCompatibleScheme<T> for G16 {
             zksnark_template_text = String::from(ZKSNARK_TEMPLATE_BN128);
             scrypt_pairing = scrypt_pairing_lib_bn128();
             
+            vk_alpha_str = vk.alpha.to_scrypt_string();
+            vk_beta_str = vk.beta.to_scrypt_string();
             vk_gamma_str = vk.gamma.to_scrypt_string();
             vk_delta_str = vk.delta.to_scrypt_string();
         } else if curve_parameter == CurveParameter::Bls12_381  {
             zksnark_template_text = String::from(ZKSNARK_TEMPLATE_BLS12_381);
             scrypt_pairing = scrypt_pairing_lib_bls12_381();
 
+            vk_alpha_str = vk.alpha.to_scrypt_string().replace("{", "[").replace("}", "]");
+            vk_alpha_str.truncate(vk_alpha_str.len() - 1);
+            vk_alpha_str.push_str(", 0x1]");
+            vk_beta_str = vk.beta.to_scrypt_string().replace("{", "[").replace("}", "]");
+            vk_beta_str.truncate(vk_beta_str.len() - 1);
+            vk_beta_str.push_str(", [0x1, 0x0]]");
             vk_gamma_str = vk.gamma.to_scrypt_string().replace("{", "[").replace("}", "]");
             vk_gamma_str.truncate(vk_gamma_str.len() - 1);
             vk_gamma_str.push_str(", [0x1, 0x0]]");
@@ -227,6 +237,8 @@ impl<T: ScryptCompatibleField> ScryptCompatibleScheme<T> for G16 {
             zksnark_template_text = "".to_owned();
             scrypt_pairing = "".to_owned();
 
+            vk_alpha_str = "".to_owned();
+            vk_beta_str = "".to_owned();
             vk_gamma_str = "".to_owned();
             vk_delta_str = "".to_owned();
         }
@@ -244,7 +256,18 @@ impl<T: ScryptCompatibleField> ScryptCompatibleScheme<T> for G16 {
         vk_repeat_text.push_str("{");
         
         if curve_parameter == CurveParameter::Bls12_381 {
-            vk_repeat_text.push_str(&alpha_g1_beta_g2.replace("{", "[").replace("}", "]"));
+            //vk_repeat_text.push_str(&alpha_g1_beta_g2.replace("{", "[").replace("}", "]"));
+            vk_repeat_text.push_str(format!(
+                "{}",
+                vk_alpha_str.as_str()
+            )
+            .as_str());
+            vk_repeat_text.push_str(",");
+            vk_repeat_text.push_str(format!(
+                "{}",
+                vk_beta_str.as_str()
+            )
+            .as_str());
         } else {
             vk_repeat_text.push_str(&alpha_g1_beta_g2);
         }
@@ -418,10 +441,68 @@ library ZKSNARK {
 }
 "#;
 
+//const ZKSNARK_TEMPLATE_BLS12_381: &str = r#"
+//
+//struct VerifyingKey {
+//    fe12 millerb1a1;
+//    PointG2 gamma;
+//    PointG2 delta;
+//    PointG1[2] ic; // Size of array should be N + 1
+//}
+//
+//struct Proof {
+//    PointG1 a;
+//    PointG2 b;
+//    PointG1 c;
+//}
+//
+//library ZKSNARK {
+//    static VerifyingKey vk = <%vk%>;
+//
+//    // Number of inputs.
+//    static const int N = <%vk_input_length%>;
+//    static const int N_1 = <%vk_gamma_abc_length%>; // N + 1, gamma_abc length
+//
+//    static function vkXSetup(int[N] inputs, PointG1[N_1] ic) : PointG1 {
+//	    PointG1 vk_x = ic[0];
+//        loop (N) : i {
+//            PointG1 p = BLS12381.MulScalarG1(ic[i + 1], inputs[i]);
+//            vk_x = BLS12381.AddG1(vk_x, p);
+//        }
+//	    return vk_x;
+//    }
+//
+//    static function verify(<%input_argument%>Proof proof) : bool {
+//        loop(3) : k {
+//            proof.a[k] = BLS12381.toMont(proof.a[k]);
+//            proof.c[k] = BLS12381.toMont(proof.c[k]);
+//            <%input_loop%>
+//        }
+//        loop(3) : j {
+//            loop(2) : k {
+//                proof.b[j][k] = BLS12381.toMont(proof.b[j][k]);
+//                vk.gamma[j][k] = BLS12381.toMont(vk.gamma[j][k]);
+//                vk.delta[j][k] = BLS12381.toMont(vk.delta[j][k]);
+//            }
+//        }
+//
+//        PointG1 vk_x = vkXSetup(inputs, vk.ic);
+//
+//        return BLS12381Pairing.pairCheck3Point(
+//                proof.a, proof.b,
+//                vk.millerb1a1,
+//                vk_x, vk.gamma,
+//                proof.c, vk.delta);
+//    }
+//
+//}
+//"#;
+
 const ZKSNARK_TEMPLATE_BLS12_381: &str = r#"
 
 struct VerifyingKey {
-    fe12 millerb1a1;
+    PointG1 alpha;
+    PointG2 beta;
     PointG2 gamma;
     PointG2 delta;
     PointG1[2] ic; // Size of array should be N + 1
@@ -433,7 +514,9 @@ struct Proof {
     PointG1 c;
 }
 
+
 library ZKSNARK {
+
     static VerifyingKey vk = <%vk%>;
 
     // Number of inputs.
@@ -458,6 +541,7 @@ library ZKSNARK {
         loop(3) : j {
             loop(2) : k {
                 proof.b[j][k] = BLS12381.toMont(proof.b[j][k]);
+                vk.beta[j][k] = BLS12381.toMont(vk.beta[j][k]);
                 vk.gamma[j][k] = BLS12381.toMont(vk.gamma[j][k]);
                 vk.delta[j][k] = BLS12381.toMont(vk.delta[j][k]);
             }
@@ -465,9 +549,9 @@ library ZKSNARK {
 
         PointG1 vk_x = vkXSetup(inputs, vk.ic);
 
-        return BLS12381Pairing.pairCheck3Point(
+        return BLS12381Pairing.pairCheck4Point(
                 proof.a, proof.b,
-                vk.millerb1a1,
+                vk.alpha, vk.beta,
                 vk_x, vk.gamma,
                 proof.c, vk.delta);
     }

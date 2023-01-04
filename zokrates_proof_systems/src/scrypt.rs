@@ -2957,7 +2957,6 @@ library BLS12381 {
         return res;
     }
 }
-
 "#;
 
     let pairing_lib = r#"
@@ -3860,6 +3859,41 @@ library BLS12381Pairing {
         f = BLS12381.mulFe12(t[3], t[4]);
         return f;
     }
+    
+    // Check four pairs.
+    // A * B + inputs * (-gamma) + C * (-delta) == alpha * beta
+    static function pairCheck4Point(
+            PointG1 a0, PointG2 b0,
+            PointG1 a1, PointG2 b1,
+            PointG1 a2, PointG2 b2,
+            PointG1 a3, PointG2 b3) : bool {
+
+        fe12 f1 = BLS12381.Fe12Zero;
+        fe12 f2 = BLS12381.Fe12Zero;
+        fe12 f3 = BLS12381.Fe12Zero;
+        fe12 f0 = BLS12381.Fe12Zero;
+        fe12 acc = BLS12381.Fe12Zero;
+
+        Pair pair = affinePair(a1, b1);
+        f1 = millerLoop(pair.g1, pair.g2);
+
+        pair = affinePair(a2, b2);
+        f2 = millerLoop(pair.g1, pair.g2);
+
+        pair = affinePair(a3, b3);
+        f3 = millerLoop(pair.g1, pair.g2);
+
+        pair = affinePair(a0, b0);
+        f0 = millerLoop(BLS12381.NegG1(pair.g1), pair.g2);
+
+        acc = BLS12381.mulFe12(f1, f2);
+        acc = BLS12381.mulFe12(acc, f3);
+        acc = BLS12381.mulFe12(acc, f0);
+
+        acc = finalExp(acc);
+
+        return BLS12381.isOneFe12(acc);
+    }
 
     // Check three pairs.
     // millerb1a1 + A * B + inputs * (-gamma) + C * (-delta) == 1
@@ -3892,7 +3926,6 @@ library BLS12381Pairing {
         return BLS12381.isOneFe12(acc);
     }
 }
-
 "#;
 
     [
