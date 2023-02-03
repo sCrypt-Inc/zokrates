@@ -36,6 +36,7 @@ rand_0_8 = { version = "0.8", package = "rand" }
 hex = "0.3.1"
 blake2 = "0.8.1"
 sha2 = "0.10.0"
+include_dir = "0.7.3"
 
 # Backends
 zokrates_proof_systems = { version = "0.2", path = "../zokrates_proof_systems", default-features = false }

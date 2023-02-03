@@ -29,6 +29,9 @@ rand_0_8 = { version = "0.8", package = "rand" }
 hex = "0.4.2"
 regex = "1"
 
+num-bigint = "0.4.3"
+num-traits = "0.2.15"
+
 [dev-dependencies]
 zokrates_interpreter = { version = "0.1", path = "../zokrates_interpreter", features = ["ark"] }
 

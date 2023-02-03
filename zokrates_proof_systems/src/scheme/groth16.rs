@@ -217,21 +217,29 @@ impl<T: ScryptCompatibleField> ScryptCompatibleScheme<T> for G16 {
             vk_gamma_str = vk.gamma.to_scrypt_string();
             vk_delta_str = vk.delta.to_scrypt_string();
         } else if curve_parameter == CurveParameter::Bls12_381  {
-            zksnark_template_text = String::from(ZKSNARK_TEMPLATE_BLS12_381);
-            scrypt_pairing = scrypt_pairing_lib_bls12_381();
+            // TODO
+            zksnark_template_text = "".to_owned();
+            scrypt_pairing = "".to_owned();
 
-            vk_alpha_str = vk.alpha.to_scrypt_string().replace("{", "[").replace("}", "]");
-            vk_alpha_str.truncate(vk_alpha_str.len() - 1);
-            vk_alpha_str.push_str(", 0x1]");
-            vk_beta_str = vk.beta.to_scrypt_string().replace("{", "[").replace("}", "]");
-            vk_beta_str.truncate(vk_beta_str.len() - 1);
-            vk_beta_str.push_str(", [0x1, 0x0]]");
-            vk_gamma_str = vk.gamma.to_scrypt_string().replace("{", "[").replace("}", "]");
-            vk_gamma_str.truncate(vk_gamma_str.len() - 1);
-            vk_gamma_str.push_str(", [0x1, 0x0]]");
-            vk_delta_str = vk.delta.to_scrypt_string().replace("{", "[").replace("}", "]");
-            vk_delta_str.truncate(vk_delta_str.len() - 1);
-            vk_delta_str.push_str(", [0x1, 0x0]]");
+            vk_alpha_str = "".to_owned();
+            vk_beta_str = "".to_owned();
+            vk_gamma_str = "".to_owned();
+            vk_delta_str = "".to_owned();
+            //zksnark_template_text = String::from(ZKSNARK_TEMPLATE_BLS12_381);
+            //scrypt_pairing = scrypt_pairing_lib_bls12_381();
+
+            //vk_alpha_str = vk.alpha.to_scrypt_string().replace("{", "[").replace("}", "]");
+            //vk_alpha_str.truncate(vk_alpha_str.len() - 1);
+            //vk_alpha_str.push_str(", 0x1]");
+            //vk_beta_str = vk.beta.to_scrypt_string().replace("{", "[").replace("}", "]");
+            //vk_beta_str.truncate(vk_beta_str.len() - 1);
+            //vk_beta_str.push_str(", [0x1, 0x0]]");
+            //vk_gamma_str = vk.gamma.to_scrypt_string().replace("{", "[").replace("}", "]");
+            //vk_gamma_str.truncate(vk_gamma_str.len() - 1);
+            //vk_gamma_str.push_str(", [0x1, 0x0]]");
+            //vk_delta_str = vk.delta.to_scrypt_string().replace("{", "[").replace("}", "]");
+            //vk_delta_str.truncate(vk_delta_str.len() - 1);
+            //vk_delta_str.push_str(", [0x1, 0x0]]");
         } else {
             // TODO
             zksnark_template_text = "".to_owned();
@@ -253,7 +261,7 @@ impl<T: ScryptCompatibleField> ScryptCompatibleScheme<T> for G16 {
 
         let mut vk_repeat_text = String::new();
 
-        vk_repeat_text.push_str("{");
+        vk_repeat_text.push_str("{\n millerb1a1:");
         
         if curve_parameter == CurveParameter::Bls12_381 {
             //vk_repeat_text.push_str(&alpha_g1_beta_g2.replace("{", "[").replace("}", "]"));
@@ -272,7 +280,7 @@ impl<T: ScryptCompatibleField> ScryptCompatibleScheme<T> for G16 {
             vk_repeat_text.push_str(&alpha_g1_beta_g2);
         }
 
-        vk_repeat_text.push_str(",");
+        vk_repeat_text.push_str(",\n gamma: ");
 
 
         vk_repeat_text.push_str(format!(
@@ -281,7 +289,7 @@ impl<T: ScryptCompatibleField> ScryptCompatibleScheme<T> for G16 {
         )
         .as_str());
 
-        vk_repeat_text.push_str(",");
+        vk_repeat_text.push_str(",\n delta: ");
 
         vk_repeat_text.push_str(format!(
             "{}",
@@ -289,7 +297,7 @@ impl<T: ScryptCompatibleField> ScryptCompatibleScheme<T> for G16 {
         )
         .as_str());
 
-        vk_repeat_text.push_str(",");
+        vk_repeat_text.push_str(",\n gammaAbc: ");
 
         let mut gamma_abc_repeat_text = String::new();
         gamma_abc_repeat_text.push_str("[");
@@ -345,13 +353,12 @@ impl<T: ScryptCompatibleField> ScryptCompatibleScheme<T> for G16 {
             .into_owned();
         
         zksnark_template_text = vk_input_len_regex
-            .replace(
+            .replace_all(
                 zksnark_template_text.as_str(),
                 format!("{}", gamma_abc_count - 1).as_str(),
             )
             .into_owned();
 
-    
 
         // feed input values only if there are any
         zksnark_template_text = if gamma_abc_count > 1 {
@@ -401,102 +408,65 @@ impl<T: ScryptCompatibleField> ScryptCompatibleScheme<T> for G16 {
 
 
 const ZKSNARK_TEMPLATE_BN128: &str = r#"
-
-struct VerifyingKey {
-    FQ12 millerb1a1;
-    G2Point gamma;
-    G2Point delta;
-    G1Point[ZKSNARK.N_1] gamma_abc; 
+export type VerifyingKey = {
+    millerb1a1: FQ12 // Precalculated miller(alpha, beta)
+    gamma: G2Point
+    delta: G2Point
+    gammaAbc: FixedArray<G1Point, <%vk_gamma_abc_length%>> // Size of array should be N + 1
 }
 
-struct Proof {
-    G1Point a;
-    G2Point b;
-    G1Point c;
+export type Proof = {
+    a: G1Point
+    b: G2Point
+    c: G1Point
 }
 
+export class G16BN256 extends SmartContractLib {
+    
+    @prop()
+    static readonly vk: VerifyingKey = <%vk%>
 
-library ZKSNARK {
-
-    static const VerifyingKey vk = <%vk%>;
-
-    // Number of inputs.
-    static const int N = <%vk_input_length%>;
-    static const int N_1 = <%vk_gamma_abc_length%>; // N + 1, gamma_abc length
+    @prop()
+    static readonly N = <%vk_input_length%>n // Number of public inputs.
 
 
-    static function verify(<%input_argument%>Proof proof) : bool {
+    @method()
+    static verify(
+        inputs: FixedArray<bigint, <%vk_input_length%>>,
+        proof: Proof,
+    ): boolean {
+        let vk_x = G16BN256.vk.gammaAbc[0]
+        for (let i = 0; i < G16BN256.N; i++) {
+            const p = BN256.mulG1Point(G16BN256.vk.gammaAbc[i + 1], inputs[i])
+            vk_x = BN256.addG1Points(vk_x, p)
+        }
 
-        G1Point vk_x = vk.gamma_abc[0];
-
-        <%input_loop%>
-
+        const a0: G1Point = {
+            x: proof.a.x,
+            y: -proof.a.y,
+        }
         return BN256Pairing.pairCheckP4Precalc(
-                {proof.a.x, -proof.a.y}, proof.b,
-                vk.millerb1a1,
-                vk_x, vk.gamma,
-                proof.c, vk.delta);
+            a0,
+            proof.b,
+            G16BN256.vk.millerb1a1,
+            vk_x,
+            G16BN256.vk.gamma,
+            proof.c,
+            G16BN256.vk.delta
+        )
     }
+}
 
+export class Verifier extends SmartContract {
+    @method()
+    public verifyProof(
+        inputs: FixedArray<bigint, <%vk_input_length%>>,
+        proof: Proof,
+    ) {
+        assert(G16BN256.verify(inputs, proof))
+    }
 }
 "#;
-
-//const ZKSNARK_TEMPLATE_BLS12_381: &str = r#"
-//
-//struct VerifyingKey {
-//    fe12 millerb1a1;
-//    PointG2 gamma;
-//    PointG2 delta;
-//    PointG1[2] ic; // Size of array should be N + 1
-//}
-//
-//struct Proof {
-//    PointG1 a;
-//    PointG2 b;
-//    PointG1 c;
-//}
-//
-//library ZKSNARK {
-//    static VerifyingKey vk = <%vk%>;
-//
-//    // Number of inputs.
-//    static const int N = <%vk_input_length%>;
-//    static const int N_1 = <%vk_gamma_abc_length%>; // N + 1, gamma_abc length
-//
-//    static function vkXSetup(int[N] inputs, PointG1[N_1] ic) : PointG1 {
-//	    PointG1 vk_x = ic[0];
-//        loop (N) : i {
-//            PointG1 p = BLS12381.MulScalarG1(ic[i + 1], inputs[i]);
-//            vk_x = BLS12381.AddG1(vk_x, p);
-//        }
-//	    return vk_x;
-//    }
-//
-//    static function verify(<%input_argument%>Proof proof) : bool {
-//        loop(3) : k {
-//            proof.a[k] = BLS12381.toMont(proof.a[k]);
-//            proof.c[k] = BLS12381.toMont(proof.c[k]);
-//            <%input_loop%>
-//        }
-//        loop(3) : j {
-//            loop(2) : k {
-//                proof.b[j][k] = BLS12381.toMont(proof.b[j][k]);
-//                vk.gamma[j][k] = BLS12381.toMont(vk.gamma[j][k]);
-//                vk.delta[j][k] = BLS12381.toMont(vk.delta[j][k]);
-//            }
-//        }
-//
-//        PointG1 vk_x = vkXSetup(inputs, vk.ic);
-//
-//        return BLS12381Pairing.pairCheck3Point(
-//                proof.a, proof.b,
-//                vk.millerb1a1,
-//                vk_x, vk.gamma,
-//                proof.c, vk.delta);
-//    }
-//
-//}
-//"#;
 
 const ZKSNARK_TEMPLATE_BLS12_381: &str = r#"
 

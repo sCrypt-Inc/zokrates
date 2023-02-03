@@ -1,0 +1,7 @@
+node_modules
+dist
+scrypts/
+scrypt.index.json
+tests/out
+**/scrypt.index.json
+.eslintcache

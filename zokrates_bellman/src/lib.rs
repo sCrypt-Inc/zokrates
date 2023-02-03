@@ -1,5 +1,8 @@
 pub mod groth16;
 
+use num_bigint::BigUint;
+use num_traits::Num;
+
 use bellman::groth16::Proof;
 use bellman::groth16::{
     create_random_proof, generate_random_parameters, prepare_verifying_key, verify_proof,
@@ -25,6 +28,12 @@ pub struct Bellman;
 pub struct Computation<T, I: IntoIterator<Item = Statement<T>>> {
     program: ProgIterator<T, I>,
     witness: Option<Witness<T>>,
+}
+
+pub fn hex_to_decimal(hex_string: &str) -> Option<String> {
+    let hex_string_stripped = hex_string.strip_prefix("0x").unwrap();
+    let bigint = BigUint::from_str_radix(hex_string_stripped, 16).ok()?;
+    Some(bigint.to_string())
 }
 
 impl<T: Field, I: IntoIterator<Item = Statement<T>>> Computation<T, I> {

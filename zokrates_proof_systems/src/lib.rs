@@ -5,6 +5,9 @@ mod solidity;
 mod scrypt; // add by sCrypt
 mod tagged;
 
+use num_bigint::BigUint;
+use num_traits::Num;
+
 pub use self::scheme::*;
 pub use self::solidity::*;
 pub use self::scrypt::*; // add by sCrypt
@@ -16,6 +19,7 @@ use serde::{Deserialize, Serialize};
 
 use rand_0_4::Rng;
 use std::io::{Read, Write};
+use std::str::FromStr;
 
 use zokrates_field::Field;
 
@@ -99,6 +103,12 @@ impl ToString for G2AffineFq2 {
 
 /* =============== add by sCrypt */
 
+fn hex_to_decimal(hex_string: String) -> Option<String> {
+    let hex_string_stripped = hex_string.strip_prefix("0x").unwrap();
+    let bigint = BigUint::from_str_radix(hex_string_stripped, 16).ok()?;
+    Some(bigint.to_string())
+}
+
 pub trait ToScryptString {
     fn to_scrypt_string(&self) -> String;
 }
@@ -108,9 +118,12 @@ impl ToScryptString for G1Affine {
     fn to_scrypt_string(&self) -> String {
         format!(
             "{{
-                {},
-                {}
-            }}", self.0, self.1)
+                x: {}n,
+                y: {}n
+            }}",
+            hex_to_decimal(self.0.clone()).unwrap(), 
+            hex_to_decimal(self.1.clone()).unwrap()
+        )
     }
 }
 
@@ -118,9 +131,12 @@ impl ToScryptString for G2AffineFq {
     fn to_scrypt_string(&self) -> String {
         format!(
             "{{
-                {},
-                {}
-            }}", self.0, self.1)
+                x: {}n,
+                y: {}n
+            }}",
+            hex_to_decimal(self.0.clone()).unwrap(), 
+            hex_to_decimal(self.1.clone()).unwrap()
+        )
     }
 }
 
@@ -129,19 +145,19 @@ impl ToScryptString for G2AffineFq2 {
     fn to_scrypt_string(&self) -> String {
         format!(
             "{{
-                {{
-                    {},
-                    {}
+                x: {{
+                    x: {}n,
+                    y: {}n
                 }}, 
-                {{
-                    {},
-                    {}
+                y: {{
+                    x: {}n,
+                    y: {}n
                 }}
             }}",
-            (self.0).0,
-            (self.0).1,
-            (self.1).0,
-            (self.1).1
+            hex_to_decimal((self.0).0.clone()).unwrap(),
+            hex_to_decimal((self.0).1.clone()).unwrap(),
+            hex_to_decimal((self.1).0.clone()).unwrap(),
+            hex_to_decimal((self.1).1.clone()).unwrap()
         )
     }
 }

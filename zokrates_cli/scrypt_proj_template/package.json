@@ -1,0 +1,45 @@
+{
+  "name": "snark-verifier",
+  "version": "0.1.0",
+  "description": "An scryptTS zk-SNARK verifier library",
+  "main": "index.js",
+  "scripts": {
+    "prebuild": "npm run clean",
+    "build": "tsc",
+    "clean": "rimraf scrypt.index.json && rimraf dist && rimraf scrypts",
+    "pretest": "npm run build",
+    "apply-optim": "sh optimizations/apply_asm_optim.sh",
+    "test": "npm run apply-optim && mocha 'dist/tests/**/*.test.js' --timeout 1200000",
+    "lint": "eslint . --ext .js,.ts --fix && prettier --write --ignore-unknown \"**/*\"",
+    "lint-check": "eslint . --ext .js,.ts && prettier --check --ignore-unknown \"**/*\"",
+    "prepare": "husky install",
+    "prepublishOnly": "npm run build && npm run apply-optim"
+  },
+  "lint-staged": {
+    "**/*": [
+      "prettier --write --ignore-unknown"
+    ],
+    "**/*.{ts,js}": [
+      "eslint --cache --fix"
+    ]
+  },
+  "dependencies": {
+    "scrypt-ts": "beta"
+  },
+  "devDependencies": {
+    "@types/chai": "^4.3.4",
+    "@types/mocha": "^10.0.0",
+    "@types/node": "^18.11.10",
+    "chai": "^4.3.6",
+    "mocha": "^10.1.0",
+    "rimraf": "^3.0.2",
+    "typescript": "=4.8.4",
+    "prettier": "^2.8.2",
+    "eslint": "^8.31.0",
+    "@typescript-eslint/parser": "^5.48.1",
+    "@typescript-eslint/eslint-plugin": "^5.48.1",
+    "eslint-config-prettier": "^8.6.0",
+    "husky": "^8.0.3",
+    "lint-staged": "^13.1.0"
+  }
+}

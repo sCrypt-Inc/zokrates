@@ -2,7 +2,7 @@ pub mod check;
 pub mod compile;
 pub mod compute_witness;
 pub mod export_verifier;
-pub mod export_verifier_scrypt; // add by sCrypt
+pub mod export_verifier_scrypt; 
 #[cfg(any(feature = "bellman", feature = "ark"))]
 pub mod generate_proof;
 pub mod generate_smtlib2;

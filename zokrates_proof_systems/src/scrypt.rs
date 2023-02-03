@@ -15,384 +15,586 @@ pub trait ScryptCompatibleScheme<T: ScryptCompatibleField>: Scheme<T> {
 
 pub fn scrypt_pairing_lib_bn128() -> String {
     let bn256_lib = r#"
-type FQ = int;
+import { and, assert, SmartContract, SmartContractLib, method, lshift, prop, FixedArray } from 'scrypt-ts'
 
-struct FQ2 {
-    FQ x;
-    FQ y;
+export type FQ = bigint
+
+export type FQ2 = {
+    x: FQ
+    y: FQ
 }
 
-struct FQ6 {
-    FQ2 x;
-    FQ2 y;
-    FQ2 z;
-}
-
-struct CurvePoint {
-    FQ x;
-    FQ y;
-    FQ z;
-    FQ t;
-}
-
-struct TwistPoint {
-    FQ2 x;
-    FQ2 y;
-    FQ2 z;
-    FQ2 t;
-}
-
-// These two are just to make it easier for users to interface with the code
-// by not having them to deal with z and t coords.
-struct G1Point {
-    FQ x;
-    FQ y;
-}
-
-struct G2Point {
-    FQ2 x;
-    FQ2 y;
+export type FQ6 = {
+    x: FQ2
+    y: FQ2
+    z: FQ2
 }
 
 // FQ12 implements the field of size p¹² as a quadratic extension of FQ6
 // where ω²=τ.
-struct FQ12 {
-    FQ6 x;
-    FQ6 y;
+export type FQ12 = {
+    x: FQ6
+    y: FQ6
 }
 
-library BN256 {
+export type CurvePoint = {
+    x: FQ
+    y: FQ
+    z: FQ
+    t: FQ
+}
 
+export type TwistPoint = {
+    x: FQ2
+    y: FQ2
+    z: FQ2
+    t: FQ2
+}
+
+// These two are just to make it easier for users to interface with the code
+// by not having them to deal with z and t coords.
+//
+export type G1Point = {
+    x: FQ
+    y: FQ
+}
+
+export type G2Point = {
+    x: FQ2
+    y: FQ2
+}
+
+export class BN256 extends SmartContractLib {
     // Curve bits:
-    static const int CURVE_BITS = 256; 
-    static const int CURVE_BITS_P8 = 264; // +8 bits
-    static const int CURVE_BITS_P8_DIV12 = 88;
+    @prop()
+    static readonly CURVE_BITS = 256n
+    @prop()
+    static readonly CURVE_BITS_P8 = 264n // +8 bits
+    @prop()
+    static readonly CURVE_BITS_P8_DIV12 = 88n
 
     // Key int size:
-    static const int S = 33;    // 32 bytes plus sign byte
-    static const bytes mask = reverseBytes(num2bin(1, 33), 33);
-    static const bytes zero = reverseBytes(num2bin(0, 33), 33);
+    @prop()
+    static readonly S = 33n // 32 bytes plus sign byte
+
+    // Upper bound of the eGCD mod inverse loop:
+    @prop()
+    static readonly UB = 368n
 
     // Generator of G1:
-    static const CurvePoint G1 = {1, 2, 1, 1};
+    @prop()
+    static readonly G1: CurvePoint = {
+        x: 1n,
+        y: 2n,
+        z: 1n,
+        t: 1n,
+    }
 
     // Generator of G2:
-    static const TwistPoint G2 = {
-        {
-            0x198e9393920d483a7260bfb731fb5d25f1aa493335a9e71297e485b7aef312c2,
-            0x1800deef121f1e76426a00665e5c4479674322d4f75edadd46debd5cd992f6ed
+    @prop()
+    static readonly G2: TwistPoint = {
+        x: {
+            x: 11559732032986387107991004021392285783925812861821192530917403151452391805634n,
+            y: 10857046999023057135944570762232829481370756359578518086990519993285655852781n,
         },
-        {
-            0x090689d0585ff075ec9e99ad690c3395bc4b313370b38ef355acdadcd122975b,
-            0x12c85ea5db8c6deb4aab71808dcb408fe3d1e7690c43d37b4ce6cc0166fa7daa
+        y: {
+            x: 4082367875863433681332203403145435568316851327593401208105741076214120093531n,
+            y: 8495653923123431417604973247489272438418190587263600148770280649306958101930n,
         },
-        {0, 1},
-        {0, 1}
-    };
+        z: {
+            x: 0n,
+            y: 1n,
+        },
+        t: {
+            x: 0n,
+            y: 1n,
+        },
+    }
 
-    static const FQ2 FQ2Zero = {0, 0};
-    static const FQ2 FQ2One = {0, 1};
+    @prop()
+    static readonly FQ2Zero: FQ2 = {
+        x: 0n,
+        y: 0n,
+    }
 
-    static const FQ6 FQ6Zero = {
-        FQ2Zero, FQ2Zero, FQ2Zero
-    };
+    @prop()
+    static readonly FQ2One: FQ2 = {
+        x: 0n,
+        y: 1n,
+    }
 
-    static const FQ6 FQ6One = {
-        FQ2Zero, FQ2Zero, FQ2One
-    };
+    @prop()
+    static readonly FQ6Zero: FQ6 = {
+        x: BN256.FQ2Zero,
+        y: BN256.FQ2Zero,
+        z: BN256.FQ2Zero,
+    }
 
-    static const FQ12 FQ12Zero = {FQ6Zero, FQ6Zero};
-    static const FQ12 FQ12One = {FQ6Zero, FQ6One};
+    @prop()
+    static readonly FQ6One: FQ6 = {
+        x: BN256.FQ2Zero,
+        y: BN256.FQ2Zero,
+        z: BN256.FQ2One,
+    }
+
+    @prop()
+    static readonly FQ12Zero: FQ12 = {
+        x: BN256.FQ6Zero,
+        y: BN256.FQ6Zero,
+    }
+
+    @prop()
+    static readonly FQ12One: FQ12 = {
+        x: BN256.FQ6Zero,
+        y: BN256.FQ6One,
+    }
 
     // Curve field modulus:
-    static int P = 0x30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47;
+    @prop()
+    static readonly P =
+        21888242871839275222246405745257275088696311157297823662689037894645226208583n
 
     // xiToPMinus1Over6 is ξ^((p-1)/6) where ξ = i+9.
-    static const FQ2 xiToPMinus1Over6 = {
-        0x246996f3b4fae7e6a6327cfe12150b8e747992778eeec7e5ca5cf05f80f362ac,
-        0x1284b71c2865a7dfe8b99fdd76e68b605c521e08292f2176d60b35dadcc9e470
-    };
+    @prop()
+    static readonly xiToPMinus1Over6: FQ2 = {
+        x: 16469823323077808223889137241176536799009286646108169935659301613961712198316n,
+        y: 8376118865763821496583973867626364092589906065868298776909617916018768340080n,
+    }
 
     // xiTo2PMinus2Over3 is ξ^((2p-2)/3) where ξ = i+9.
-    static const FQ2 xiTo2PMinus2Over3 = {
-        0x2c145edbe7fd8aee9f3a80b03b0b1c923685d2ea1bdec763c13b4711cd2b8126,
-        0x05b54f5e64eea80180f3c0b75a181e84d33365f7be94ec72848a1f55921ea762
-    };
+    @prop()
+    static readonly xiTo2PMinus2Over3: FQ2 = {
+        x: 19937756971775647987995932169929341994314640652964949448313374472400716661030n,
+        y: 2581911344467009335267311115468803099551665605076196740867805258568234346338n,
+    }
 
     // xiToPMinus1Over2 is ξ^((p-1)/2) where ξ = i+9.
-    static const FQ2 xiToPMinus1Over2 = {
-        0x07c03cbcac41049a0704b5a7ec796f2b21807dc98fa25bd282d37f632623b0e3,
-        0x063cf305489af5dcdc5ec698b6e2f9b9dbaae0eda9c95998dc54014671a0135a
-    };
+    @prop()
+    static readonly xiToPMinus1Over2: FQ2 = {
+        x: 3505843767911556378687030309984248845540243509899259641013678093033130930403n,
+        y: 2821565182194536844548159561693502659359617185244120367078079554186484126554n,
+    }
 
     // xiToPMinus1Over3 is ξ^((p-1)/3) where ξ = i+9.
-    static const FQ2 xiToPMinus1Over3 = {
-        0x16c9e55061ebae204ba4cc8bd75a079432ae2a1d0b7c9dce1665d51c640fcba2,
-        0x2fb347984f7911f74c0bec3cf559b143b78cc310c2c3330c99e39557176f553d
-    };
+    @prop()
+    static readonly xiToPMinus1Over3: FQ2 = {
+        x: 10307601595873709700152284273816112264069230130616436755625194854815875713954n,
+        y: 21575463638280843010398324269430826099269044274347216827212613867836435027261n,
+    }
 
     // xiTo2PSquaredMinus2Over3 is ξ^((2p²-2)/3) where ξ = i+9 (a cubic root of unity, mod p).
-    static const FQ xiTo2PSquaredMinus2Over3 = 0x59e26bcea0d48bacd4f263f1acdb5c4f5763473177fffffe;
-    
+    @prop()
+    static readonly xiTo2PSquaredMinus2Over3: FQ =
+        2203960485148121921418603742825762020974279258880205651966n
+
     // xiToPSquaredMinus1Over3 is ξ^((p²-1)/3) where ξ = i+9.
-    static const FQ xiToPSquaredMinus1Over3 = 0x30644e72e131a0295e6dd9e7e0acccb0c28f069fbb966e3de4bd44e5607cfd48;
+    @prop()
+    static readonly xiToPSquaredMinus1Over3: FQ =
+        21888242871839275220042445260109153167277707414472061641714758635765020556616n
 
     // xiToPSquaredMinus1Over6 is ξ^((1p²-1)/6) where ξ = i+9 (a cubic root of -1, mod p).
-    static const FQ xiToPSquaredMinus1Over6 = 0x30644e72e131a0295e6dd9e7e0acccb0c28f069fbb966e3de4bd44e5607cfd49;
+    @prop()
+    static readonly xiToPSquaredMinus1Over6: FQ =
+        21888242871839275220042445260109153167277707414472061641714758635765020556617n
 
-    static function modReduce(int k, int modulus) : int {
-        int res = k % modulus;
-        return (res < 0) ? res + modulus : res;
+    @method()
+    static compareFQ2(a: FQ2, b: FQ2): boolean {
+        return a.x == b.x && a.y == b.y
     }
 
-    static function modFQ2(FQ2 t0): FQ2 {
-        t0.x = BN256.modReduce(t0.x, BN256.P);
-        t0.y = BN256.modReduce(t0.y, BN256.P);
-        return t0;
+    @method()
+    static compareFQ6(a: FQ6, b: FQ6): boolean {
+        return (
+            a.x.x == b.x.x &&
+            a.x.y == b.x.y &&
+            a.y.x == b.y.x &&
+            a.y.y == b.y.y &&
+            a.z.x == b.z.x &&
+            a.z.y == b.z.y
+        )
     }
 
-    static function modFQ12(FQ12 t0): FQ12 {
-        t0.x.x.x = BN256.modReduce(t0.x.x.x, BN256.P);
-        t0.x.x.y = BN256.modReduce(t0.x.x.y, BN256.P);
-        t0.x.y.x = BN256.modReduce(t0.x.y.x, BN256.P);
-        t0.x.y.y = BN256.modReduce(t0.x.y.y, BN256.P);
-        t0.x.z.x = BN256.modReduce(t0.x.z.x, BN256.P);
-        t0.x.z.y = BN256.modReduce(t0.x.z.y, BN256.P);
-        t0.y.x.x = BN256.modReduce(t0.y.x.x, BN256.P);
-        t0.y.x.y = BN256.modReduce(t0.y.x.y, BN256.P);
-        t0.y.y.x = BN256.modReduce(t0.y.y.x, BN256.P);
-        t0.y.y.y = BN256.modReduce(t0.y.y.y, BN256.P);
-        t0.y.z.x = BN256.modReduce(t0.y.z.x, BN256.P);
-        t0.y.z.y = BN256.modReduce(t0.y.z.y, BN256.P);
-        return t0;
-    }
-    
-    static function modCurvePoint(CurvePoint t0): CurvePoint {
-        t0.x = BN256.modReduce(t0.x, BN256.P);
-        t0.y = BN256.modReduce(t0.y, BN256.P);
-        t0.z = BN256.modReduce(t0.z, BN256.P);
-        t0.t = BN256.modReduce(t0.t, BN256.P);
-        return t0;
-    }
-    
-    static function modTwistPoint(TwistPoint t0): TwistPoint {
-        t0.x.x = BN256.modReduce(t0.x.x, BN256.P);
-        t0.x.y = BN256.modReduce(t0.x.y, BN256.P);
-        t0.y.x = BN256.modReduce(t0.y.x, BN256.P);
-        t0.y.y = BN256.modReduce(t0.y.y, BN256.P);
-        t0.z.x = BN256.modReduce(t0.z.x, BN256.P);
-        t0.z.y = BN256.modReduce(t0.z.y, BN256.P);
-        t0.t.x = BN256.modReduce(t0.t.x, BN256.P);
-        t0.t.y = BN256.modReduce(t0.t.y, BN256.P);
-        return t0;
+    @method()
+    static compareFQ12(a: FQ12, b: FQ12): boolean {
+        return (
+            a.x.x.x == b.x.x.x &&
+            a.x.x.y == b.x.x.y &&
+            a.x.y.x == b.x.y.x &&
+            a.x.y.y == b.x.y.y &&
+            a.x.z.x == b.x.z.x &&
+            a.x.z.y == b.x.z.y &&
+            a.y.x.x == b.y.x.x &&
+            a.y.x.y == b.y.x.y &&
+            a.y.y.x == b.y.y.x &&
+            a.y.y.y == b.y.y.y &&
+            a.y.z.x == b.y.z.x &&
+            a.y.z.y == b.y.z.y
+        )
     }
 
-    static function mulFQ2(FQ2 a, FQ2 b) : FQ2 {
-        int tx = a.x * b.y;
-        int t =  b.x * a.y;
-        int tx_2 = tx + t;
-
-        int ty = a.y * b.y;
-        int t_2 = a.x * b.x;
-        int ty_2 = ty - t_2;
-        
-        return {modReduce(tx_2, P), modReduce(ty_2, P)};
+    @method()
+    static compareCurvePoints(a: CurvePoint, b: CurvePoint): boolean {
+        return a.x == b.x && a.y == b.y && a.z == b.z && a.t == b.t
     }
 
-    static function mulXiFQ2(FQ2 a) : FQ2 {
-        // (xi+y)(i+3) = (9x+y)i+(9y-x)
-        FQ tx = (a.x << 3) + a.x + a.y;
-        FQ ty = (a.y << 3) + a.y - a.x;
-        return {modReduce(tx, P), modReduce(ty, P)};
+    @method()
+    static compareTwistPoints(a: TwistPoint, b: TwistPoint): boolean {
+        return (
+            a.x.x == b.x.x &&
+            a.x.y == b.x.y &&
+            a.y.x == b.y.x &&
+            a.y.y == b.y.y &&
+            a.z.x == b.z.x &&
+            a.z.y == b.z.y &&
+            a.t.x == b.t.x &&
+            a.t.y == b.t.y
+        )
     }
 
-    static function mulScalarFQ2(FQ2 a, int scalar) : FQ2 {
+    @method()
+    static modReduce(x: bigint, modulus: bigint): bigint {
+        const res = x % modulus
+        return res < 0 ? res + modulus : res
+    }
+
+    @method()
+    static modFQ2(t0: FQ2): FQ2 {
+        t0.x = BN256.modReduce(t0.x, BN256.P)
+        t0.y = BN256.modReduce(t0.y, BN256.P)
+        return t0
+    }
+
+    @method()
+    static modFQ12(t0: FQ12): FQ12 {
+        t0.x.x.x = BN256.modReduce(t0.x.x.x, BN256.P)
+        t0.x.x.y = BN256.modReduce(t0.x.x.y, BN256.P)
+        t0.x.y.x = BN256.modReduce(t0.x.y.x, BN256.P)
+        t0.x.y.y = BN256.modReduce(t0.x.y.y, BN256.P)
+        t0.x.z.x = BN256.modReduce(t0.x.z.x, BN256.P)
+        t0.x.z.y = BN256.modReduce(t0.x.z.y, BN256.P)
+        t0.y.x.x = BN256.modReduce(t0.y.x.x, BN256.P)
+        t0.y.x.y = BN256.modReduce(t0.y.x.y, BN256.P)
+        t0.y.y.x = BN256.modReduce(t0.y.y.x, BN256.P)
+        t0.y.y.y = BN256.modReduce(t0.y.y.y, BN256.P)
+        t0.y.z.x = BN256.modReduce(t0.y.z.x, BN256.P)
+        t0.y.z.y = BN256.modReduce(t0.y.z.y, BN256.P)
+        return t0
+    }
+
+    @method()
+    static modCurvePoint(t0: CurvePoint): CurvePoint {
+        t0.x = BN256.modReduce(t0.x, BN256.P)
+        t0.y = BN256.modReduce(t0.y, BN256.P)
+        t0.z = BN256.modReduce(t0.z, BN256.P)
+        t0.t = BN256.modReduce(t0.t, BN256.P)
+        return t0
+    }
+
+    @method()
+    static modTwistPoint(t0: TwistPoint): TwistPoint {
+        t0.x.x = BN256.modReduce(t0.x.x, BN256.P)
+        t0.x.y = BN256.modReduce(t0.x.y, BN256.P)
+        t0.y.x = BN256.modReduce(t0.y.x, BN256.P)
+        t0.y.y = BN256.modReduce(t0.y.y, BN256.P)
+        t0.z.x = BN256.modReduce(t0.z.x, BN256.P)
+        t0.z.y = BN256.modReduce(t0.z.y, BN256.P)
+        t0.t.x = BN256.modReduce(t0.t.x, BN256.P)
+        t0.t.y = BN256.modReduce(t0.t.y, BN256.P)
+        return t0
+    }
+
+    @method()
+    static mulFQ2(a: FQ2, b: FQ2): FQ2 {
+        const tx = a.x * b.y
+        const t = b.x * a.y
+        const tx_2 = tx + t
+
+        const ty = a.y * b.y
+        const t_2 = a.x * b.x
+        const ty_2 = ty - t_2
+
         return {
-            modReduce(a.x * scalar, P),
-            modReduce(a.y * scalar, P)
-        };
-    }
-
-    static function addFQ2(FQ2 a, FQ2 b) : FQ2 {
-        return {
-            modReduce(a.x + b.x, P), 
-            modReduce(a.y + b.y, P)
-        };
-    }
-
-    static function subFQ2(FQ2 a, FQ2 b) : FQ2 {
-        return {
-            modReduce(a.x - b.x, P),
-            modReduce(a.y - b.y, P)
-        };
-    }
-
-    static function negFQ2(FQ2 a) : FQ2 {
-        return {
-            modReduce(a.x * -1, P), 
-            modReduce(a.y * -1, P)
-        };
-    }
-
-    static function conjugateFQ2(FQ2 a) : FQ2 {
-        return {
-            modReduce(a.x * -1, P), 
-            modReduce(a.y, P)
-        };
-    }
-
-    static function doubleFQ2(FQ2 a) : FQ2 {
-        return {
-            modReduce(a.x * 2, P),
-            modReduce(a.y * 2, P)
-        };
-    }
-
-    static function squareFQ2(FQ2 a) : FQ2 {
-        int tx = a.y - a.x;
-        int ty = a.x + a.y;
-        int ty_2 = ty * tx;
-
-        int tx_2 = (a.x * a.y) * 2;
-
-        return {modReduce(tx_2, P), modReduce(ty_2, P)};
-    }
-
-    static function modInverseBranchlessP(int x) : int {
-        asm {
-47fd7cd8168c203c8dca7168916a81975d588181b64550b829a031e1724e6430 OP_SWAP OP_DUP OP_TOALTSTACK OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_TOALTSTACK OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_TOALTSTACK OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_TOALTSTACK OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_TOALTSTACK OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_TOALTSTACK OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_TOALTSTACK OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_TOALTSTACK OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_TOALTSTACK OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_TOALTSTACK OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_TOALTSTACK OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_TOALTSTACK OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_TOALTSTACK OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_TOALTSTACK OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_TOALTSTACK OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_TOALTSTACK OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_TOALTSTACK OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_TOALTSTACK OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_TOALTSTACK OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_TOALTSTACK OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_TOALTSTACK OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_TOALTSTACK OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_TOALTSTACK OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_TOALTSTACK OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_TOALTSTACK OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_TOALTSTACK OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_TOALTSTACK OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_TOALTSTACK OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_TOALTSTACK OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_TOALTSTACK OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_TOALTSTACK OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_TOALTSTACK OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_TOALTSTACK OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_TOALTSTACK OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_TOALTSTACK OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_TOALTSTACK OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_TOALTSTACK OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_TOALTSTACK OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_TOALTSTACK OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_TOALTSTACK OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_TOALTSTACK OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_TOALTSTACK OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_TOALTSTACK OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_TOALTSTACK OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_TOALTSTACK OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_TOALTSTACK OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_TOALTSTACK OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_TOALTSTACK OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_TOALTSTACK OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_TOALTSTACK OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_TOALTSTACK OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_TOALTSTACK OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_TOALTSTACK OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_TOALTSTACK OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_TOALTSTACK OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_TOALTSTACK OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_TOALTSTACK OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_TOALTSTACK OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_TOALTSTACK OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_TOALTSTACK OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_TOALTSTACK OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_TOALTSTACK OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_TOALTSTACK OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_TOALTSTACK OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_TOALTSTACK OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_TOALTSTACK OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_TOALTSTACK OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_TOALTSTACK OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_TOALTSTACK OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_TOALTSTACK OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_TOALTSTACK OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_TOALTSTACK OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_TOALTSTACK OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_TOALTSTACK OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_TOALTSTACK OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_TOALTSTACK OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_TOALTSTACK OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_TOALTSTACK OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_TOALTSTACK OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_TOALTSTACK OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_TOALTSTACK OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_TOALTSTACK OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_TOALTSTACK OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_TOALTSTACK OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_TOALTSTACK OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_TOALTSTACK OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_TOALTSTACK OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_TOALTSTACK OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_TOALTSTACK OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_TOALTSTACK OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_TOALTSTACK OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_TOALTSTACK OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_TOALTSTACK OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_TOALTSTACK OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_TOALTSTACK OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_TOALTSTACK OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_TOALTSTACK OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_TOALTSTACK OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_TOALTSTACK OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_TOALTSTACK OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_TOALTSTACK OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_TOALTSTACK OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_TOALTSTACK OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_TOALTSTACK OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_TOALTSTACK OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_TOALTSTACK OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_TOALTSTACK OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_TOALTSTACK OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_MUL OP_OVER OP_MOD OP_DUP OP_TOALTSTACK OP_DUP OP_MUL OP_OVER OP_MOD OP_FROMALTSTACK OP_MUL OP_OVER OP_MOD OP_FROMALTSTACK OP_MUL OP_OVER OP_MOD OP_FROMALTSTACK OP_MUL OP_OVER OP_MOD OP_FROMALTSTACK OP_MUL OP_OVER OP_MOD OP_FROMALTSTACK OP_MUL OP_OVER OP_MOD OP_FROMALTSTACK OP_MUL OP_OVER OP_MOD OP_FROMALTSTACK OP_MUL OP_OVER OP_MOD OP_FROMALTSTACK OP_MUL OP_OVER OP_MOD OP_FROMALTSTACK OP_MUL OP_OVER OP_MOD OP_FROMALTSTACK OP_MUL OP_OVER OP_MOD OP_FROMALTSTACK OP_MUL OP_OVER OP_MOD OP_FROMALTSTACK OP_MUL OP_OVER OP_MOD OP_FROMALTSTACK OP_MUL OP_OVER OP_MOD OP_FROMALTSTACK OP_MUL OP_OVER OP_MOD OP_FROMALTSTACK OP_MUL OP_OVER OP_MOD OP_FROMALTSTACK OP_MUL OP_OVER OP_MOD OP_FROMALTSTACK OP_MUL OP_OVER OP_MOD OP_FROMALTSTACK OP_MUL OP_OVER OP_MOD OP_FROMALTSTACK OP_MUL OP_OVER OP_MOD OP_FROMALTSTACK OP_MUL OP_OVER OP_MOD OP_FROMALTSTACK OP_MUL OP_OVER OP_MOD OP_FROMALTSTACK OP_MUL OP_OVER OP_MOD OP_FROMALTSTACK OP_MUL OP_OVER OP_MOD OP_FROMALTSTACK OP_MUL OP_OVER OP_MOD OP_FROMALTSTACK OP_MUL OP_OVER OP_MOD OP_FROMALTSTACK OP_MUL OP_OVER OP_MOD OP_FROMALTSTACK OP_MUL OP_OVER OP_MOD OP_FROMALTSTACK OP_MUL OP_OVER OP_MOD OP_FROMALTSTACK OP_MUL OP_OVER OP_MOD OP_FROMALTSTACK OP_MUL OP_OVER OP_MOD OP_FROMALTSTACK OP_MUL OP_OVER OP_MOD OP_FROMALTSTACK OP_MUL OP_OVER OP_MOD OP_FROMALTSTACK OP_MUL OP_OVER OP_MOD OP_FROMALTSTACK OP_MUL OP_OVER OP_MOD OP_FROMALTSTACK OP_MUL OP_OVER OP_MOD OP_FROMALTSTACK OP_MUL OP_OVER OP_MOD OP_FROMALTSTACK OP_MUL OP_OVER OP_MOD OP_FROMALTSTACK OP_MUL OP_OVER OP_MOD OP_FROMALTSTACK OP_MUL OP_OVER OP_MOD OP_FROMALTSTACK OP_MUL OP_OVER OP_MOD OP_FROMALTSTACK OP_MUL OP_OVER OP_MOD OP_FROMALTSTACK OP_MUL OP_OVER OP_MOD OP_FROMALTSTACK OP_MUL OP_OVER OP_MOD OP_FROMALTSTACK OP_MUL OP_OVER OP_MOD OP_FROMALTSTACK OP_MUL OP_OVER OP_MOD OP_FROMALTSTACK OP_MUL OP_OVER OP_MOD OP_FROMALTSTACK OP_MUL OP_OVER OP_MOD OP_FROMALTSTACK OP_MUL OP_OVER OP_MOD OP_FROMALTSTACK OP_MUL OP_OVER OP_MOD OP_FROMALTSTACK OP_MUL OP_OVER OP_MOD OP_FROMALTSTACK OP_MUL OP_OVER OP_MOD OP_FROMALTSTACK OP_MUL OP_OVER OP_MOD OP_FROMALTSTACK OP_MUL OP_OVER OP_MOD OP_FROMALTSTACK OP_MUL OP_OVER OP_MOD OP_FROMALTSTACK OP_MUL OP_OVER OP_MOD OP_FROMALTSTACK OP_MUL OP_OVER OP_MOD OP_FROMALTSTACK OP_MUL OP_OVER OP_MOD OP_FROMALTSTACK OP_MUL OP_OVER OP_MOD OP_FROMALTSTACK OP_MUL OP_OVER OP_MOD OP_FROMALTSTACK OP_MUL OP_OVER OP_MOD OP_FROMALTSTACK OP_MUL OP_OVER OP_MOD OP_FROMALTSTACK OP_MUL OP_OVER OP_MOD OP_FROMALTSTACK OP_MUL OP_OVER OP_MOD OP_FROMALTSTACK OP_MUL OP_OVER OP_MOD OP_FROMALTSTACK OP_MUL OP_OVER OP_MOD OP_FROMALTSTACK OP_MUL OP_OVER OP_MOD OP_FROMALTSTACK OP_MUL OP_OVER OP_MOD OP_FROMALTSTACK OP_MUL OP_OVER OP_MOD OP_FROMALTSTACK OP_MUL OP_OVER OP_MOD OP_FROMALTSTACK OP_MUL OP_OVER OP_MOD OP_FROMALTSTACK OP_MUL OP_OVER OP_MOD OP_FROMALTSTACK OP_MUL OP_OVER OP_MOD OP_FROMALTSTACK OP_MUL OP_OVER OP_MOD OP_FROMALTSTACK OP_MUL OP_OVER OP_MOD OP_FROMALTSTACK OP_MUL OP_OVER OP_MOD OP_FROMALTSTACK OP_MUL OP_OVER OP_MOD OP_FROMALTSTACK OP_MUL OP_OVER OP_MOD OP_FROMALTSTACK OP_MUL OP_OVER OP_MOD OP_FROMALTSTACK OP_MUL OP_OVER OP_MOD OP_FROMALTSTACK OP_MUL OP_OVER OP_MOD OP_FROMALTSTACK OP_MUL OP_OVER OP_MOD OP_FROMALTSTACK OP_MUL OP_OVER OP_MOD OP_FROMALTSTACK OP_MUL OP_OVER OP_MOD OP_FROMALTSTACK OP_MUL OP_OVER OP_MOD OP_FROMALTSTACK OP_MUL OP_OVER OP_MOD OP_FROMALTSTACK OP_MUL OP_OVER OP_MOD OP_FROMALTSTACK OP_MUL OP_OVER OP_MOD OP_FROMALTSTACK OP_MUL OP_OVER OP_MOD OP_FROMALTSTACK OP_MUL OP_OVER OP_MOD OP_FROMALTSTACK OP_MUL OP_OVER OP_MOD OP_FROMALTSTACK OP_MUL OP_OVER OP_MOD OP_FROMALTSTACK OP_MUL OP_OVER OP_MOD OP_FROMALTSTACK OP_MUL OP_OVER OP_MOD OP_FROMALTSTACK OP_MUL OP_OVER OP_MOD OP_FROMALTSTACK OP_MUL OP_OVER OP_MOD OP_FROMALTSTACK OP_MUL OP_OVER OP_MOD OP_FROMALTSTACK OP_MUL OP_OVER OP_MOD OP_FROMALTSTACK OP_MUL OP_OVER OP_MOD OP_FROMALTSTACK OP_MUL OP_OVER OP_MOD OP_FROMALTSTACK OP_MUL OP_OVER OP_MOD OP_FROMALTSTACK OP_MUL OP_OVER OP_MOD OP_FROMALTSTACK OP_MUL OP_OVER OP_MOD OP_FROMALTSTACK OP_MUL OP_OVER OP_MOD OP_FROMALTSTACK OP_MUL OP_OVER OP_MOD OP_FROMALTSTACK OP_MUL OP_OVER OP_MOD OP_FROMALTSTACK OP_MUL OP_OVER OP_MOD OP_FROMALTSTACK OP_MUL OP_OVER OP_MOD OP_FROMALTSTACK OP_MUL OP_OVER OP_MOD OP_FROMALTSTACK OP_MUL OP_OVER OP_MOD OP_NIP
+            x: BN256.modReduce(tx_2, BN256.P),
+            y: BN256.modReduce(ty_2, BN256.P),
         }
     }
 
-    static function inverseFQ2(FQ2 a) : FQ2 {
-        int t2 = a.y * a.y; 
-        int t1 = (a.x * a.x) + t2;
-
-        int inv = modInverseBranchlessP(t1);
-
-        int axNeg = a.x * -1;
+    @method()
+    static mulXiFQ2(a: FQ2): FQ2 {
+        // (xi+y)(i+3) = (9x+y)i+(9y-x)
+        const tx = lshift(a.x, 3n) + a.x + a.y
+        const ty = lshift(a.y, 3n) + a.y - a.x
 
         return {
-            modReduce(axNeg * inv, P),
-            modReduce(a.y * inv, P)
-        };
+            x: BN256.modReduce(tx, BN256.P),
+            y: BN256.modReduce(ty, BN256.P),
+        }
     }
 
-    static function mulFQ6(FQ6 a, FQ6 b) : FQ6 {
+    @method()
+    static mulScalarFQ2(a: FQ2, scalar: bigint): FQ2 {
+        return {
+            x: BN256.modReduce(a.x * scalar, BN256.P),
+            y: BN256.modReduce(a.y * scalar, BN256.P),
+        }
+    }
+
+    @method()
+    static addFQ2(a: FQ2, b: FQ2): FQ2 {
+        const res: FQ2 = {
+            x: BN256.modReduce(a.x + b.x, BN256.P),
+            y: BN256.modReduce(a.y + b.y, BN256.P),
+        }
+        return res
+    }
+
+    @method()
+    static subFQ2(a: FQ2, b: FQ2): FQ2 {
+        const res: FQ2 = {
+            x: BN256.modReduce(a.x - b.x, BN256.P),
+            y: BN256.modReduce(a.y - b.y, BN256.P),
+        }
+        return res
+    }
+
+    @method()
+    static negFQ2(a: FQ2): FQ2 {
+        const res: FQ2 = {
+            x: BN256.modReduce(a.x * -1n, BN256.P),
+            y: BN256.modReduce(a.y * -1n, BN256.P),
+        }
+        return res
+    }
+
+    @method()
+    static conjugateFQ2(a: FQ2): FQ2 {
+        const res: FQ2 = {
+            x: BN256.modReduce(a.x * -1n, BN256.P),
+            y: BN256.modReduce(a.y, BN256.P),
+        }
+        return res
+    }
+
+    @method()
+    static doubleFQ2(a: FQ2): FQ2 {
+        const res: FQ2 = {
+            x: BN256.modReduce(a.x * 2n, BN256.P),
+            y: BN256.modReduce(a.y * 2n, BN256.P),
+        }
+        return res
+    }
+
+    @method()
+    static squareFQ2(a: FQ2): FQ2 {
+        const tx = a.y - a.x
+        const ty = a.x + a.y
+        const ty_2 = ty * tx
+
+        const tx_2 = a.x * a.y * 2n
+
+        const res: FQ2 = {
+            x: BN256.modReduce(tx_2, BN256.P),
+            y: BN256.modReduce(ty_2, BN256.P),
+        }
+        return res
+    }
+
+    @method()
+    static modInverseBranchlessP(x: bigint): bigint {
+        // This will get substituted by optimized ASM code at transpilation stage.
+        // The bellow code is ran while executing in a JS context.
+        return BN256.modInverseEGCD(x, BN256.P)
+    }
+
+    @method()
+    static modInverseEGCD(x: bigint, m: bigint): bigint {
+        // This will get substituted by optimized ASM code at transpilation stage.
+        x = BN256.modReduce(x, BN256.P)
+
+        let t = 0n
+        let newt = 1n
+        let r = m
+        let newr = x
+
+        let quotient = 0n
+        let tmp = 0n
+        for (let i = 0; i < BN256.UB; i++) {
+            if (newr != 0n) {
+                quotient = r / newr
+
+                tmp = newt
+                newt = t - quotient * newt
+                t = tmp
+
+                tmp = newr
+                newr = r - quotient * newr
+                r = tmp
+            }
+        }
+
+        if (t < 0) {
+            t = t + m
+        }
+
+        return t
+    }
+
+    @method()
+    static inverseFQ2(a: FQ2): FQ2 {
+        const t2 = a.y * a.y
+        const t1 = a.x * a.x + t2
+
+        const inv = BN256.modInverseBranchlessP(t1)
+
+        const axNeg = a.x * -1n
+
+        const res: FQ2 = {
+            x: BN256.modReduce(axNeg * inv, BN256.P),
+            y: BN256.modReduce(a.y * inv, BN256.P),
+        }
+        return res
+    }
+
+    @method()
+    static mulFQ6(a: FQ6, b: FQ6): FQ6 {
         // "Multiplication and Squaring on Pairing-Friendly Fields"
         // Section 4, Karatsuba method.
         // http://eprint.iacr.org/2006/471.pdf
 
-        FQ2 v0 = mulFQ2(a.z, b.z);
-        FQ2 v1 = mulFQ2(a.y, b.y);
-        FQ2 v2 = mulFQ2(a.x, b.x);
+        const v0 = BN256.mulFQ2(a.z, b.z)
+        const v1 = BN256.mulFQ2(a.y, b.y)
+        const v2 = BN256.mulFQ2(a.x, b.x)
 
-        FQ2 t0 = addFQ2(a.x, a.y);
-        FQ2 t1 = addFQ2(b.x, b.y);
-        FQ2 tz = mulFQ2(t0, t1);
+        let t0 = BN256.addFQ2(a.x, a.y)
+        let t1 = BN256.addFQ2(b.x, b.y)
+        let tz = BN256.mulFQ2(t0, t1)
 
-        tz = subFQ2(tz, v1);
-        tz = subFQ2(tz, v2);
-        tz = mulXiFQ2(tz);
-        tz = addFQ2(tz, v0);
+        tz = BN256.subFQ2(tz, v1)
+        tz = BN256.subFQ2(tz, v2)
+        tz = BN256.mulXiFQ2(tz)
+        tz = BN256.addFQ2(tz, v0)
 
-        t0 = addFQ2(a.y, a.z);
-        t1 = addFQ2(b.y, b.z);
-        
-        FQ2 ty = mulFQ2(t0, t1);
-        ty = subFQ2(ty, v0);
-        ty = subFQ2(ty, v1);
-        t0 = mulXiFQ2(v2);
-        ty = addFQ2(ty, t0);
+        t0 = BN256.addFQ2(a.y, a.z)
+        t1 = BN256.addFQ2(b.y, b.z)
 
-        t0 = addFQ2(a.x, a.z);
-        t1 = addFQ2(b.x, b.z);
-        FQ2 tx = mulFQ2(t0, t1);
-        tx = subFQ2(tx, v0);
-        tx = addFQ2(tx, v1);
-        tx = subFQ2(tx, v2);
+        let ty = BN256.mulFQ2(t0, t1)
+        ty = BN256.subFQ2(ty, v0)
+        ty = BN256.subFQ2(ty, v1)
+        t0 = BN256.mulXiFQ2(v2)
+        ty = BN256.addFQ2(ty, t0)
 
-        return {tx, ty, tz};
+        t0 = BN256.addFQ2(a.x, a.z)
+        t1 = BN256.addFQ2(b.x, b.z)
+        let tx = BN256.mulFQ2(t0, t1)
+        tx = BN256.subFQ2(tx, v0)
+        tx = BN256.addFQ2(tx, v1)
+        tx = BN256.subFQ2(tx, v2)
+
+        const res: FQ6 = {
+            x: tx,
+            y: ty,
+            z: tz,
+        }
+        return res
     }
 
-    static function doubleFQ6(FQ6 a) : FQ6 {
-        return {
-            doubleFQ2(a.x),
-            doubleFQ2(a.y),
-            doubleFQ2(a.z)
-        };
+    @method()
+    static doubleFQ6(a: FQ6): FQ6 {
+        const res: FQ6 = {
+            x: BN256.doubleFQ2(a.x),
+            y: BN256.doubleFQ2(a.y),
+            z: BN256.doubleFQ2(a.z),
+        }
+        return res
     }
 
-    static function mulScalarFQ6(FQ6 a, FQ2 scalar) : FQ6 {
-        return {
-            mulFQ2(a.x, scalar),
-            mulFQ2(a.y, scalar),
-            mulFQ2(a.z, scalar)
-        };
+    @method()
+    static mulScalarFQ6(a: FQ6, scalar: FQ2): FQ6 {
+        const res: FQ6 = {
+            x: BN256.mulFQ2(a.x, scalar),
+            y: BN256.mulFQ2(a.y, scalar),
+            z: BN256.mulFQ2(a.z, scalar),
+        }
+        return res
     }
 
-    static function addFQ6(FQ6 a, FQ6 b) : FQ6 {
-        return {
-            addFQ2(a.x, b.x),
-            addFQ2(a.y, b.y),
-            addFQ2(a.z, b.z)
-        };
+    @method()
+    static addFQ6(a: FQ6, b: FQ6): FQ6 {
+        const res: FQ6 = {
+            x: BN256.addFQ2(a.x, b.x),
+            y: BN256.addFQ2(a.y, b.y),
+            z: BN256.addFQ2(a.z, b.z),
+        }
+        return res
     }
 
-    static function subFQ6(FQ6 a, FQ6 b) : FQ6 {
-        return {
-            subFQ2(a.x, b.x),
-            subFQ2(a.y, b.y),
-            subFQ2(a.z, b.z)
-        };
+    @method()
+    static subFQ6(a: FQ6, b: FQ6): FQ6 {
+        const res: FQ6 = {
+            x: BN256.subFQ2(a.x, b.x),
+            y: BN256.subFQ2(a.y, b.y),
+            z: BN256.subFQ2(a.z, b.z),
+        }
+        return res
     }
 
-    static function negFQ6(FQ6 a) : FQ6 {
-        return {
-            negFQ2(a.x),
-            negFQ2(a.y),
-            negFQ2(a.z)
-        };
+    @method()
+    static negFQ6(a: FQ6): FQ6 {
+        const res: FQ6 = {
+            x: BN256.negFQ2(a.x),
+            y: BN256.negFQ2(a.y),
+            z: BN256.negFQ2(a.z),
+        }
+        return res
     }
 
-    static function squareFQ6(FQ6 a) : FQ6 {
-        FQ2 v0 = squareFQ2(a.z);
-        FQ2 v1 = squareFQ2(a.y);
-        FQ2 v2 = squareFQ2(a.x);
+    @method()
+    static squareFQ6(a: FQ6): FQ6 {
+        const v0 = BN256.squareFQ2(a.z)
+        const v1 = BN256.squareFQ2(a.y)
+        const v2 = BN256.squareFQ2(a.x)
 
-        FQ2 c0 = addFQ2(a.x, a.y);
-        c0 = squareFQ2(c0);
-        c0 = subFQ2(c0, v1);
-        c0 = subFQ2(c0, v2);
-        c0 = mulXiFQ2(c0);
-        c0 = addFQ2(c0, v0);
+        let c0 = BN256.addFQ2(a.x, a.y)
+        c0 = BN256.squareFQ2(c0)
+        c0 = BN256.subFQ2(c0, v1)
+        c0 = BN256.subFQ2(c0, v2)
+        c0 = BN256.mulXiFQ2(c0)
+        c0 = BN256.addFQ2(c0, v0)
 
-        FQ2 c1 = addFQ2(a.y, a.z);
-        c1 = squareFQ2(c1);
-        c1 = subFQ2(c1, v0);
-        c1 = subFQ2(c1, v1);
-        FQ2 xiV2 = mulXiFQ2(v2);
-        c1 = addFQ2(c1, xiV2);
+        let c1 = BN256.addFQ2(a.y, a.z)
+        c1 = BN256.squareFQ2(c1)
+        c1 = BN256.subFQ2(c1, v0)
+        c1 = BN256.subFQ2(c1, v1)
+        const xiV2 = BN256.mulXiFQ2(v2)
+        c1 = BN256.addFQ2(c1, xiV2)
 
-        FQ2 c2 = addFQ2(a.x, a.z);
-        c2 = squareFQ2(c2);
-        c2 = subFQ2(c2, v0);
-        c2 = addFQ2(c2, v1);
-        c2 = subFQ2(c2, v2);
+        let c2 = BN256.addFQ2(a.x, a.z)
+        c2 = BN256.squareFQ2(c2)
+        c2 = BN256.subFQ2(c2, v0)
+        c2 = BN256.addFQ2(c2, v1)
+        c2 = BN256.subFQ2(c2, v2)
 
-        return {c2, c1, c0};
+        const res: FQ6 = {
+            x: c2,
+            y: c1,
+            z: c0,
+        }
+        return res
     }
 
-    static function mulTauFQ6(FQ6 a) : FQ6 {
+    @method()
+    static mulTauFQ6(a: FQ6): FQ6 {
         // MulTau computes τ·(aτ²+bτ+c) = bτ²+cτ+aξ
-        return {
-            a.y,
-            a.z,
-            mulXiFQ2(a.x)
-        };
+        const res: FQ6 = {
+            x: a.y,
+            y: a.z,
+            z: BN256.mulXiFQ2(a.x),
+        }
+        return res
     }
 
-    static function inverseFQ6(FQ6 a) : FQ6 {
+    @method()
+    static inverseFQ6(a: FQ6): FQ6 {
         // See "Implementing cryptographic pairings", M. Scott, section 3.2.
         // ftp://136.206.11.249/pub/crypto/pairings.pdf
 
@@ -407,388 +609,408 @@ library BN256 {
         //
         // So that's why A = (z²-ξxy), B = (ξx²-yz), C = (y²-ξxz)
 
-        FQ2 A = squareFQ2(a.z);
-        FQ2 t1 = mulFQ2(a.x, a.y);
-        t1 = mulXiFQ2(t1);
-        A = subFQ2(A, t1);
-        
-        FQ2 B = squareFQ2(a.x);
-        B = mulXiFQ2(B);
-        t1 = mulFQ2(a.y, a.z);
-        B = subFQ2(B, t1);
+        let A = BN256.squareFQ2(a.z)
+        let t1 = BN256.mulFQ2(a.x, a.y)
+        t1 = BN256.mulXiFQ2(t1)
+        A = BN256.subFQ2(A, t1)
 
-        FQ2 C = squareFQ2(a.y);
-        t1 = mulFQ2(a.x, a.z);
-        C = subFQ2(C, t1);
-        
-        FQ2 F = mulFQ2(C, a.y);
-        F = mulXiFQ2(F);
-        t1 = mulFQ2(A, a.z);
-        F = addFQ2(F, t1);
-        t1 = mulFQ2(B, a.x);
-        t1 = mulXiFQ2(t1);
-        F = addFQ2(F, t1);
+        let B = BN256.squareFQ2(a.x)
+        B = BN256.mulXiFQ2(B)
+        t1 = BN256.mulFQ2(a.y, a.z)
+        B = BN256.subFQ2(B, t1)
 
-        F = inverseFQ2(F);
+        let C = BN256.squareFQ2(a.y)
+        t1 = BN256.mulFQ2(a.x, a.z)
+        C = BN256.subFQ2(C, t1)
 
-        return {
-            mulFQ2(C, F),
-            mulFQ2(B, F),
-            mulFQ2(A, F)
-        };
+        let F = BN256.mulFQ2(C, a.y)
+        F = BN256.mulXiFQ2(F)
+        t1 = BN256.mulFQ2(A, a.z)
+        F = BN256.addFQ2(F, t1)
+        t1 = BN256.mulFQ2(B, a.x)
+        t1 = BN256.mulXiFQ2(t1)
+        F = BN256.addFQ2(F, t1)
+
+        F = BN256.inverseFQ2(F)
+
+        const res: FQ6 = {
+            x: BN256.mulFQ2(C, F),
+            y: BN256.mulFQ2(B, F),
+            z: BN256.mulFQ2(A, F),
+        }
+        return res
     }
 
-    static function mulScalarFQ12(FQ12 a, FQ6 b) : FQ12 {
-        return {
-            mulFQ6(a.x, b),
-            mulFQ6(a.y, b)
-        };
+    @method()
+    static mulScalarFQ12(a: FQ12, scalar: FQ6): FQ12 {
+        const res: FQ12 = {
+            x: BN256.mulFQ6(a.x, scalar),
+            y: BN256.mulFQ6(a.y, scalar),
+        }
+        return res
     }
 
-    static function inverseFQ12(FQ12 a) : FQ12 {
+    @method()
+    static inverseFQ12(a: FQ12): FQ12 {
         // See "Implementing cryptographic pairings", M. Scott, section 3.2.
         // ftp://136.206.11.249/pub/crypto/pairings.pdf
 
-        FQ6 t1 = squareFQ6(a.x);
-        FQ6 t2 = squareFQ6(a.y);
-        FQ6 t1_2 = mulTauFQ6(t1);
-        FQ6 t1_3 = subFQ6(t2, t1_2);
-        FQ6 t2_2 = inverseFQ6(t1_3);
+        const t1 = BN256.squareFQ6(a.x)
+        const t2 = BN256.squareFQ6(a.y)
+        const t1_2 = BN256.mulTauFQ6(t1)
+        const t1_3 = BN256.subFQ6(t2, t1_2)
+        const t2_2 = BN256.inverseFQ6(t1_3)
 
-        FQ12 e = {
-            negFQ6(a.x),
-            a.y
-        };
-        
-        return mulScalarFQ12(e, t2_2);
+        const e: FQ12 = {
+            x: BN256.negFQ6(a.x),
+            y: a.y,
+        }
+
+        return BN256.mulScalarFQ12(e, t2_2)
     }
 
-    static function mulFQ12(FQ12 a, FQ12 b) : FQ12 {
-        asm {
-OP_13 OP_PICK OP_OVER OP_MUL OP_2 OP_PICK OP_14 OP_PICK OP_MUL OP_ADD OP_13 OP_PICK OP_2 OP_PICK OP_MUL OP_15 OP_PICK OP_4 OP_PICK OP_MUL OP_SUB 11 OP_PICK OP_5 OP_PICK OP_MUL OP_6 OP_PICK 12 OP_PICK OP_MUL OP_ADD 11 OP_PICK OP_6 OP_PICK OP_MUL 13 OP_PICK OP_8 OP_PICK OP_MUL OP_SUB 15 OP_PICK OP_9 OP_PICK OP_MUL OP_10 OP_PICK 16 OP_PICK OP_MUL OP_ADD 15 OP_PICK OP_10 OP_PICK OP_MUL 17 OP_PICK OP_12 OP_PICK OP_MUL OP_SUB 17 OP_PICK 16 OP_PICK OP_ADD 17 OP_PICK 16 OP_PICK OP_ADD OP_13 OP_PICK OP_12 OP_PICK OP_ADD OP_13 OP_PICK OP_12 OP_PICK OP_ADD OP_SWAP OP_3 OP_ROLL OP_DUP OP_3 OP_PICK OP_MUL OP_2 OP_PICK OP_5 OP_PICK OP_MUL OP_ADD OP_SWAP OP_ROT OP_MUL OP_3 OP_ROLL OP_3 OP_ROLL OP_MUL OP_SWAP OP_SUB OP_SWAP OP_5 OP_PICK OP_SUB OP_SWAP OP_4 OP_PICK OP_SUB OP_SWAP OP_3 OP_PICK OP_SUB OP_SWAP OP_2 OP_PICK OP_SUB OP_OVER OP_9 OP_MUL OP_OVER OP_ADD OP_9 OP_ROT OP_MUL OP_ROT OP_SUB OP_SWAP OP_7 OP_PICK OP_ADD OP_SWAP OP_6 OP_PICK OP_ADD 17 OP_PICK 16 OP_PICK OP_ADD 17 OP_PICK 16 OP_PICK OP_ADD OP_13 OP_PICK OP_12 OP_PICK OP_ADD OP_13 OP_PICK OP_12 OP_PICK OP_ADD OP_SWAP OP_3 OP_ROLL OP_DUP OP_3 OP_PICK OP_MUL OP_2 OP_PICK OP_5 OP_PICK OP_MUL OP_ADD OP_SWAP OP_ROT OP_MUL OP_3 OP_ROLL OP_3 OP_ROLL OP_MUL OP_SWAP OP_SUB OP_SWAP OP_9 OP_PICK OP_SUB OP_SWAP OP_8 OP_PICK OP_SUB OP_SWAP OP_7 OP_PICK OP_SUB OP_SWAP OP_6 OP_PICK OP_SUB OP_5 OP_PICK OP_5 OP_PICK OP_OVER OP_9 OP_MUL OP_OVER OP_ADD OP_9 OP_ROT OP_MUL OP_ROT OP_SUB OP_3 OP_ROLL OP_ROT OP_ADD OP_ROT OP_ROT OP_ADD 1b OP_PICK 18 OP_PICK OP_ADD 1b OP_PICK 18 OP_PICK OP_ADD 11 OP_PICK OP_14 OP_PICK OP_ADD 11 OP_PICK OP_14 OP_PICK OP_ADD OP_SWAP OP_3 OP_ROLL OP_DUP OP_3 OP_PICK OP_MUL OP_2 OP_PICK OP_5 OP_PICK OP_MUL OP_ADD OP_SWAP OP_ROT OP_MUL OP_3 OP_ROLL OP_3 OP_ROLL OP_MUL OP_SWAP OP_SUB OP_SWAP OP_11 OP_ROLL OP_SUB OP_SWAP OP_10 OP_ROLL OP_SUB OP_SWAP OP_9 OP_ROLL OP_ADD OP_SWAP OP_8 OP_ROLL OP_ADD OP_SWAP OP_7 OP_ROLL OP_SUB OP_SWAP OP_6 OP_ROLL OP_SUB 19 OP_PICK OP_13 OP_PICK OP_MUL OP_14 OP_PICK 1a OP_PICK OP_MUL OP_ADD 19 OP_PICK OP_14 OP_PICK OP_MUL 1b OP_PICK OP_16 OP_PICK OP_MUL OP_SUB 1d OP_PICK 11 OP_PICK OP_MUL 12 OP_PICK 1e OP_PICK OP_MUL OP_ADD 1d OP_PICK 12 OP_PICK OP_MUL 1f OP_PICK 14 OP_PICK OP_MUL OP_SUB 21 OP_PICK 15 OP_PICK OP_MUL 16 OP_PICK 22 OP_PICK OP_MUL OP_ADD 21 OP_PICK 16 OP_PICK OP_MUL 23 OP_PICK 18 OP_PICK OP_MUL OP_SUB 23 OP_PICK 22 OP_PICK OP_ADD 23 OP_PICK 22 OP_PICK OP_ADD 19 OP_PICK 18 OP_PICK OP_ADD 19 OP_PICK 18 OP_PICK OP_ADD OP_SWAP OP_3 OP_ROLL OP_DUP OP_3 OP_PICK OP_MUL OP_2 OP_PICK OP_5 OP_PICK OP_MUL OP_ADD OP_SWAP OP_ROT OP_MUL OP_3 OP_ROLL OP_3 OP_ROLL OP_MUL OP_SWAP OP_SUB OP_SWAP OP_5 OP_PICK OP_SUB OP_SWAP OP_4 OP_PICK OP_SUB OP_SWAP OP_3 OP_PICK OP_SUB OP_SWAP OP_2 OP_PICK OP_SUB OP_OVER OP_9 OP_MUL OP_OVER OP_ADD OP_9 OP_ROT OP_MUL OP_ROT OP_SUB OP_SWAP OP_7 OP_PICK OP_ADD OP_SWAP OP_6 OP_PICK OP_ADD 23 OP_PICK 22 OP_PICK OP_ADD 23 OP_PICK 22 OP_PICK OP_ADD 19 OP_PICK 18 OP_PICK OP_ADD 19 OP_PICK 18 OP_PICK OP_ADD OP_SWAP OP_3 OP_ROLL OP_DUP OP_3 OP_PICK OP_MUL OP_2 OP_PICK OP_5 OP_PICK OP_MUL OP_ADD OP_SWAP OP_ROT OP_MUL OP_3 OP_ROLL OP_3 OP_ROLL OP_MUL OP_SWAP OP_SUB OP_SWAP OP_9 OP_PICK OP_SUB OP_SWAP OP_8 OP_PICK OP_SUB OP_SWAP OP_7 OP_PICK OP_SUB OP_SWAP OP_6 OP_PICK OP_SUB OP_5 OP_PICK OP_5 OP_PICK OP_OVER OP_9 OP_MUL OP_OVER OP_ADD OP_9 OP_ROT OP_MUL OP_ROT OP_SUB OP_3 OP_ROLL OP_ROT OP_ADD OP_ROT OP_ROT OP_ADD 27 OP_PICK 24 OP_PICK OP_ADD 27 OP_PICK 24 OP_PICK OP_ADD 1d OP_PICK 1a OP_PICK OP_ADD 1d OP_PICK 1a OP_PICK OP_ADD OP_SWAP OP_3 OP_ROLL OP_DUP OP_3 OP_PICK OP_MUL OP_2 OP_PICK OP_5 OP_PICK OP_MUL OP_ADD OP_SWAP OP_ROT OP_MUL OP_3 OP_ROLL OP_3 OP_ROLL OP_MUL OP_SWAP OP_SUB OP_SWAP OP_11 OP_ROLL OP_SUB OP_SWAP OP_10 OP_ROLL OP_SUB OP_SWAP OP_9 OP_ROLL OP_ADD OP_SWAP OP_8 OP_ROLL OP_ADD OP_SWAP OP_7 OP_ROLL OP_SUB OP_SWAP OP_6 OP_ROLL OP_SUB OP_3 OP_PICK OP_3 OP_PICK OP_7 OP_PICK OP_7 OP_PICK OP_5 OP_PICK OP_5 OP_PICK OP_OVER OP_9 OP_MUL OP_OVER OP_ADD OP_9 OP_ROT OP_MUL OP_ROT OP_SUB 29 OP_PICK 24 OP_PICK OP_ADD 29 OP_PICK 24 OP_PICK OP_ADD 29 OP_PICK 24 OP_PICK OP_ADD 29 OP_PICK 24 OP_PICK OP_ADD 29 OP_PICK 24 OP_PICK OP_ADD 29 OP_PICK 24 OP_PICK OP_ADD 23 OP_PICK 1e OP_PICK OP_ADD 23 OP_PICK 1e OP_PICK OP_ADD 23 OP_PICK 1e OP_PICK OP_ADD 23 OP_PICK 1e OP_PICK OP_ADD 23 OP_PICK 1e OP_PICK OP_ADD 23 OP_PICK 1e OP_PICK OP_ADD OP_7 OP_PICK OP_OVER OP_MUL OP_2 OP_PICK OP_8 OP_PICK OP_MUL OP_ADD OP_7 OP_PICK OP_2 OP_PICK OP_MUL OP_9 OP_PICK OP_4 OP_PICK OP_MUL OP_SUB OP_11 OP_PICK OP_5 OP_PICK OP_MUL OP_6 OP_PICK OP_12 OP_PICK OP_MUL OP_ADD OP_11 OP_PICK OP_6 OP_PICK OP_MUL OP_13 OP_PICK OP_8 OP_PICK OP_MUL OP_SUB OP_15 OP_PICK OP_9 OP_PICK OP_MUL OP_10 OP_PICK OP_16 OP_PICK OP_MUL OP_ADD OP_15 OP_PICK OP_10 OP_PICK OP_MUL 11 OP_PICK OP_12 OP_PICK OP_MUL OP_SUB 11 OP_PICK OP_16 OP_PICK OP_ADD 11 OP_PICK OP_16 OP_PICK OP_ADD OP_13 OP_PICK OP_12 OP_PICK OP_ADD OP_13 OP_PICK OP_12 OP_PICK OP_ADD OP_SWAP OP_3 OP_ROLL OP_DUP OP_3 OP_PICK OP_MUL OP_2 OP_PICK OP_5 OP_PICK OP_MUL OP_ADD OP_SWAP OP_ROT OP_MUL OP_3 OP_ROLL OP_3 OP_ROLL OP_MUL OP_SWAP OP_SUB OP_SWAP OP_5 OP_PICK OP_SUB OP_SWAP OP_4 OP_PICK OP_SUB OP_SWAP OP_3 OP_PICK OP_SUB OP_SWAP OP_2 OP_PICK OP_SUB OP_OVER OP_9 OP_MUL OP_OVER OP_ADD OP_9 OP_ROT OP_MUL OP_ROT OP_SUB OP_SWAP OP_7 OP_PICK OP_ADD OP_SWAP OP_6 OP_PICK OP_ADD 11 OP_ROLL OP_16 OP_PICK OP_ADD 11 OP_ROLL OP_16 OP_PICK OP_ADD OP_13 OP_ROLL OP_12 OP_PICK OP_ADD OP_13 OP_ROLL OP_12 OP_PICK OP_ADD OP_SWAP OP_3 OP_ROLL OP_DUP OP_3 OP_PICK OP_MUL OP_2 OP_PICK OP_5 OP_PICK OP_MUL OP_ADD OP_SWAP OP_ROT OP_MUL OP_3 OP_ROLL OP_3 OP_ROLL OP_MUL OP_SWAP OP_SUB OP_SWAP OP_9 OP_PICK OP_SUB OP_SWAP OP_8 OP_PICK OP_SUB OP_SWAP OP_7 OP_PICK OP_SUB OP_SWAP OP_6 OP_PICK OP_SUB OP_5 OP_PICK OP_5 OP_PICK OP_OVER OP_9 OP_MUL OP_OVER OP_ADD OP_9 OP_ROT OP_MUL OP_ROT OP_SUB OP_3 OP_ROLL OP_ROT OP_ADD OP_ROT OP_ROT OP_ADD 11 OP_ROLL OP_16 OP_ROLL OP_ADD OP_16 OP_ROLL OP_16 OP_ROLL OP_ADD OP_15 OP_ROLL OP_14 OP_ROLL OP_ADD OP_14 OP_ROLL OP_14 OP_ROLL OP_ADD OP_SWAP OP_3 OP_ROLL OP_DUP OP_3 OP_PICK OP_MUL OP_2 OP_PICK OP_5 OP_PICK OP_MUL OP_ADD OP_SWAP OP_ROT OP_MUL OP_3 OP_ROLL OP_3 OP_ROLL OP_MUL OP_SWAP OP_SUB OP_SWAP OP_11 OP_ROLL OP_SUB OP_SWAP OP_10 OP_ROLL OP_SUB OP_SWAP OP_9 OP_ROLL OP_ADD OP_SWAP OP_8 OP_ROLL OP_ADD OP_SWAP OP_7 OP_ROLL OP_SUB OP_SWAP OP_6 OP_ROLL OP_SUB OP_SWAP 13 OP_PICK OP_SUB OP_SWAP 12 OP_PICK OP_SUB OP_3 OP_ROLL 15 OP_PICK OP_SUB OP_3 OP_ROLL 14 OP_PICK OP_SUB OP_5 OP_ROLL 17 OP_PICK OP_SUB OP_5 OP_ROLL 16 OP_PICK OP_SUB OP_5 OP_ROLL OP_13 OP_ROLL OP_SUB OP_5 OP_ROLL OP_12 OP_ROLL OP_SUB OP_5 OP_ROLL OP_13 OP_ROLL OP_SUB OP_5 OP_ROLL OP_12 OP_ROLL OP_SUB OP_5 OP_ROLL OP_13 OP_ROLL OP_SUB OP_5 OP_ROLL OP_12 OP_ROLL OP_SUB OP_13 OP_ROLL OP_12 OP_ROLL OP_ADD OP_12 OP_ROLL OP_12 OP_ROLL OP_ADD OP_13 OP_ROLL OP_12 OP_ROLL OP_ADD OP_12 OP_ROLL OP_12 OP_ROLL OP_ADD OP_13 OP_ROLL OP_12 OP_ROLL OP_ADD OP_12 OP_ROLL OP_12 OP_ROLL OP_ADD
+    @method()
+    static mulFQ12(a: FQ12, b: FQ12): FQ12 {
+        // This will get substituted by optimized ASM code at transpilation stage.
+        const tx = BN256.mulFQ6(a.x, b.y)
+        const t = BN256.mulFQ6(b.x, a.y)
+        const tx2 = BN256.addFQ6(tx, t)
+
+        const ty = BN256.mulFQ6(a.y, b.y)
+        const t2 = BN256.mulFQ6(a.x, b.x)
+        const t3 = BN256.mulTauFQ6(t2)
+
+        const res: FQ12 = {
+            x: tx2,
+            y: BN256.addFQ6(ty, t3),
+        }
+        return res
+    }
+
+    @method()
+    static frobeniusFQ6(a: FQ6): FQ6 {
+        const res: FQ6 = {
+            x: BN256.mulFQ2(BN256.conjugateFQ2(a.x), BN256.xiTo2PMinus2Over3),
+            y: BN256.mulFQ2(BN256.conjugateFQ2(a.y), BN256.xiToPMinus1Over3),
+            z: BN256.conjugateFQ2(a.z),
+        }
+        return res
+    }
+
+    @method()
+    static frobeniusP2FQ6(a: FQ6): FQ6 {
+        // FrobeniusP2 computes (xτ²+yτ+z)^(p²) = xτ^(2p²) + yτ^(p²) + z
+        const res: FQ6 = {
+            // τ^(2p²) = τ²τ^(2p²-2) = τ²ξ^((2p²-2)/3)
+            x: BN256.mulScalarFQ2(a.x, BN256.xiTo2PSquaredMinus2Over3),
+            // τ^(p²) = ττ^(p²-1) = τξ^((p²-1)/3)
+            y: BN256.mulScalarFQ2(a.y, BN256.xiToPSquaredMinus1Over3),
+            z: a.z,
+        }
+        return res
+    }
+
+    @method()
+    static mulGFP(a: FQ6, b: bigint): FQ6 {
+        return {
+            x: BN256.mulScalarFQ2(a.x, b),
+            y: BN256.mulScalarFQ2(a.y, b),
+            z: BN256.mulScalarFQ2(a.z, b),
         }
     }
 
-    static function OLDmulFQ12(FQ12 a, FQ12 b) : FQ12 {
-        FQ6 tx = mulFQ6(a.x, b.y);
-        FQ6 t = mulFQ6(b.x, a.y);
-        FQ6 tx2 = addFQ6(tx, t);
-
-        FQ6 ty = mulFQ6(a.y, b.y);
-        FQ6 t2 = mulFQ6(a.x, b.x);
-        FQ6 t3 = mulTauFQ6(t2);
-        
-        return {tx2, addFQ6(ty, t3)};
+    @method()
+    static conjugateFQ12(a: FQ12): FQ12 {
+        const res: FQ12 = {
+            x: BN256.negFQ6(a.x),
+            y: a.y,
+        }
+        return res
     }
 
-    static function frobeniusFQ6(FQ6 a) : FQ6 {
-        return {
-            mulFQ2(conjugateFQ2(a.x), xiTo2PMinus2Over3),
-            mulFQ2(conjugateFQ2(a.y), xiToPMinus1Over3),
-            conjugateFQ2(a.z)
-        };
-    }
-
-    static function frobeniusP2FQ6(FQ6 a) : FQ6 {
-        // FrobeniusP2 computes (xτ²+yτ+z)^(p²) = xτ^(2p²) + yτ^(p²) + z
-        return {
-            // τ^(2p²) = τ²τ^(2p²-2) = τ²ξ^((2p²-2)/3)
-            mulScalarFQ2(a.x, xiTo2PSquaredMinus2Over3),
-            // τ^(p²) = ττ^(p²-1) = τξ^((p²-1)/3)
-            mulScalarFQ2(a.y, xiToPSquaredMinus1Over3),
-            a.z
-        };
-    }
-
-    static function mulGFP(FQ6 a, int b) : FQ6 {
-        return {
-            mulScalarFQ2(a.x, b),
-            mulScalarFQ2(a.y, b),
-            mulScalarFQ2(a.z, b)
-        };
-    }
-
-    static function conjugateFQ12(FQ12 a) : FQ12 {
-        return {
-            negFQ6(a.x),
-            a.y
-        };
-    }
-
-    static function frobeniusFQ12(FQ12 a) : FQ12 {
+    @method()
+    static frobeniusFQ12(a: FQ12): FQ12 {
         // Frobenius computes (xω+y)^p = x^p ω·ξ^((p-1)/6) + y^p
         return {
-            mulScalarFQ6(frobeniusFQ6(a.x), xiToPMinus1Over6),
-            frobeniusFQ6(a.y)
-        };
-    }
-
-    static function frobeniusP2FQ12(FQ12 a) : FQ12 {
-        // FrobeniusP2 computes (xω+y)^p² = x^p² ω·ξ^((p²-1)/6) + y^p²
-        return {
-            mulGFP(frobeniusP2FQ6(a.x), xiToPSquaredMinus1Over6),
-            frobeniusP2FQ6(a.y)
-        };
-    }
-
-    static function squareFQ12(FQ12 a): FQ12 {
-        asm {
-OP_7 OP_PICK OP_OVER OP_MUL OP_2 OP_PICK OP_8 OP_PICK OP_MUL OP_ADD OP_7 OP_PICK OP_2 OP_PICK OP_MUL OP_9 OP_PICK OP_4 OP_PICK OP_MUL OP_SUB OP_11 OP_PICK OP_5 OP_PICK OP_MUL OP_6 OP_PICK OP_12 OP_PICK OP_MUL OP_ADD OP_11 OP_PICK OP_6 OP_PICK OP_MUL OP_13 OP_PICK OP_8 OP_PICK OP_MUL OP_SUB OP_15 OP_PICK OP_9 OP_PICK OP_MUL OP_10 OP_PICK OP_16 OP_PICK OP_MUL OP_ADD OP_15 OP_PICK OP_10 OP_PICK OP_MUL 11 OP_PICK OP_12 OP_PICK OP_MUL OP_SUB 11 OP_PICK OP_16 OP_PICK OP_ADD 11 OP_PICK OP_16 OP_PICK OP_ADD OP_13 OP_PICK OP_12 OP_PICK OP_ADD OP_13 OP_PICK OP_12 OP_PICK OP_ADD OP_SWAP OP_3 OP_ROLL OP_DUP OP_3 OP_PICK OP_MUL OP_2 OP_PICK OP_5 OP_PICK OP_MUL OP_ADD OP_SWAP OP_ROT OP_MUL OP_3 OP_ROLL OP_3 OP_ROLL OP_MUL OP_SWAP OP_SUB OP_SWAP OP_5 OP_PICK OP_SUB OP_SWAP OP_4 OP_PICK OP_SUB OP_SWAP OP_3 OP_PICK OP_SUB OP_SWAP OP_2 OP_PICK OP_SUB OP_OVER OP_9 OP_MUL OP_OVER OP_ADD OP_9 OP_ROT OP_MUL OP_ROT OP_SUB OP_SWAP OP_7 OP_PICK OP_ADD OP_SWAP OP_6 OP_PICK OP_ADD 11 OP_PICK OP_16 OP_PICK OP_ADD 11 OP_PICK OP_16 OP_PICK OP_ADD OP_13 OP_PICK OP_12 OP_PICK OP_ADD OP_13 OP_PICK OP_12 OP_PICK OP_ADD OP_SWAP OP_3 OP_ROLL OP_DUP OP_3 OP_PICK OP_MUL OP_2 OP_PICK OP_5 OP_PICK OP_MUL OP_ADD OP_SWAP OP_ROT OP_MUL OP_3 OP_ROLL OP_3 OP_ROLL OP_MUL OP_SWAP OP_SUB OP_SWAP OP_9 OP_PICK OP_SUB OP_SWAP OP_8 OP_PICK OP_SUB OP_SWAP OP_7 OP_PICK OP_SUB OP_SWAP OP_6 OP_PICK OP_SUB OP_5 OP_PICK OP_5 OP_PICK OP_OVER OP_9 OP_MUL OP_OVER OP_ADD OP_9 OP_ROT OP_MUL OP_ROT OP_SUB OP_3 OP_ROLL OP_ROT OP_ADD OP_ROT OP_ROT OP_ADD 15 OP_PICK 12 OP_PICK OP_ADD 15 OP_PICK 12 OP_PICK OP_ADD 11 OP_PICK OP_14 OP_PICK OP_ADD 11 OP_PICK OP_14 OP_PICK OP_ADD OP_SWAP OP_3 OP_ROLL OP_DUP OP_3 OP_PICK OP_MUL OP_2 OP_PICK OP_5 OP_PICK OP_MUL OP_ADD OP_SWAP OP_ROT OP_MUL OP_3 OP_ROLL OP_3 OP_ROLL OP_MUL OP_SWAP OP_SUB OP_SWAP OP_11 OP_ROLL OP_SUB OP_SWAP OP_10 OP_ROLL OP_SUB OP_SWAP OP_9 OP_ROLL OP_ADD OP_SWAP OP_8 OP_ROLL OP_ADD OP_SWAP OP_7 OP_ROLL OP_SUB OP_SWAP OP_6 OP_ROLL OP_SUB OP_15 OP_PICK OP_15 OP_PICK OP_15 OP_PICK OP_15 OP_PICK 15 OP_PICK 15 OP_PICK OP_OVER OP_9 OP_MUL OP_OVER OP_ADD OP_9 OP_ROT OP_MUL OP_ROT OP_SUB 11 OP_PICK OP_6 OP_ROLL OP_ADD OP_16 OP_PICK OP_6 OP_ROLL OP_ADD OP_15 OP_PICK OP_6 OP_ROLL OP_ADD OP_14 OP_PICK OP_6 OP_ROLL OP_ADD OP_13 OP_PICK OP_6 OP_ROLL OP_ADD OP_12 OP_PICK OP_6 OP_ROLL OP_ADD 17 OP_PICK 12 OP_PICK OP_ADD 17 OP_PICK 12 OP_PICK OP_ADD 17 OP_PICK 12 OP_PICK OP_ADD 17 OP_PICK 12 OP_PICK OP_ADD 17 OP_PICK 12 OP_PICK OP_ADD 17 OP_PICK 12 OP_PICK OP_ADD OP_OVER OP_7 OP_PICK OP_MUL OP_8 OP_PICK OP_2 OP_PICK OP_MUL OP_ADD OP_OVER OP_8 OP_PICK OP_MUL OP_3 OP_PICK OP_10 OP_PICK OP_MUL OP_SUB OP_5 OP_PICK OP_11 OP_PICK OP_MUL OP_12 OP_PICK OP_6 OP_PICK OP_MUL OP_ADD OP_5 OP_PICK OP_12 OP_PICK OP_MUL OP_7 OP_PICK OP_14 OP_PICK OP_MUL OP_SUB OP_9 OP_PICK OP_15 OP_PICK OP_MUL OP_16 OP_PICK OP_10 OP_PICK OP_MUL OP_ADD OP_9 OP_PICK OP_16 OP_PICK OP_MUL OP_11 OP_PICK 12 OP_PICK OP_MUL OP_SUB OP_11 OP_PICK OP_10 OP_PICK OP_ADD OP_11 OP_PICK OP_10 OP_PICK OP_ADD 13 OP_PICK 12 OP_PICK OP_ADD 13 OP_PICK 12 OP_PICK OP_ADD OP_SWAP OP_3 OP_ROLL OP_DUP OP_3 OP_PICK OP_MUL OP_2 OP_PICK OP_5 OP_PICK OP_MUL OP_ADD OP_SWAP OP_ROT OP_MUL OP_3 OP_ROLL OP_3 OP_ROLL OP_MUL OP_SWAP OP_SUB OP_SWAP OP_5 OP_PICK OP_SUB OP_SWAP OP_4 OP_PICK OP_SUB OP_SWAP OP_3 OP_PICK OP_SUB OP_SWAP OP_2 OP_PICK OP_SUB OP_OVER OP_9 OP_MUL OP_OVER OP_ADD OP_9 OP_ROT OP_MUL OP_ROT OP_SUB OP_SWAP OP_7 OP_PICK OP_ADD OP_SWAP OP_6 OP_PICK OP_ADD OP_11 OP_ROLL OP_10 OP_PICK OP_ADD OP_11 OP_ROLL OP_10 OP_PICK OP_ADD 11 OP_ROLL OP_16 OP_PICK OP_ADD 11 OP_ROLL OP_16 OP_PICK OP_ADD OP_SWAP OP_3 OP_ROLL OP_DUP OP_3 OP_PICK OP_MUL OP_2 OP_PICK OP_5 OP_PICK OP_MUL OP_ADD OP_SWAP OP_ROT OP_MUL OP_3 OP_ROLL OP_3 OP_ROLL OP_MUL OP_SWAP OP_SUB OP_SWAP OP_9 OP_PICK OP_SUB OP_SWAP OP_8 OP_PICK OP_SUB OP_SWAP OP_7 OP_PICK OP_SUB OP_SWAP OP_6 OP_PICK OP_SUB OP_5 OP_PICK OP_5 OP_PICK OP_OVER OP_9 OP_MUL OP_OVER OP_ADD OP_9 OP_ROT OP_MUL OP_ROT OP_SUB OP_3 OP_ROLL OP_ROT OP_ADD OP_ROT OP_ROT OP_ADD OP_13 OP_ROLL OP_12 OP_ROLL OP_ADD OP_12 OP_ROLL OP_12 OP_ROLL OP_ADD OP_15 OP_ROLL OP_14 OP_ROLL OP_ADD OP_14 OP_ROLL OP_14 OP_ROLL OP_ADD OP_SWAP OP_3 OP_ROLL OP_DUP OP_3 OP_PICK OP_MUL OP_2 OP_PICK OP_5 OP_PICK OP_MUL OP_ADD OP_SWAP OP_ROT OP_MUL OP_3 OP_ROLL OP_3 OP_ROLL OP_MUL OP_SWAP OP_SUB OP_SWAP OP_11 OP_ROLL OP_SUB OP_SWAP OP_10 OP_ROLL OP_SUB OP_SWAP OP_9 OP_ROLL OP_ADD OP_SWAP OP_8 OP_ROLL OP_ADD OP_SWAP OP_7 OP_ROLL OP_SUB OP_SWAP OP_6 OP_ROLL OP_SUB OP_SWAP OP_7 OP_PICK OP_SUB OP_SWAP OP_6 OP_PICK OP_SUB OP_3 OP_ROLL OP_9 OP_PICK OP_SUB OP_3 OP_ROLL OP_8 OP_PICK OP_SUB OP_5 OP_ROLL OP_11 OP_PICK OP_SUB OP_5 OP_ROLL OP_10 OP_PICK OP_SUB OP_9 OP_PICK OP_9 OP_PICK OP_13 OP_PICK OP_13 OP_PICK OP_11 OP_PICK OP_11 OP_PICK OP_OVER OP_9 OP_MUL OP_OVER OP_ADD OP_9 OP_ROT OP_MUL OP_ROT OP_SUB OP_13 OP_ROLL OP_2 OP_MUL OP_13 OP_ROLL OP_2 OP_MUL OP_15 OP_ROLL OP_2 OP_MUL OP_15 OP_ROLL OP_2 OP_MUL 11 OP_ROLL OP_2 OP_MUL 11 OP_ROLL OP_2 OP_MUL 11 OP_ROLL OP_12 OP_ROLL OP_SUB OP_16 OP_ROLL OP_12 OP_ROLL OP_SUB OP_15 OP_ROLL OP_12 OP_ROLL OP_SUB OP_14 OP_ROLL OP_12 OP_ROLL OP_SUB OP_13 OP_ROLL OP_12 OP_ROLL OP_SUB OP_12 OP_ROLL OP_12 OP_ROLL OP_SUB
+            x: BN256.mulScalarFQ6(
+                BN256.frobeniusFQ6(a.x),
+                BN256.xiToPMinus1Over6
+            ),
+            y: BN256.frobeniusFQ6(a.y),
         }
     }
 
-    static function OLDsquareFQ12(FQ12 a) : FQ12 {
-        // Complex squaring algorithm
-        FQ6 v0 = mulFQ6(a.x, a.y);
-
-        FQ6 t = mulTauFQ6(a.x);
-        FQ6 t2 = addFQ6(a.y, t);
-        FQ6 ty = addFQ6(a.x, a.y);
-        FQ6 ty2 = mulFQ6(ty, t2);
-        FQ6 ty3 = subFQ6(ty2, v0);
-        FQ6 t3 = mulTauFQ6(v0);
-
-        FQ6 ty4 = subFQ6(ty3, t3);
-
+    @method()
+    static frobeniusP2FQ12(a: FQ12): FQ12 {
+        // FrobeniusP2 computes (xω+y)^p² = x^p² ω·ξ^((p²-1)/6) + y^p²
         return {
-            doubleFQ6(v0),
-            ty4
-        };
+            x: BN256.mulGFP(
+                BN256.frobeniusP2FQ6(a.x),
+                BN256.xiToPSquaredMinus1Over6
+            ),
+            y: BN256.frobeniusP2FQ6(a.y),
+        }
     }
 
-    static function expFQ12_u(FQ12 a) : FQ12 {
+    @method()
+    static squareFQ12(a: FQ12): FQ12 {
+        // This will get substituted by optimized ASM code at transpilation stage.
+        // Complex squaring algorithm
+        const v0 = BN256.mulFQ6(a.x, a.y)
+
+        const t = BN256.mulTauFQ6(a.x)
+        const t2 = BN256.addFQ6(a.y, t)
+        const ty = BN256.addFQ6(a.x, a.y)
+        const ty2 = BN256.mulFQ6(ty, t2)
+        const ty3 = BN256.subFQ6(ty2, v0)
+        const t3 = BN256.mulTauFQ6(v0)
+
+        const ty4 = BN256.subFQ6(ty3, t3)
+
+        const res: FQ12 = {
+            x: BN256.doubleFQ6(v0),
+            y: ty4,
+        }
+        return res
+    }
+
+    @method()
+    static expFQ12_u(a: FQ12): FQ12 {
         // u is the BN parameter that determines the prime.
         // u = 4965661367192848881;
-
-        FQ12 sum = FQ12One;
+        const sum = BN256.FQ12One
 
         // Unrolled loop. Reference impl.:
         // https://github.com/ethereum/go-ethereum/blob/bd6879ac518431174a490ba42f7e6e822dcb3ee1/crypto/bn256/google/gfp12.go#L138
-        FQ12 sum0 = squareFQ12(sum);
-        sum0 = BN256.modFQ12(sum0);
-        FQ12 sum1 = mulFQ12(sum0, a);
-        FQ12 sum2 = squareFQ12(sum1);
-        FQ12 sum3 = squareFQ12(sum2);
-        FQ12 sum4 = squareFQ12(sum3);
-        FQ12 sum5 = squareFQ12(sum4);
-        FQ12 sum6 = mulFQ12(sum5, a);
-        FQ12 sum7 = squareFQ12(sum6);
-        FQ12 sum8 = squareFQ12(sum7);
-        FQ12 sum9 = squareFQ12(sum8);
-        FQ12 sum10 = mulFQ12(sum9, a);
-        sum10 = BN256.modFQ12(sum10);
-        FQ12 sum11 = squareFQ12(sum10);
-        FQ12 sum12 = mulFQ12(sum11, a);
-        FQ12 sum13 = squareFQ12(sum12);
-        FQ12 sum14 = mulFQ12(sum13, a);
-        FQ12 sum15 = squareFQ12(sum14);
-        FQ12 sum16 = squareFQ12(sum15);
-        FQ12 sum17 = mulFQ12(sum16, a);
-        FQ12 sum18 = squareFQ12(sum17);
-        FQ12 sum19 = squareFQ12(sum18);
-        FQ12 sum20 = squareFQ12(sum19);
-        sum20 = BN256.modFQ12(sum20);
-        FQ12 sum21 = mulFQ12(sum20, a);
-        FQ12 sum22 = squareFQ12(sum21);
-        FQ12 sum23 = mulFQ12(sum22, a);
-        FQ12 sum24 = squareFQ12(sum23);
-        FQ12 sum25 = squareFQ12(sum24);
-        FQ12 sum26 = squareFQ12(sum25);
-        FQ12 sum27 = mulFQ12(sum26, a);
-        FQ12 sum28 = squareFQ12(sum27);
-        FQ12 sum29 = squareFQ12(sum28);
-        FQ12 sum30 = squareFQ12(sum29);
-        sum30 = BN256.modFQ12(sum30);
-        FQ12 sum31 = mulFQ12(sum30, a);
-        FQ12 sum32 = squareFQ12(sum31);
-        FQ12 sum33 = squareFQ12(sum32);
-        FQ12 sum34 = mulFQ12(sum33, a);
-        FQ12 sum35 = squareFQ12(sum34);
-        FQ12 sum36 = squareFQ12(sum35);
-        FQ12 sum37 = mulFQ12(sum36, a);
-        FQ12 sum38 = squareFQ12(sum37);
-        FQ12 sum39 = mulFQ12(sum38, a);
-        FQ12 sum40 = squareFQ12(sum39);
-        sum40 = BN256.modFQ12(sum40);
-        FQ12 sum41 = squareFQ12(sum40);
-        FQ12 sum42 = mulFQ12(sum41, a);
-        FQ12 sum43 = squareFQ12(sum42);
-        FQ12 sum44 = squareFQ12(sum43);
-        FQ12 sum45 = squareFQ12(sum44);
-        FQ12 sum46 = squareFQ12(sum45);
-        FQ12 sum47 = mulFQ12(sum46, a);
-        FQ12 sum48 = squareFQ12(sum47);
-        FQ12 sum49 = squareFQ12(sum48);
-        FQ12 sum50 = squareFQ12(sum49);
-        sum50 = BN256.modFQ12(sum50);
-        FQ12 sum51 = mulFQ12(sum50, a);
-        FQ12 sum52 = squareFQ12(sum51);
-        FQ12 sum53 = squareFQ12(sum52);
-        FQ12 sum54 = mulFQ12(sum53, a);
-        FQ12 sum55 = squareFQ12(sum54);
-        FQ12 sum56 = squareFQ12(sum55);
-        FQ12 sum57 = squareFQ12(sum56);
-        FQ12 sum58 = mulFQ12(sum57, a);
-        FQ12 sum59 = squareFQ12(sum58);
-        FQ12 sum60 = mulFQ12(sum59, a);
-        sum60 = BN256.modFQ12(sum60);
-        FQ12 sum61 = squareFQ12(sum60);
-        FQ12 sum62 = squareFQ12(sum61);
-        FQ12 sum63 = mulFQ12(sum62, a);
-        FQ12 sum64 = squareFQ12(sum63);
-        FQ12 sum65 = squareFQ12(sum64);
-        FQ12 sum66 = squareFQ12(sum65);
-        FQ12 sum67 = mulFQ12(sum66, a);
-        FQ12 sum68 = squareFQ12(sum67);
-        FQ12 sum69 = squareFQ12(sum68);
-        FQ12 sum70 = squareFQ12(sum69);
-        sum70 = BN256.modFQ12(sum70);
-        FQ12 sum71 = squareFQ12(sum70);
-        FQ12 sum72 = squareFQ12(sum71);
-        FQ12 sum73 = mulFQ12(sum72, a);
-        FQ12 sum74 = squareFQ12(sum73);
-        FQ12 sum75 = squareFQ12(sum74);
-        FQ12 sum76 = squareFQ12(sum75);
-        FQ12 sum77 = mulFQ12(sum76, a);
-        FQ12 sum78 = squareFQ12(sum77);
-        FQ12 sum79 = mulFQ12(sum78, a);
-        FQ12 sum80 = squareFQ12(sum79);
-        sum80 = BN256.modFQ12(sum80);
-        FQ12 sum81 = mulFQ12(sum80, a);
-        FQ12 sum82 = squareFQ12(sum81);
-        FQ12 sum83 = mulFQ12(sum82, a);
-        FQ12 sum84 = squareFQ12(sum83);
-        FQ12 sum85 = mulFQ12(sum84, a);
-        FQ12 sum86 = squareFQ12(sum85);
-        FQ12 sum87 = squareFQ12(sum86);
-        FQ12 sum88 = squareFQ12(sum87);
-        FQ12 sum89 = squareFQ12(sum88);
-        FQ12 sum90 = mulFQ12(sum89, a);
-        sum90 = BN256.modFQ12(sum90);
-        
-        return sum90;
+        let sum0 = BN256.squareFQ12(sum)
+        sum0 = BN256.modFQ12(sum0)
+        const sum1 = BN256.mulFQ12(sum0, a)
+        const sum2 = BN256.squareFQ12(sum1)
+        const sum3 = BN256.squareFQ12(sum2)
+        const sum4 = BN256.squareFQ12(sum3)
+        const sum5 = BN256.squareFQ12(sum4)
+        const sum6 = BN256.mulFQ12(sum5, a)
+        const sum7 = BN256.squareFQ12(sum6)
+        const sum8 = BN256.squareFQ12(sum7)
+        const sum9 = BN256.squareFQ12(sum8)
+        let sum10 = BN256.mulFQ12(sum9, a)
+        sum10 = BN256.modFQ12(sum10)
+        const sum11 = BN256.squareFQ12(sum10)
+        const sum12 = BN256.mulFQ12(sum11, a)
+        const sum13 = BN256.squareFQ12(sum12)
+        const sum14 = BN256.mulFQ12(sum13, a)
+        const sum15 = BN256.squareFQ12(sum14)
+        const sum16 = BN256.squareFQ12(sum15)
+        const sum17 = BN256.mulFQ12(sum16, a)
+        const sum18 = BN256.squareFQ12(sum17)
+        const sum19 = BN256.squareFQ12(sum18)
+        let sum20 = BN256.squareFQ12(sum19)
+        sum20 = BN256.modFQ12(sum20)
+        const sum21 = BN256.mulFQ12(sum20, a)
+        const sum22 = BN256.squareFQ12(sum21)
+        const sum23 = BN256.mulFQ12(sum22, a)
+        const sum24 = BN256.squareFQ12(sum23)
+        const sum25 = BN256.squareFQ12(sum24)
+        const sum26 = BN256.squareFQ12(sum25)
+        const sum27 = BN256.mulFQ12(sum26, a)
+        const sum28 = BN256.squareFQ12(sum27)
+        const sum29 = BN256.squareFQ12(sum28)
+        let sum30 = BN256.squareFQ12(sum29)
+        sum30 = BN256.modFQ12(sum30)
+        const sum31 = BN256.mulFQ12(sum30, a)
+        const sum32 = BN256.squareFQ12(sum31)
+        const sum33 = BN256.squareFQ12(sum32)
+        const sum34 = BN256.mulFQ12(sum33, a)
+        const sum35 = BN256.squareFQ12(sum34)
+        const sum36 = BN256.squareFQ12(sum35)
+        const sum37 = BN256.mulFQ12(sum36, a)
+        const sum38 = BN256.squareFQ12(sum37)
+        const sum39 = BN256.mulFQ12(sum38, a)
+        let sum40 = BN256.squareFQ12(sum39)
+        sum40 = BN256.modFQ12(sum40)
+        const sum41 = BN256.squareFQ12(sum40)
+        const sum42 = BN256.mulFQ12(sum41, a)
+        const sum43 = BN256.squareFQ12(sum42)
+        const sum44 = BN256.squareFQ12(sum43)
+        const sum45 = BN256.squareFQ12(sum44)
+        const sum46 = BN256.squareFQ12(sum45)
+        const sum47 = BN256.mulFQ12(sum46, a)
+        const sum48 = BN256.squareFQ12(sum47)
+        const sum49 = BN256.squareFQ12(sum48)
+        let sum50 = BN256.squareFQ12(sum49)
+        sum50 = BN256.modFQ12(sum50)
+        const sum51 = BN256.mulFQ12(sum50, a)
+        const sum52 = BN256.squareFQ12(sum51)
+        const sum53 = BN256.squareFQ12(sum52)
+        const sum54 = BN256.mulFQ12(sum53, a)
+        const sum55 = BN256.squareFQ12(sum54)
+        const sum56 = BN256.squareFQ12(sum55)
+        const sum57 = BN256.squareFQ12(sum56)
+        const sum58 = BN256.mulFQ12(sum57, a)
+        const sum59 = BN256.squareFQ12(sum58)
+        let sum60 = BN256.mulFQ12(sum59, a)
+        sum60 = BN256.modFQ12(sum60)
+        const sum61 = BN256.squareFQ12(sum60)
+        const sum62 = BN256.squareFQ12(sum61)
+        const sum63 = BN256.mulFQ12(sum62, a)
+        const sum64 = BN256.squareFQ12(sum63)
+        const sum65 = BN256.squareFQ12(sum64)
+        const sum66 = BN256.squareFQ12(sum65)
+        const sum67 = BN256.mulFQ12(sum66, a)
+        const sum68 = BN256.squareFQ12(sum67)
+        const sum69 = BN256.squareFQ12(sum68)
+        let sum70 = BN256.squareFQ12(sum69)
+        sum70 = BN256.modFQ12(sum70)
+        const sum71 = BN256.squareFQ12(sum70)
+        const sum72 = BN256.squareFQ12(sum71)
+        const sum73 = BN256.mulFQ12(sum72, a)
+        const sum74 = BN256.squareFQ12(sum73)
+        const sum75 = BN256.squareFQ12(sum74)
+        const sum76 = BN256.squareFQ12(sum75)
+        const sum77 = BN256.mulFQ12(sum76, a)
+        const sum78 = BN256.squareFQ12(sum77)
+        const sum79 = BN256.mulFQ12(sum78, a)
+        let sum80 = BN256.squareFQ12(sum79)
+        sum80 = BN256.modFQ12(sum80)
+        const sum81 = BN256.mulFQ12(sum80, a)
+        const sum82 = BN256.squareFQ12(sum81)
+        const sum83 = BN256.mulFQ12(sum82, a)
+        const sum84 = BN256.squareFQ12(sum83)
+        const sum85 = BN256.mulFQ12(sum84, a)
+        const sum86 = BN256.squareFQ12(sum85)
+        const sum87 = BN256.squareFQ12(sum86)
+        const sum88 = BN256.squareFQ12(sum87)
+        const sum89 = BN256.squareFQ12(sum88)
+        let sum90 = BN256.mulFQ12(sum89, a)
+        sum90 = BN256.modFQ12(sum90)
 
+        return sum90
     }
 
-    static function expFQ12(FQ12 a, int power) : FQ12 {
-        FQ12 sum = FQ12One;
-        FQ12 t = FQ12One;
+    @method()
+    static expFQ12(a: FQ12, power: bigint): FQ12 {
+        let sum = BN256.FQ12One
+        let t = BN256.FQ12One
 
-        bytes mb = reverseBytes(num2bin(power, S), S);
-        bool firstOne = false;
+        let firstOne = false
 
-        loop (CURVE_BITS_P8) : i {
+        for (let i = 0; i < BN256.CURVE_BITS_P8; i++) {
             if (firstOne) {
-                t = squareFQ12(sum);
+                t = BN256.modFQ12(BN256.squareFQ12(sum))
             }
 
-            if ((mb & (mask << ((CURVE_BITS_P8 - 1) - i))) != zero) {
-                firstOne = true;
-                sum = mulFQ12(t, a);
+            const shifted = lshift(
+                1n,
+                BigInt(Number(BN256.CURVE_BITS_P8) - 1 - i)
+            )
+
+            if (and(power, shifted) != 0n) {
+                firstOne = true
+                sum = BN256.mulFQ12(t, a)
             } else {
-                sum = t;
+                sum = t
             }
         }
 
-        return sum;
+        return sum
     }
 
-    // ----------------------------------------------------
-
-    static function doubleG1Point(G1Point a) : G1Point {
-        CurvePoint res = doubleCurvePoint(
-                createCurvePoint(a)
-        );
-        
-        return getG1Point(res);
+    @method()
+    static doubleG1Point(a: G1Point): G1Point {
+        const res = BN256.doubleCurvePoint(BN256.createCurvePoint(a))
+        return BN256.getG1Point(res)
     }
 
-    static function doubleCurvePoint(CurvePoint a): CurvePoint {
-        asm {
-OP_3 OP_PICK OP_4 OP_PICK OP_MUL OP_3 OP_PICK OP_4 OP_PICK OP_MUL OP_DUP OP_OVER OP_MUL OP_6 OP_PICK OP_ROT OP_ADD OP_DUP OP_OVER OP_MUL OP_NIP OP_DUP OP_3 OP_PICK OP_SUB OP_NIP OP_DUP OP_2 OP_PICK OP_SUB OP_2 OP_OVER OP_MUL OP_ROT OP_DROP OP_2 OP_4 OP_PICK OP_MUL OP_DUP OP_5 OP_ROLL OP_ADD OP_DUP OP_OVER OP_MUL OP_ROT OP_DROP OP_2 OP_3 OP_PICK OP_MUL OP_SWAP OP_OVER OP_SUB OP_NIP OP_2 OP_5 OP_ROLL OP_MUL OP_4 OP_ROLL OP_DROP OP_2 OP_OVER OP_MUL OP_NIP OP_2 OP_OVER OP_MUL OP_4 OP_ROLL OP_3 OP_PICK OP_SUB OP_ROT OP_DROP OP_3 OP_ROLL OP_OVER OP_MUL OP_NIP OP_SWAP OP_SUB OP_4 OP_PICK OP_4 OP_PICK OP_MUL OP_2 OP_MUL OP_0
-        }
-    }
-
-    static function OLDdoubleCurvePoint(CurvePoint a) : CurvePoint {
+    @method()
+    static doubleCurvePoint(a: CurvePoint): CurvePoint {
+        // This will get substituted by optimized ASM code at transpilation stage.
         // See http://hyperelliptic.org/EFD/g1p/auto-code/shortw/jacobian-0/doubling/dbl-2009-l.op3
-        CurvePoint res = {0, 0, 0, 0};
-
-        int A = modReduce(a.x * a.x, P);
-        int B = modReduce(a.y * a.y, P);
-        int C = modReduce(B * B, P);
-
-        int t = a.x + B;
-        int t2 = modReduce(t * t, P);
-        t = t2 - A;
-        t2 = t - C;
-
-        int d = t2 * 2;
-        t = A * 2;
-        int e = t + A;
-        int f = modReduce(e * e, P);
-
-        t = d * 2;
-        res.x = f - t;
-
-        t = C * 2;
-        t2 = t * 2;
-        t = t2 * 2;
-        res.y = d - res.x;
-        t2 = modReduce(e * res.y, P);
-        res.y = t2 - t;
-
-        //int prod = res.y * a.z;
-        //if (a.t != 0) {
-        //    prod = a.y * a.z;
-        //}
-        //res.z = modReduce(prod, P) * 2;
-
-        int prod = a.y * a.z;
-        res.z = modReduce(prod, P) * 2;
-
-        return res;
-    }
-
-    static function addG1Points(G1Point a, G1Point b) : G1Point {
-        CurvePoint res = addCurvePoints(
-                BN256.P,
-                createCurvePoint(a),
-                createCurvePoint(b)
-        );
-        
-        return getG1Point(res);
-    }
-
-    static function addCurvePoints(int P, CurvePoint a, CurvePoint b) : CurvePoint {
-        asm {
-OP_5 OP_ROLL OP_8 OP_PICK OP_MOD OP_ROT OP_8 OP_PICK OP_MOD OP_OVER OP_2 OP_PICK OP_MUL OP_OVER OP_2 OP_PICK OP_MUL OP_9 OP_PICK OP_OVER OP_MUL OP_7 OP_PICK OP_3 OP_PICK OP_MUL OP_4 OP_PICK OP_3 OP_PICK OP_MUL OP_11 OP_PICK OP_OVER OP_MUL OP_NIP OP_6 OP_PICK OP_5 OP_PICK OP_MUL OP_9 OP_PICK OP_OVER OP_MUL OP_3 OP_ROLL OP_4 OP_PICK OP_SUB OP_0 OP_OVER 11 OP_PICK OP_MOD OP_EQUAL OP_3 OP_ROLL OP_DROP OP_2 OP_2 OP_PICK OP_MUL OP_DUP OP_OVER OP_MUL OP_3 OP_PICK OP_OVER OP_MUL OP_ROT OP_DROP OP_4 OP_ROLL OP_5 OP_PICK OP_SUB OP_0 OP_OVER 13 OP_PICK OP_MOD OP_EQUAL OP_4 OP_ROLL OP_SWAP OP_BOOLAND OP_OVER OP_2 OP_PICK OP_ADD OP_7 OP_ROLL OP_5 OP_ROLL OP_MUL OP_OVER OP_2 OP_PICK OP_MUL OP_DUP OP_6 OP_PICK OP_SUB OP_5 OP_ROLL OP_DROP OP_2 OP_3 OP_PICK OP_MUL OP_2DUP OP_SUB OP_NIP OP_3 OP_ROLL OP_OVER OP_SUB OP_3 OP_ROLL OP_DROP OP_7 OP_ROLL OP_6 OP_ROLL OP_MUL OP_3 OP_ROLL OP_DROP OP_2 OP_OVER OP_MUL OP_NIP OP_3 OP_ROLL OP_2 OP_PICK OP_MUL OP_DUP OP_ROT OP_SUB OP_ROT OP_DROP OP_8 OP_PICK OP_8 OP_PICK OP_ADD OP_ROT OP_DROP OP_DUP OP_OVER OP_MUL OP_NIP OP_DUP OP_7 OP_ROLL OP_SUB OP_NIP OP_5 OP_ROLL OP_SUB OP_4 OP_ROLL OP_MUL OP_0 OP_6 OP_PICK OP_0 OP_EQUAL OP_IF OP_NIP OP_2DROP OP_DROP OP_5 OP_PICK OP_5 OP_PICK OP_3 OP_PICK OP_6 OP_PICK OP_ENDIF OP_6 OP_PICK OP_0 OP_EQUAL OP_NOT OP_6 OP_PICK OP_0 OP_EQUAL OP_BOOLAND OP_IF OP_NIP OP_2DROP OP_DROP OP_8 OP_PICK OP_8 OP_PICK OP_4 OP_PICK OP_9 OP_PICK OP_ENDIF OP_6 OP_PICK OP_0 OP_EQUAL OP_NOT OP_6 OP_PICK OP_0 OP_EQUAL OP_NOT OP_BOOLAND OP_5 OP_PICK OP_BOOLAND OP_IF OP_NIP OP_2DROP OP_DROP OP_8 OP_PICK OP_8 OP_PICK OP_4 OP_PICK OP_9 OP_PICK OP_3 OP_PICK OP_4 OP_PICK OP_MUL OP_3 OP_PICK OP_4 OP_PICK OP_MUL OP_DUP OP_OVER OP_MUL OP_6 OP_PICK OP_ROT OP_ADD OP_DUP OP_OVER OP_MUL OP_NIP OP_DUP OP_3 OP_PICK OP_SUB OP_NIP OP_DUP OP_2 OP_PICK OP_SUB OP_2 OP_OVER OP_MUL OP_ROT OP_DROP OP_2 OP_4 OP_PICK OP_MUL OP_DUP OP_5 OP_ROLL OP_ADD OP_DUP OP_OVER OP_MUL OP_ROT OP_DROP OP_2 OP_3 OP_PICK OP_MUL OP_SWAP OP_OVER OP_SUB OP_NIP OP_2 OP_5 OP_ROLL OP_MUL OP_4 OP_ROLL OP_DROP OP_2 OP_OVER OP_MUL OP_NIP OP_2 OP_OVER OP_MUL OP_4 OP_ROLL OP_3 OP_PICK OP_SUB OP_ROT OP_DROP OP_3 OP_ROLL OP_OVER OP_MUL OP_NIP OP_SWAP OP_SUB OP_4 OP_PICK OP_4 OP_PICK OP_MUL OP_2 OP_MUL OP_0 OP_7 OP_ROLL OP_DROP OP_6 OP_ROLL OP_DROP OP_5 OP_ROLL OP_DROP OP_4 OP_ROLL OP_DROP OP_ENDIF OP_4 OP_ROLL OP_DROP
+        const res: CurvePoint = {
+            x: 0n,
+            y: 0n,
+            z: 0n,
+            t: 0n,
         }
+
+        const A = BN256.modReduce(a.x * a.x, BN256.P)
+        const B = BN256.modReduce(a.y * a.y, BN256.P)
+        const C = BN256.modReduce(B * B, BN256.P)
+
+        let t = a.x + B
+        let t2 = BN256.modReduce(t * t, BN256.P)
+        t = t2 - A
+        t2 = t - C
+
+        const d = t2 * 2n
+        t = A * 2n
+        const e = t + A
+        const f = BN256.modReduce(e * e, BN256.P)
+
+        t = d * 2n
+        res.x = f - t
+
+        t = C * 2n
+        t2 = t * 2n
+        t = t2 * 2n
+        res.y = d - res.x
+        t2 = BN256.modReduce(e * res.y, BN256.P)
+        res.y = t2 - t
+
+        const prod = a.y * a.z
+        res.z = BN256.modReduce(prod, BN256.P) * 2n
+
+        return res
     }
 
-    static function OLDaddCurvePoints(CurvePoint a, CurvePoint b) : CurvePoint {
+    @method()
+    static addG1Points(a: G1Point, b: G1Point): G1Point {
+        const res = BN256.addCurvePoints(
+            BN256.createCurvePoint(a),
+            BN256.createCurvePoint(b)
+        )
+        return BN256.getG1Point(res)
+    }
+
+    @method()
+    static addCurvePoints(a: CurvePoint, b: CurvePoint): CurvePoint {
+        return BN256._addCurvePoints(BN256.P, a, b)
+    }
+
+    @method()
+    static _addCurvePoints(
+        P: bigint,
+        a: CurvePoint,
+        b: CurvePoint
+    ): CurvePoint {
+        // This will get substituted by optimized ASM code at transpilation stage.
         // See http://hyperelliptic.org/EFD/g1p/auto-code/shortw/jacobian-0/addition/add-2007-bl.op3
-        CurvePoint res = {0, 0, 0, 0};
-        
-        if (a.z == 0) {
-            res = b;
-        } else if (b.z == 0) {
-            res = a;
+        let res: CurvePoint = {
+            x: 0n,
+            y: 0n,
+            z: 0n,
+            t: 0n,
+        }
+
+        if (a.z == 0n) {
+            res = b
+        } else if (b.z == 0n) {
+            res = a
         } else {
             // Normalize the points by replacing a = [x1:y1:z1] and b = [x2:y2:z2]
             // by [u1:s1:z1·z2] and [u2:s2:z1·z2]
             // where u1 = x1·z2², s1 = y1·z2³ and u1 = x2·z1², s2 = y2·z1³
-            
-            int z12 = modReduce(a.z * a.z, P);
-            int z22 = modReduce(b.z * b.z, P);
-            
-            int u1 = modReduce(a.x * z22, P);
-            int u2 = modReduce(b.x * z12, P);
 
-            int t = modReduce(b.z * z22, P);
-            int s1 = modReduce(a.y * t, P);
+            const z12 = BN256.modReduce(a.z * a.z, P)
+            const z22 = BN256.modReduce(b.z * b.z, P)
 
-            t = modReduce(a.z * z12, P);
-            int s2 = modReduce(b.y * t, P);
+            const u1 = BN256.modReduce(a.x * z22, P)
+            const u2 = BN256.modReduce(b.x * z12, P)
+
+            let t = BN256.modReduce(b.z * z22, P)
+            const s1 = BN256.modReduce(a.y * t, P)
+
+            t = BN256.modReduce(a.z * z12, P)
+            const s2 = BN256.modReduce(b.y * t, P)
 
             // Compute x = (2h)²(s²-u1-u2)
             // where s = (s2-s1)/(u2-u1) is the slope of the line through
@@ -798,214 +1020,281 @@ OP_5 OP_ROLL OP_8 OP_PICK OP_MOD OP_ROT OP_8 OP_PICK OP_MOD OP_OVER OP_2 OP_PICK
             //                        = r² - j - 2v
             // with the notations below.
 
-            int h = u2 - u1;
-            bool xEqual = h == 0;
+            const h = u2 - u1
+            const xEqual = h == 0n
 
-            t = h * 2;
+            t = h * 2n
             // i = 4h²
-            int i = modReduce(t * t, P);
+            const i = BN256.modReduce(t * t, P)
             // j = 4h³
-            int j = modReduce(h * i, P);
+            const j = BN256.modReduce(h * i, P)
 
-            t = s2 - s1;
-            bool yEqual = t == 0;
+            t = s2 - s1
+            const yEqual = t == 0n
 
             if (xEqual && yEqual) {
-                res = doubleCurvePoint(a);
+                res = BN256.doubleCurvePoint(a)
             } else {
-                int r = t + t;
-                int v = modReduce(u1 * i, P);
+                const r = t + t
+                const v = BN256.modReduce(u1 * i, P)
 
                 // t4 = 4(s2-s1)²
-                int t4 = modReduce(r * r, P);
-                int t6 = t4 - j;
-                t = v * 2;
+                let t4 = BN256.modReduce(r * r, P)
+                let t6 = t4 - j
+                t = v * 2n
 
-                res.x = t6 - t;
+                res.x = t6 - t
 
                 // Set y = -(2h)³(s1 + s*(x/4h²-u1))
                 // This is also
                 // y = - 2·s1·j - (s2-s1)(2x - 2i·u1) = r(v-x) - 2·s1·j
-                t = v - res.x;
-                t4 = modReduce(s1 * j, P);
-                t6 = t4 * 2;
-                t4 = modReduce(r * t, P);
-                res.y = t4 - t6;
-                
+                t = v - res.x
+                t4 = BN256.modReduce(s1 * j, P)
+                t6 = t4 * 2n
+                t4 = BN256.modReduce(r * t, P)
+                res.y = t4 - t6
+
                 // Set z = 2(u2-u1)·z1·z2 = 2h·z1·z2
-                t = a.z + b.z;
-                t4 = modReduce(t * t, P);
-                t = t4 - z12;
-                t4 = t - z22;
-                res.z = modReduce(t4 * h, P);
+                t = a.z + b.z
+                t4 = BN256.modReduce(t * t, P)
+                t = t4 - z12
+                t4 = t - z22
+                res.z = BN256.modReduce(t4 * h, P)
             }
         }
 
-        return res;
+        return res
     }
 
-    static function mulG1Point(G1Point a, int m) : G1Point {
-        CurvePoint res = mulCurvePoint(
-                createCurvePoint(a),
-                m
-        );
-        
-        return getG1Point(res);
+    @method()
+    static mulG1Point(a: G1Point, m: bigint): G1Point {
+        const res = BN256.mulCurvePoint(BN256.createCurvePoint(a), m)
+        return BN256.getG1Point(res)
     }
-        
-    static function mulCurvePoint(CurvePoint a, int m) : CurvePoint {
-        CurvePoint res = {0, 1, 0, 0};
 
-        if (m != 0) {
+    @method()
+    static mulCurvePoint(a: CurvePoint, m: bigint): CurvePoint {
+        let res: CurvePoint = {
+            x: 0n,
+            y: 1n,
+            z: 0n,
+            t: 0n,
+        }
+
+        if (m != 0n) {
             // Double and add method.
             // Lowest bit to highest.
-            CurvePoint t =   {0, 0, 0, 0};
-            CurvePoint sum = {0, 0, 0, 0};
+            let t: CurvePoint = {
+                x: 0n,
+                y: 0n,
+                z: 0n,
+                t: 0n,
+            }
+            let sum: CurvePoint = {
+                x: 0n,
+                y: 0n,
+                z: 0n,
+                t: 0n,
+            }
 
-            bytes mb = reverseBytes(num2bin(m, S), S);
-            bool firstOne = false;
+            let firstOne = false
 
-            loop (CURVE_BITS_P8_DIV12) : k {
-                loop(3): j {
+            for (let k = 0; k < BN256.CURVE_BITS_P8_DIV12; k++) {
+                sum = BN256.modCurvePoint(sum)
+                for (let j = 0; j < 3; j++) {
                     if (firstOne) {
-                        t = doubleCurvePoint(sum);
+                        t = BN256.doubleCurvePoint(sum)
                     }
-                    if ((mb & (mask << ((CURVE_BITS_P8 - 1) - (3*k+j)))) != zero) {
-                        firstOne = true;
-                        sum = addCurvePoints(BN256.P, t, a);
+                    const shifted = lshift(
+                        1n,
+                        BigInt(Number(BN256.CURVE_BITS_P8) - 1 - (3 * k + j))
+                    )
+                    if (and(m, shifted) != 0n) {
+                        firstOne = true
+                        sum = BN256.addCurvePoints(t, a)
                     } else {
-                        sum = t;
+                        sum = t
                     }
                 }
-                sum = BN256.modCurvePoint(sum);
             }
-            res = sum;
+            res = sum
         }
-        return res;
+
+        return res
     }
 
-
-    static function makeAffineCurvePoint(CurvePoint a) : CurvePoint {
+    @method()
+    static makeAffineCurvePoint(a: CurvePoint): CurvePoint {
         // MakeAffine converts a to affine form. If c is ∞, then it sets
         // a to 0 : 1 : 0.
 
-        CurvePoint res = a;
-        if (modReduce(a.z, P) != 1) {
-            if (a.z == 0) {
-                res = {0, 1, 0, 0};
+        let res = a
+        if (BN256.modReduce(a.z, BN256.P) != 1n) {
+            if (a.z == 0n) {
+                res = {
+                    x: 0n,
+                    y: 1n,
+                    z: 0n,
+                    t: 0n,
+                }
             } else {
-                FQ zInv = modInverseBranchlessP(a.z);
-                FQ t = modReduce(a.y * zInv, P);
-                FQ zInv2 = modReduce(zInv * zInv, P);
-                FQ ay = modReduce(t * zInv2, P);
-                FQ ax = modReduce(a.x * zInv2, P);
-                
-                res = {ax, ay, 1, 1};
+                const zInv = BN256.modInverseBranchlessP(a.z)
+                const t = BN256.modReduce(a.y * zInv, BN256.P)
+                const zInv2 = BN256.modReduce(zInv * zInv, BN256.P)
+                const ay = BN256.modReduce(t * zInv2, BN256.P)
+                const ax = BN256.modReduce(a.x * zInv2, BN256.P)
+
+                res = {
+                    x: ax,
+                    y: ay,
+                    z: 1n,
+                    t: 1n,
+                }
             }
         }
 
-        return res;
+        return res
     }
 
-    static function negCurvePoint(CurvePoint a) : CurvePoint {
-        return {
-            a.x,
-            -a.y,
-            a.z,
-            0
-        };
+    @method()
+    static negCurvePoint(a: CurvePoint): CurvePoint {
+        const res: CurvePoint = {
+            x: a.x,
+            y: -a.y,
+            z: a.z,
+            t: 0n,
+        }
+        return res
     }
 
-    static function isInfCurvePoint(CurvePoint a) : bool {
-        return a.z == 0;
+    @method()
+    static isInfCurvePoint(a: CurvePoint): boolean {
+        return a.z == 0n
     }
 
-    static function createCurvePoint(G1Point ccp) : CurvePoint {
-        return ccp == {0, 0} ? {0, 1, 0, 0} : {ccp.x, ccp.y, 1, 1};
+    @method()
+    static createCurvePoint(ccp: G1Point): CurvePoint {
+        let res: CurvePoint = {
+            x: ccp.x,
+            y: ccp.y,
+            z: 1n,
+            t: 1n,
+        }
+        if (ccp.x == 0n && ccp.y == 0n) {
+            res = {
+                x: 0n,
+                y: 1n,
+                z: 0n,
+                t: 0n,
+            }
+        }
+        return res
     }
 
-    static function getG1Point(CurvePoint cp) : G1Point {
-        CurvePoint acp = makeAffineCurvePoint(cp);
-        return acp == {0, 1, 0, 0} ? {0, 0} : {acp.x, acp.y};
+    @method()
+    static getG1Point(cp: CurvePoint): G1Point {
+        const acp = BN256.makeAffineCurvePoint(cp)
+        let res: G1Point = {
+            x: acp.x,
+            y: acp.y,
+        }
+        if (acp.x == 0n && acp.y == 1n && acp.z == 0n && acp.t == 0n) {
+            res = {
+                x: 0n,
+                y: 0n,
+            }
+        }
+        return res
     }
 
-    // ----------------------------------------------------
+    @method()
+    static doubleG2Point(a: G2Point): G2Point {
+        const res = BN256.doubleTwistPoint(BN256.createTwistPoint(a))
 
-    static function doubleG2Point(G2Point a) : G2Point {
-        TwistPoint res = doubleTwistPoint(
-                createTwistPoint(a)
-        );
-        
-        return getG2Point(res);
+        return BN256.getG2Point(res)
     }
 
-    static function doubleTwistPoint(TwistPoint a) : TwistPoint {
+    @method()
+    static doubleTwistPoint(a: TwistPoint): TwistPoint {
         // See http://hyperelliptic.org/EFD/g1p/auto-code/shortw/jacobian-0/doubling/dbl-2009-l.op3
-        TwistPoint res = {FQ2Zero, FQ2Zero, FQ2Zero, FQ2Zero};
 
-        FQ2 A = squareFQ2(a.x);
-        FQ2 B = squareFQ2(a.y);
-        FQ2 C = squareFQ2(B);
+        const res: TwistPoint = {
+            x: BN256.FQ2Zero,
+            y: BN256.FQ2Zero,
+            z: BN256.FQ2Zero,
+            t: BN256.FQ2Zero,
+        }
 
-        FQ2 t = addFQ2(a.x, B);
-        FQ2 t2 = squareFQ2(t);
-        t = subFQ2(t2, A);
-        t2 = subFQ2(t, C);
+        const A = BN256.squareFQ2(a.x)
+        const B = BN256.squareFQ2(a.y)
+        const C = BN256.squareFQ2(B)
 
-        FQ2 d = mulScalarFQ2(t2, 2);
-        t = mulScalarFQ2(A, 2);
-        FQ2 e = addFQ2(t, A);
-        FQ2 f = squareFQ2(e);
+        let t = BN256.addFQ2(a.x, B)
+        let t2 = BN256.squareFQ2(t)
+        t = BN256.subFQ2(t2, A)
+        t2 = BN256.subFQ2(t, C)
 
-        t = mulScalarFQ2(d, 2);
-        res.x = subFQ2(f, t);
+        const d = BN256.mulScalarFQ2(t2, 2n)
+        t = BN256.mulScalarFQ2(A, 2n)
+        const e = BN256.addFQ2(t, A)
+        const f = BN256.squareFQ2(e)
 
-        t = mulScalarFQ2(C, 2);
-        t2 = mulScalarFQ2(t, 2);
-        t = mulScalarFQ2(t2, 2);
-        res.y = subFQ2(d, res.x);
-        t2 = mulFQ2(e, res.y);
-        res.y = subFQ2(t2, t);
+        t = BN256.mulScalarFQ2(d, 2n)
+        res.x = BN256.subFQ2(f, t)
 
-        res.z = mulScalarFQ2(mulFQ2(a.y, a.z), 2);
+        t = BN256.mulScalarFQ2(C, 2n)
+        t2 = BN256.mulScalarFQ2(t, 2n)
+        t = BN256.mulScalarFQ2(t2, 2n)
+        res.y = BN256.subFQ2(d, res.x)
+        t2 = BN256.mulFQ2(e, res.y)
+        res.y = BN256.subFQ2(t2, t)
 
-        return res;
+        res.z = BN256.mulScalarFQ2(BN256.mulFQ2(a.y, a.z), 2n)
+
+        return res
     }
 
-    static function addG2Points(G2Point a, G2Point b) : G2Point {
-        TwistPoint res = addTwistPoints(
-                createTwistPoint(a),
-                createTwistPoint(b)
-        );
-        
-        return getG2Point(res);
+    @method()
+    static addG2Points(a: G2Point, b: G2Point): G2Point {
+        const res = BN256.addTwistPoints(
+            BN256.createTwistPoint(a),
+            BN256.createTwistPoint(b)
+        )
+
+        return BN256.getG2Point(res)
     }
 
-    static function addTwistPoints(TwistPoint a, TwistPoint b) : TwistPoint {
-        TwistPoint res = {FQ2Zero, FQ2Zero, FQ2Zero, a.t};
-        
-        if (a.z == FQ2Zero) {
-            res = b;
-        } else if (b.z == FQ2Zero) {
-            res = a;
+    @method()
+    static addTwistPoints(a: TwistPoint, b: TwistPoint): TwistPoint {
+        let res: TwistPoint = {
+            x: BN256.FQ2Zero,
+            y: BN256.FQ2Zero,
+            z: BN256.FQ2Zero,
+            t: a.t,
+        }
+
+        if (a.z == BN256.FQ2Zero) {
+            res = b
+        } else if (b.z == BN256.FQ2Zero) {
+            res = a
         } else {
             // See http://hyperelliptic.org/EFD/g1p/auto-code/shortw/jacobian-0/addition/add-2007-bl.op3
 
             // Normalize the points by replacing a = [x1:y1:z1] and b = [x2:y2:z2]
             // by [u1:s1:z1·z2] and [u2:s2:z1·z2]
             // where u1 = x1·z2², s1 = y1·z2³ and u1 = x2·z1², s2 = y2·z1³
-            
-            FQ2 z12 = squareFQ2(a.z);
-            FQ2 z22 = squareFQ2(b.z);
-            
-            FQ2 u1 = mulFQ2(a.x, z22);
-            FQ2 u2 = mulFQ2(b.x, z12);
 
-            FQ2 t = mulFQ2(b.z, z22);
-            FQ2 s1 = mulFQ2(a.y, t);
+            const z12 = BN256.squareFQ2(a.z)
+            const z22 = BN256.squareFQ2(b.z)
 
-            t = mulFQ2(a.z, z12);
-            FQ2 s2 = mulFQ2(b.y, t);
+            const u1 = BN256.mulFQ2(a.x, z22)
+            const u2 = BN256.mulFQ2(b.x, z12)
+
+            let t = BN256.mulFQ2(b.z, z22)
+            const s1 = BN256.mulFQ2(a.y, t)
+
+            t = BN256.mulFQ2(a.z, z12)
+            const s2 = BN256.mulFQ2(b.y, t)
 
             // Compute x = (2h)²(s²-u1-u2)
             // where s = (s2-s1)/(u2-u1) is the slope of the line through
@@ -1015,308 +1304,387 @@ OP_5 OP_ROLL OP_8 OP_PICK OP_MOD OP_ROT OP_8 OP_PICK OP_MOD OP_OVER OP_2 OP_PICK
             //                        = r² - j - 2v
             // with the notations below.
 
-            FQ2 h = subFQ2(u2, u1);
-            bool xEqual = h == FQ2Zero;
+            const h = BN256.subFQ2(u2, u1)
+            const xEqual = h == BN256.FQ2Zero
 
-            t = mulScalarFQ2(h, 2);
+            t = BN256.mulScalarFQ2(h, 2n)
             // i = 4h²
-            FQ2 i = squareFQ2(t);
+            const i = BN256.squareFQ2(t)
             // j = 4h³
-            FQ2 j = mulFQ2(h, i);
+            const j = BN256.mulFQ2(h, i)
 
-            t = subFQ2(s2, s1);
-            bool yEqual = t == FQ2Zero;
+            t = BN256.subFQ2(s2, s1)
+            const yEqual = t == BN256.FQ2Zero
             if (xEqual && yEqual) {
-                res = doubleTwistPoint(a);
+                res = BN256.doubleTwistPoint(a)
             } else {
-                FQ2 r = mulScalarFQ2(t, 2);
-                FQ2 v = mulFQ2(u1, i);
+                const r = BN256.mulScalarFQ2(t, 2n)
+                const v = BN256.mulFQ2(u1, i)
 
                 // t4 = 4(s2-s1)²
-                FQ2 t4 = squareFQ2(r);
-                FQ2 t6 = subFQ2(t4, j);
-                t = mulScalarFQ2(v, 2);
+                let t4 = BN256.squareFQ2(r)
+                let t6 = BN256.subFQ2(t4, j)
+                t = BN256.mulScalarFQ2(v, 2n)
 
-                res.x = subFQ2(t6, t);
+                res.x = BN256.subFQ2(t6, t)
 
                 // Set y = -(2h)³(s1 + s*(x/4h²-u1))
                 // This is also
                 // y = - 2·s1·j - (s2-s1)(2x - 2i·u1) = r(v-x) - 2·s1·j
-                t = subFQ2(v, res.x);
-                t4 = mulFQ2(s1, j);
-                t6 = mulScalarFQ2(t4, 2);
-                t4 = mulFQ2(r, t);
-                res.y = subFQ2(t4, t6);
-                
+                t = BN256.subFQ2(v, res.x)
+                t4 = BN256.mulFQ2(s1, j)
+                t6 = BN256.mulScalarFQ2(t4, 2n)
+                t4 = BN256.mulFQ2(r, t)
+                res.y = BN256.subFQ2(t4, t6)
+
                 // Set z = 2(u2-u1)·z1·z2 = 2h·z1·z2
-                t = addFQ2(a.z, b.z);
-                t4 = squareFQ2(t);
-                t = subFQ2(t4, z12);
-                t4 = subFQ2(t, z22);
-                res.z = mulFQ2(t4, h);
+                t = BN256.addFQ2(a.z, b.z)
+                t4 = BN256.squareFQ2(t)
+                t = BN256.subFQ2(t4, z12)
+                t4 = BN256.subFQ2(t, z22)
+                res.z = BN256.mulFQ2(t4, h)
             }
         }
 
-        return res;
+        return res
     }
 
-    static function makeAffineTwistPoint(TwistPoint a) : TwistPoint {
-        TwistPoint res = a; 
-        if (a.z != {0, 1}) {
-            if (a.z == FQ2Zero) {
+    @method()
+    static makeAffineTwistPoint(a: TwistPoint): TwistPoint {
+        let res = a
+        if (a.z.x != 0n || a.z.y != 1n) {
+            if (a.z == BN256.FQ2Zero) {
                 res = {
-                    FQ2Zero,
-                    FQ2One,
-                    FQ2Zero,
-                    FQ2Zero
-                };
+                    x: BN256.FQ2Zero,
+                    y: BN256.FQ2One,
+                    z: BN256.FQ2Zero,
+                    t: BN256.FQ2Zero,
+                }
             } else {
-                FQ2 zInv = inverseFQ2(a.z);
-                FQ2 t = mulFQ2(a.y, zInv);
-                FQ2 zInv2 = squareFQ2(zInv);
-                res.y = mulFQ2(t, zInv2);
-                t = mulFQ2(a.x, zInv2);
-                res.x = t;
-                res.z = {0, 1};
-                res.t = {0, 1};
+                const zInv = BN256.inverseFQ2(a.z)
+                let t = BN256.mulFQ2(a.y, zInv)
+                const zInv2 = BN256.squareFQ2(zInv)
+                res.y = BN256.mulFQ2(t, zInv2)
+                t = BN256.mulFQ2(a.x, zInv2)
+                res.x = t
+
+                const zTmp: FQ2 = { x: 0n, y: 1n }
+                res.z = zTmp
+                res.t = zTmp
             }
         }
 
-        return res;
+        return res
     }
 
-    static function negTwistPoint(TwistPoint a) : TwistPoint {
-        return {
-            a.x,
-            subFQ2(FQ2Zero, a.y),
-            a.z,
-            FQ2Zero
-        };
+    @method()
+    static negTwistPoint(a: TwistPoint): TwistPoint {
+        const res: TwistPoint = {
+            x: a.x,
+            y: BN256.subFQ2(BN256.FQ2Zero, a.y),
+            z: a.z,
+            t: BN256.FQ2Zero,
+        }
+        return res
     }
 
-    static function isInfTwistPoint(TwistPoint a) : bool {
-        return a.z == FQ2Zero;
+    @method()
+    static isInfTwistPoint(a: TwistPoint): boolean {
+        return a.z.x == BN256.FQ2Zero.x && a.z.y == BN256.FQ2Zero.y
     }
 
-    static function createTwistPoint(G2Point ctp) : TwistPoint {
+    @method()
+    static createTwistPoint(ctp: G2Point): TwistPoint {
         // Output x and y coords from ZoKrates need to be swaped to work correctly.
-        FQ2 x = {ctp.x.y, ctp.x.x};
-        FQ2 y = {ctp.y.y, ctp.y.x};
-        return ctp == {FQ2Zero, FQ2Zero} ? 
-                      {FQ2Zero, FQ2One, FQ2Zero, FQ2Zero} : 
-                      {x, y, FQ2One, FQ2One};
+        const x: FQ2 = {
+            x: ctp.x.y,
+            y: ctp.x.x,
+        }
+        const y: FQ2 = {
+            x: ctp.y.y,
+            y: ctp.y.x,
+        }
+
+        let res: TwistPoint = {
+            x: x,
+            y: y,
+            z: BN256.FQ2One,
+            t: BN256.FQ2One,
+        }
+
+        if (ctp.x == BN256.FQ2Zero && ctp.y == BN256.FQ2Zero) {
+            res = {
+                x: BN256.FQ2Zero,
+                y: BN256.FQ2One,
+                z: BN256.FQ2Zero,
+                t: BN256.FQ2Zero,
+            }
+        }
+        return res
     }
 
-    static function getG2Point(TwistPoint tp) : G2Point {
-        TwistPoint atp = makeAffineTwistPoint(tp);
-        return atp == {FQ2Zero, FQ2One, FQ2Zero, FQ2Zero} ?
-                      {FQ2Zero, FQ2Zero} :
-                      {atp.x, atp.y};
-    }
+    @method()
+    static getG2Point(tp: TwistPoint): G2Point {
+        const atp = BN256.makeAffineTwistPoint(tp)
+        let res: G2Point = {
+            x: atp.x,
+            y: atp.y,
+        }
 
+        if (
+            atp.x == BN256.FQ2Zero &&
+            atp.y == BN256.FQ2One &&
+            atp.z == BN256.FQ2Zero &&
+            atp.t == BN256.FQ2Zero
+        ) {
+            res = {
+                x: BN256.FQ2Zero,
+                y: BN256.FQ2Zero,
+            }
+        }
+        return res
+    }
 }
-
 "#;
 
 
 
 let pairing_lib = r#"
 
-struct LineFuncRes {
-    FQ2 a;
-    FQ2 b;
-    FQ2 c;
-    TwistPoint rOut;
+export type LineFuncRes = {
+    a: FQ2
+    b: FQ2
+    c: FQ2
+    rOut: TwistPoint
 }
 
-
-library BN256Pairing {
-
-    static function modLineFuncRes(LineFuncRes l): LineFuncRes {
-        l.a = BN256.modFQ2(l.a);
-        l.b = BN256.modFQ2(l.b);
-        l.c = BN256.modFQ2(l.c);
-        l.rOut.x = BN256.modFQ2(l.rOut.x);
-        l.rOut.y = BN256.modFQ2(l.rOut.y);
-        l.rOut.z = BN256.modFQ2(l.rOut.z);
-        l.rOut.t = BN256.modFQ2(l.rOut.t);
-        return l;
+export class BN256Pairing extends SmartContractLib {
+    @method()
+    static compareLineFuncRes(a: LineFuncRes, b: LineFuncRes): boolean {
+        return (
+            a.a.x == b.a.x &&
+            a.a.y == b.a.y &&
+            a.b.x == b.b.x &&
+            a.b.y == b.b.y &&
+            a.c.x == b.c.x &&
+            a.c.y == b.c.y &&
+            a.rOut.x.x == b.rOut.x.x &&
+            a.rOut.x.y == b.rOut.x.y &&
+            a.rOut.y.x == b.rOut.y.x &&
+            a.rOut.y.y == b.rOut.y.y &&
+            a.rOut.z.x == b.rOut.z.x &&
+            a.rOut.z.y == b.rOut.z.y &&
+            a.rOut.t.x == b.rOut.t.x &&
+            a.rOut.t.y == b.rOut.t.y
+        )
     }
 
-    static function lineFuncAdd(TwistPoint r, TwistPoint p, CurvePoint q, FQ2 r2) : LineFuncRes {
-        asm {
-OP_13 OP_PICK OP_15 OP_PICK OP_MUL OP_16 OP_PICK OP_14 OP_PICK OP_MUL OP_ADD OP_13 OP_PICK OP_16 OP_PICK OP_MUL OP_15 OP_PICK 12 OP_PICK OP_MUL OP_SUB OP_13 OP_PICK 14 OP_PICK OP_ADD OP_13 OP_PICK 14 OP_PICK OP_ADD OP_DUP OP_2 OP_PICK OP_SUB OP_2 OP_PICK OP_2 OP_PICK OP_ADD OP_2 OP_4 OP_ROLL OP_4 OP_ROLL OP_MUL OP_MUL OP_SWAP OP_ROT OP_MUL OP_SWAP OP_5 OP_PICK OP_SUB OP_SWAP OP_4 OP_PICK OP_SUB OP_SWAP 13 OP_PICK OP_SUB OP_SWAP 12 OP_PICK OP_SUB 12 OP_PICK 14 OP_PICK OP_3 OP_ROLL OP_DUP OP_3 OP_PICK OP_MUL OP_2 OP_PICK OP_5 OP_PICK OP_MUL OP_ADD OP_SWAP OP_ROT OP_MUL OP_3 OP_ROLL OP_3 OP_ROLL OP_MUL OP_SWAP OP_SUB OP_3 OP_ROLL 19 OP_PICK OP_SUB OP_3 OP_ROLL 18 OP_PICK OP_SUB OP_2DUP OP_DUP OP_2 OP_PICK OP_SUB OP_2 OP_PICK OP_2 OP_PICK OP_ADD OP_2 OP_4 OP_ROLL OP_4 OP_ROLL OP_MUL OP_MUL OP_SWAP OP_ROT OP_MUL OP_OVER OP_2 OP_PICK OP_ADD OP_OVER OP_2 OP_PICK OP_ADD OP_OVER OP_ROT OP_ADD OP_OVER OP_ROT OP_ADD OP_4 OP_PICK OP_OVER OP_3 OP_PICK OP_8 OP_PICK OP_DUP OP_3 OP_PICK OP_MUL OP_2 OP_PICK OP_5 OP_PICK OP_MUL OP_ADD OP_SWAP OP_ROT OP_MUL OP_3 OP_ROLL OP_3 OP_ROLL OP_MUL OP_SWAP OP_SUB OP_9 OP_ROLL 1d OP_PICK OP_SUB OP_9 OP_ROLL 1c OP_PICK OP_SUB OP_SWAP 1d OP_PICK OP_SUB OP_SWAP 1c OP_PICK OP_SUB 1e OP_PICK OP_5 OP_ROLL OP_6 OP_ROLL 20 OP_PICK OP_DUP OP_3 OP_PICK OP_MUL OP_2 OP_PICK OP_5 OP_PICK OP_MUL OP_ADD OP_SWAP OP_ROT OP_MUL OP_3 OP_ROLL OP_3 OP_ROLL OP_MUL OP_SWAP OP_SUB OP_3 OP_PICK OP_3 OP_PICK OP_DUP OP_2 OP_PICK OP_SUB OP_2 OP_PICK OP_2 OP_PICK OP_ADD OP_2 OP_4 OP_ROLL OP_4 OP_ROLL OP_MUL OP_MUL OP_SWAP OP_ROT OP_MUL OP_SWAP OP_7 OP_PICK OP_SUB OP_SWAP OP_6 OP_PICK OP_SUB OP_SWAP OP_3 OP_PICK OP_SUB OP_SWAP OP_2 OP_PICK OP_SUB OP_SWAP OP_3 OP_PICK OP_SUB OP_SWAP OP_2 OP_PICK OP_SUB 1d OP_PICK OP_12 OP_ROLL OP_ADD 1c OP_PICK OP_12 OP_ROLL OP_ADD OP_DUP OP_2 OP_PICK OP_SUB OP_2 OP_PICK OP_2 OP_PICK OP_ADD OP_2 OP_4 OP_ROLL OP_4 OP_ROLL OP_MUL OP_MUL OP_SWAP OP_ROT OP_MUL OP_SWAP 1b OP_PICK OP_SUB OP_SWAP 1a OP_PICK OP_SUB OP_SWAP OP_11 OP_ROLL OP_SUB OP_SWAP OP_10 OP_ROLL OP_SUB OP_5 OP_ROLL OP_4 OP_PICK OP_SUB OP_5 OP_ROLL OP_4 OP_PICK OP_SUB OP_6 OP_PICK OP_8 OP_PICK OP_3 OP_ROLL OP_DUP OP_3 OP_PICK OP_MUL OP_2 OP_PICK OP_5 OP_PICK OP_MUL OP_ADD OP_SWAP OP_ROT OP_MUL OP_3 OP_ROLL OP_3 OP_ROLL OP_MUL OP_SWAP OP_SUB 1c OP_PICK OP_9 OP_ROLL OP_10 OP_ROLL 1e OP_PICK OP_DUP OP_3 OP_PICK OP_MUL OP_2 OP_PICK OP_5 OP_PICK OP_MUL OP_ADD OP_SWAP OP_ROT OP_MUL OP_3 OP_ROLL OP_3 OP_ROLL OP_MUL OP_SWAP OP_SUB OP_OVER OP_ROT OP_ADD OP_OVER OP_ROT OP_ADD OP_3 OP_ROLL OP_ROT OP_SUB OP_ROT OP_ROT OP_SUB OP_3 OP_PICK OP_3 OP_PICK OP_DUP OP_2 OP_PICK OP_SUB OP_2 OP_PICK OP_2 OP_PICK OP_ADD OP_2 OP_4 OP_ROLL OP_4 OP_ROLL OP_MUL OP_MUL OP_SWAP OP_ROT OP_MUL 15 OP_PICK OP_6 OP_PICK OP_ADD 15 OP_PICK OP_6 OP_PICK OP_ADD OP_DUP OP_2 OP_PICK OP_SUB OP_2 OP_PICK OP_2 OP_PICK OP_ADD OP_2 OP_4 OP_ROLL OP_4 OP_ROLL OP_MUL OP_MUL OP_SWAP OP_ROT OP_MUL OP_SWAP OP_13 OP_PICK OP_SUB OP_SWAP OP_12 OP_PICK OP_SUB OP_SWAP OP_3 OP_PICK OP_SUB OP_SWAP OP_2 OP_PICK OP_SUB OP_11 OP_PICK 19 OP_PICK OP_MUL 1a OP_PICK OP_12 OP_PICK OP_MUL OP_ADD OP_11 OP_PICK 1a OP_PICK OP_MUL OP_13 OP_PICK 1c OP_PICK OP_MUL OP_SUB OP_OVER OP_ROT OP_ADD OP_OVER OP_ROT OP_ADD OP_SWAP OP_3 OP_ROLL OP_SUB OP_SWAP OP_ROT OP_SUB OP_7 OP_PICK 11 OP_PICK OP_MUL OP_7 OP_PICK 12 OP_PICK OP_MUL OP_OVER OP_ROT OP_ADD OP_OVER OP_ROT OP_ADD OP_0 OP_14 OP_ROLL OP_SUB OP_0 OP_14 OP_ROLL OP_SUB OP_SWAP 13 OP_PICK OP_MUL OP_SWAP 13 OP_PICK OP_MUL OP_OVER OP_ROT OP_ADD OP_OVER OP_ROT OP_ADD OP_5 OP_ROLL OP_5 OP_ROLL OP_3 OP_ROLL OP_3 OP_ROLL OP_5 OP_ROLL OP_5 OP_ROLL OP_13 OP_ROLL OP_13 OP_ROLL OP_11 OP_ROLL OP_11 OP_ROLL OP_13 OP_ROLL OP_13 OP_ROLL OP_13 OP_ROLL OP_13 OP_ROLL
-        }
+    @method()
+    static modLineFuncRes(l: LineFuncRes): LineFuncRes {
+        l.a = BN256.modFQ2(l.a)
+        l.b = BN256.modFQ2(l.b)
+        l.c = BN256.modFQ2(l.c)
+        l.rOut.x = BN256.modFQ2(l.rOut.x)
+        l.rOut.y = BN256.modFQ2(l.rOut.y)
+        l.rOut.z = BN256.modFQ2(l.rOut.z)
+        l.rOut.t = BN256.modFQ2(l.rOut.t)
+        return l
     }
 
-    static function OLDlineFuncAdd(TwistPoint r, TwistPoint p, CurvePoint q, FQ2 r2) : LineFuncRes {
+    @method()
+    static lineFuncAdd(
+        r: TwistPoint,
+        p: TwistPoint,
+        q: CurvePoint,
+        r2: FQ2
+    ): LineFuncRes {
+        // This will get substituted by optimized ASM code at transpilation stage.
+
         // See the mixed addition algorithm from "Faster Computation of the
         // Tate Pairing", http://arxiv.org/pdf/0904.0854v3.pdf
 
-        FQ2 B = BN256.mulFQ2(p.x, r.t);
-        FQ2 D = BN256.addFQ2(p.y, r.z);
-        D = BN256.squareFQ2(D);
-        D = BN256.subFQ2(D, r2);
-        D = BN256.subFQ2(D, r.t);
-        D = BN256.mulFQ2(D, r.t);
+        const B = BN256.mulFQ2(p.x, r.t)
+        let D = BN256.addFQ2(p.y, r.z)
+        D = BN256.squareFQ2(D)
+        D = BN256.subFQ2(D, r2)
+        D = BN256.subFQ2(D, r.t)
+        D = BN256.mulFQ2(D, r.t)
 
-        FQ2 H = BN256.subFQ2(B, r.x);
-        FQ2 I = BN256.squareFQ2(H);
+        const H = BN256.subFQ2(B, r.x)
+        const I = BN256.squareFQ2(H)
 
-        FQ2 E = BN256.addFQ2(I, I);
-        E = BN256.addFQ2(E, E);
+        let E = BN256.addFQ2(I, I)
+        E = BN256.addFQ2(E, E)
 
-        FQ2 J = BN256.mulFQ2(H, E);
+        const J = BN256.mulFQ2(H, E)
 
-        FQ2 L1 = BN256.subFQ2(D, r.y);
-        L1 = BN256.subFQ2(L1, r.y);
+        let L1 = BN256.subFQ2(D, r.y)
+        L1 = BN256.subFQ2(L1, r.y)
 
-        FQ2 V = BN256.mulFQ2(r.x, E);
+        const V = BN256.mulFQ2(r.x, E)
 
-        FQ2 rOutX = BN256.squareFQ2(L1);
-        rOutX = BN256.subFQ2(rOutX, J);
-        rOutX = BN256.subFQ2(rOutX, V);
-        rOutX = BN256.subFQ2(rOutX, V);
+        let rOutX = BN256.squareFQ2(L1)
+        rOutX = BN256.subFQ2(rOutX, J)
+        rOutX = BN256.subFQ2(rOutX, V)
+        rOutX = BN256.subFQ2(rOutX, V)
 
-        FQ2 rOutZ = BN256.addFQ2(r.z, H);
-        rOutZ = BN256.squareFQ2(rOutZ);
-        rOutZ = BN256.subFQ2(rOutZ, r.t);
-        rOutZ = BN256.subFQ2(rOutZ, I);
+        let rOutZ = BN256.addFQ2(r.z, H)
+        rOutZ = BN256.squareFQ2(rOutZ)
+        rOutZ = BN256.subFQ2(rOutZ, r.t)
+        rOutZ = BN256.subFQ2(rOutZ, I)
 
-        FQ2 t = BN256.subFQ2(V, rOutX);
-        t = BN256.mulFQ2(t, L1);
-        FQ2 t2 = BN256.mulFQ2(r.y, J);
-        t2 = BN256.addFQ2(t2, t2);
-        FQ2 rOutY = BN256.subFQ2(t, t2);
+        let t = BN256.subFQ2(V, rOutX)
+        t = BN256.mulFQ2(t, L1)
+        let t2 = BN256.mulFQ2(r.y, J)
+        t2 = BN256.addFQ2(t2, t2)
+        const rOutY = BN256.subFQ2(t, t2)
 
-        FQ2 rOutT = BN256.squareFQ2(rOutZ);
+        const rOutT = BN256.squareFQ2(rOutZ)
 
-        t = BN256.addFQ2(p.y, rOutZ);
-        t = BN256.squareFQ2(t);
-        t = BN256.subFQ2(t, r2);
-        t = BN256.subFQ2(t, rOutT);
+        t = BN256.addFQ2(p.y, rOutZ)
+        t = BN256.squareFQ2(t)
+        t = BN256.subFQ2(t, r2)
+        t = BN256.subFQ2(t, rOutT)
 
-        t2 = BN256.mulFQ2(L1, p.x);
-        t2 = BN256.addFQ2(t2, t2);
-        FQ2 a = BN256.subFQ2(t2, t);
+        t2 = BN256.mulFQ2(L1, p.x)
+        t2 = BN256.addFQ2(t2, t2)
+        const a = BN256.subFQ2(t2, t)
 
-        FQ2 c = BN256.mulScalarFQ2(rOutZ, q.y);
-        c = BN256.addFQ2(c, c);
+        let c = BN256.mulScalarFQ2(rOutZ, q.y)
+        c = BN256.addFQ2(c, c)
 
-        FQ2 b = BN256.subFQ2(BN256.FQ2Zero, L1);
-        b = BN256.mulScalarFQ2(b, q.x);
-        b = BN256.addFQ2(b, b);
+        let b = BN256.subFQ2(BN256.FQ2Zero, L1)
+        b = BN256.mulScalarFQ2(b, q.x)
+        b = BN256.addFQ2(b, b)
 
-        TwistPoint rOut = {
-            rOutX, rOutY, rOutZ, rOutT
-        };
+        const rOut: TwistPoint = {
+            x: rOutX,
+            y: rOutY,
+            z: rOutZ,
+            t: rOutT,
+        }
 
-        return {a, b, c, rOut};
-    }
-
-    static function lineFuncDouble(TwistPoint r, CurvePoint q) : LineFuncRes {
-        asm {
-OP_11 OP_PICK OP_11 OP_PICK OP_DUP OP_2 OP_PICK OP_SUB OP_2 OP_PICK OP_2 OP_PICK OP_ADD OP_2 OP_4 OP_ROLL OP_4 OP_ROLL OP_MUL OP_MUL OP_SWAP OP_ROT OP_MUL OP_11 OP_PICK OP_11 OP_PICK OP_DUP OP_2 OP_PICK OP_SUB OP_2 OP_PICK OP_2 OP_PICK OP_ADD OP_2 OP_4 OP_ROLL OP_4 OP_ROLL OP_MUL OP_MUL OP_SWAP OP_ROT OP_MUL OP_2DUP OP_DUP OP_2 OP_PICK OP_SUB OP_2 OP_PICK OP_2 OP_PICK OP_ADD OP_2 OP_4 OP_ROLL OP_4 OP_ROLL OP_MUL OP_MUL OP_SWAP OP_ROT OP_MUL 11 OP_PICK OP_4 OP_PICK OP_ADD 11 OP_PICK OP_4 OP_PICK OP_ADD OP_DUP OP_2 OP_PICK OP_SUB OP_2 OP_PICK OP_2 OP_PICK OP_ADD OP_2 OP_4 OP_ROLL OP_4 OP_ROLL OP_MUL OP_MUL OP_SWAP OP_ROT OP_MUL OP_SWAP OP_7 OP_PICK OP_SUB OP_SWAP OP_6 OP_PICK OP_SUB OP_SWAP OP_3 OP_PICK OP_SUB OP_SWAP OP_2 OP_PICK OP_SUB OP_OVER OP_ROT OP_ADD OP_OVER OP_ROT OP_ADD OP_7 OP_PICK OP_8 OP_PICK OP_ADD OP_7 OP_PICK OP_8 OP_PICK OP_ADD OP_SWAP OP_9 OP_PICK OP_ADD OP_SWAP OP_8 OP_PICK OP_ADD OP_2DUP OP_DUP OP_2 OP_PICK OP_SUB OP_2 OP_PICK OP_2 OP_PICK OP_ADD OP_2 OP_4 OP_ROLL OP_4 OP_ROLL OP_MUL OP_MUL OP_SWAP OP_ROT OP_MUL OP_OVER OP_6 OP_PICK OP_SUB OP_OVER OP_6 OP_PICK OP_SUB OP_SWAP OP_7 OP_PICK OP_SUB OP_SWAP OP_6 OP_PICK OP_SUB 17 OP_PICK 16 OP_PICK OP_ADD 17 OP_PICK 16 OP_PICK OP_ADD OP_DUP OP_2 OP_PICK OP_SUB OP_2 OP_PICK OP_2 OP_PICK OP_ADD OP_2 OP_4 OP_ROLL OP_4 OP_ROLL OP_MUL OP_MUL OP_SWAP OP_ROT OP_MUL OP_SWAP OP_13 OP_PICK OP_SUB OP_SWAP OP_12 OP_PICK OP_SUB OP_SWAP 15 OP_PICK OP_SUB OP_SWAP 14 OP_PICK OP_SUB OP_9 OP_ROLL OP_4 OP_PICK OP_SUB OP_9 OP_ROLL OP_4 OP_PICK OP_SUB OP_8 OP_PICK OP_10 OP_PICK OP_3 OP_ROLL OP_DUP OP_3 OP_PICK OP_MUL OP_2 OP_PICK OP_5 OP_PICK OP_MUL OP_ADD OP_SWAP OP_ROT OP_MUL OP_3 OP_ROLL OP_3 OP_ROLL OP_MUL OP_SWAP OP_SUB OP_11 OP_PICK OP_12 OP_ROLL OP_ADD OP_11 OP_PICK OP_12 OP_ROLL OP_ADD OP_OVER OP_ROT OP_ADD OP_OVER OP_ROT OP_ADD OP_OVER OP_ROT OP_ADD OP_OVER OP_ROT OP_ADD OP_3 OP_ROLL OP_ROT OP_SUB OP_ROT OP_ROT OP_SUB OP_3 OP_PICK OP_3 OP_PICK OP_DUP OP_2 OP_PICK OP_SUB OP_2 OP_PICK OP_2 OP_PICK OP_ADD OP_2 OP_4 OP_ROLL OP_4 OP_ROLL OP_MUL OP_MUL OP_SWAP OP_ROT OP_MUL OP_10 OP_PICK 15 OP_PICK 17 OP_PICK OP_14 OP_PICK OP_DUP OP_3 OP_PICK OP_MUL OP_2 OP_PICK OP_5 OP_PICK OP_MUL OP_ADD OP_SWAP OP_ROT OP_MUL OP_3 OP_ROLL OP_3 OP_ROLL OP_MUL OP_SWAP OP_SUB OP_OVER OP_ROT OP_ADD OP_OVER OP_ROT OP_ADD OP_0 OP_ROT OP_SUB OP_0 OP_ROT OP_SUB OP_SWAP 15 OP_PICK OP_MUL OP_SWAP 15 OP_PICK OP_MUL 1d OP_PICK OP_14 OP_ROLL OP_ADD 1c OP_PICK OP_14 OP_ROLL OP_ADD OP_DUP OP_2 OP_PICK OP_SUB OP_2 OP_PICK OP_2 OP_PICK OP_ADD OP_2 OP_4 OP_ROLL OP_4 OP_ROLL OP_MUL OP_MUL OP_SWAP OP_ROT OP_MUL OP_SWAP 11 OP_ROLL OP_SUB OP_SWAP OP_16 OP_ROLL OP_SUB OP_SWAP OP_13 OP_ROLL OP_SUB OP_SWAP OP_12 OP_ROLL OP_SUB OP_13 OP_PICK OP_14 OP_ROLL OP_ADD OP_13 OP_PICK OP_14 OP_ROLL OP_ADD OP_OVER OP_ROT OP_ADD OP_OVER OP_ROT OP_ADD OP_3 OP_ROLL OP_ROT OP_SUB OP_ROT OP_ROT OP_SUB OP_9 OP_PICK 11 OP_PICK OP_MUL 12 OP_PICK OP_10 OP_PICK OP_MUL OP_ADD OP_9 OP_PICK 12 OP_PICK OP_MUL OP_11 OP_PICK 14 OP_PICK OP_MUL OP_SUB OP_OVER OP_ROT OP_ADD OP_OVER OP_ROT OP_ADD OP_SWAP OP_16 OP_PICK OP_MUL OP_SWAP OP_16 OP_PICK OP_MUL OP_3 OP_ROLL OP_3 OP_ROLL OP_5 OP_ROLL OP_5 OP_ROLL OP_5 OP_ROLL OP_5 OP_ROLL OP_13 OP_ROLL OP_13 OP_ROLL OP_11 OP_ROLL OP_11 OP_ROLL OP_13 OP_ROLL OP_13 OP_ROLL OP_13 OP_ROLL OP_13 OP_ROLL
+        return {
+            a: a,
+            b: b,
+            c: c,
+            rOut: rOut,
         }
     }
 
-    static function OLDlineFuncDouble(TwistPoint r, CurvePoint q) : LineFuncRes {
+    @method()
+    static lineFuncDouble(r: TwistPoint, q: CurvePoint): LineFuncRes {
         // See the doubling algorithm for a=0 from "Faster Computation of the
         // Tate Pairing", http://arxiv.org/pdf/0904.0854v3.pdf
 
-        FQ2 A = BN256.squareFQ2(r.x);
-        FQ2 B = BN256.squareFQ2(r.y);
-        FQ2 C = BN256.squareFQ2(B);
+        const A = BN256.squareFQ2(r.x)
+        const B = BN256.squareFQ2(r.y)
+        const C = BN256.squareFQ2(B)
 
-        FQ2 D = BN256.addFQ2(r.x, B);
-        D = BN256.squareFQ2(D);
-        D = BN256.subFQ2(D, A);
-        D = BN256.subFQ2(D, C);
-        D = BN256.addFQ2(D, D);
+        let D = BN256.addFQ2(r.x, B)
+        D = BN256.squareFQ2(D)
+        D = BN256.subFQ2(D, A)
+        D = BN256.subFQ2(D, C)
+        D = BN256.addFQ2(D, D)
 
-        FQ2 E = BN256.addFQ2(A, A);
-        E = BN256.addFQ2(E, A);
+        let E = BN256.addFQ2(A, A)
+        E = BN256.addFQ2(E, A)
 
-        FQ2 G = BN256.squareFQ2(E);
+        const G = BN256.squareFQ2(E)
 
-        FQ2 rOutX = BN256.subFQ2(G, D);
-        rOutX = BN256.subFQ2(rOutX, D);
+        let rOutX = BN256.subFQ2(G, D)
+        rOutX = BN256.subFQ2(rOutX, D)
 
-        FQ2 rOutZ = BN256.addFQ2(r.y, r.z);
-        rOutZ = BN256.squareFQ2(rOutZ);
-        rOutZ = BN256.subFQ2(rOutZ, B);
-        rOutZ = BN256.subFQ2(rOutZ, r.t);
+        let rOutZ = BN256.addFQ2(r.y, r.z)
+        rOutZ = BN256.squareFQ2(rOutZ)
+        rOutZ = BN256.subFQ2(rOutZ, B)
+        rOutZ = BN256.subFQ2(rOutZ, r.t)
 
-        FQ2 rOutY = BN256.subFQ2(D, rOutX);
-        rOutY = BN256.mulFQ2(rOutY, E);
-        FQ2 t = BN256.addFQ2(C, C);
-        t = BN256.addFQ2(t, t);
-        t = BN256.addFQ2(t, t);
-        rOutY = BN256.subFQ2(rOutY, t);
+        let rOutY = BN256.subFQ2(D, rOutX)
+        rOutY = BN256.mulFQ2(rOutY, E)
+        let t = BN256.addFQ2(C, C)
+        t = BN256.addFQ2(t, t)
+        t = BN256.addFQ2(t, t)
+        rOutY = BN256.subFQ2(rOutY, t)
 
-        FQ2 rOutT = BN256.squareFQ2(rOutZ);
+        const rOutT = BN256.squareFQ2(rOutZ)
 
-        t = BN256.mulFQ2(E, r.t);
-        t = BN256.addFQ2(t, t);
-        FQ2 b = BN256.subFQ2(BN256.FQ2Zero, t);
-        b = BN256.mulScalarFQ2(b, q.x);
+        t = BN256.mulFQ2(E, r.t)
+        t = BN256.addFQ2(t, t)
+        let b = BN256.subFQ2(BN256.FQ2Zero, t)
+        b = BN256.mulScalarFQ2(b, q.x)
 
-        FQ2 a = BN256.addFQ2(r.x, E);
-        a = BN256.squareFQ2(a);
-        a = BN256.subFQ2(a, A);
-        a = BN256.subFQ2(a, G);
-        t = BN256.addFQ2(B, B);
-        t = BN256.addFQ2(t, t);
-        a = BN256.subFQ2(a, t);
+        let a = BN256.addFQ2(r.x, E)
+        a = BN256.squareFQ2(a)
+        a = BN256.subFQ2(a, A)
+        a = BN256.subFQ2(a, G)
+        t = BN256.addFQ2(B, B)
+        t = BN256.addFQ2(t, t)
+        a = BN256.subFQ2(a, t)
 
-        FQ2 c = BN256.mulFQ2(rOutZ, r.t);
-        c = BN256.addFQ2(c, c);
-        c = BN256.mulScalarFQ2(c, q.y);
+        let c = BN256.mulFQ2(rOutZ, r.t)
+        c = BN256.addFQ2(c, c)
+        c = BN256.mulScalarFQ2(c, q.y)
 
-        TwistPoint rOut = {
-            rOutX, rOutY, rOutZ, rOutT
-        };
+        const rOut: TwistPoint = {
+            x: rOutX,
+            y: rOutY,
+            z: rOutZ,
+            t: rOutT,
+        }
 
-        return {a, b, c, rOut};
-    }
-
-    static function mulLine(FQ12 ret, FQ2 a, FQ2 b, FQ2 c) : FQ12 {
-        asm {
-OP_3 OP_PICK 11 OP_PICK OP_MUL 12 OP_PICK OP_4 OP_PICK OP_MUL OP_ADD OP_3 OP_PICK 12 OP_PICK OP_MUL OP_5 OP_PICK 14 OP_PICK OP_MUL OP_SUB OP_7 OP_PICK 11 OP_PICK OP_MUL 12 OP_PICK OP_8 OP_PICK OP_MUL OP_ADD OP_7 OP_PICK 12 OP_PICK OP_MUL OP_9 OP_PICK 14 OP_PICK OP_MUL OP_SUB OP_3 OP_ROLL OP_ROT OP_ADD OP_ROT OP_ROT OP_ADD OP_4 OP_PICK 11 OP_PICK 13 OP_PICK OP_8 OP_PICK OP_DUP OP_3 OP_PICK OP_MUL OP_2 OP_PICK OP_5 OP_PICK OP_MUL OP_ADD OP_SWAP OP_ROT OP_MUL OP_3 OP_ROLL OP_3 OP_ROLL OP_MUL OP_SWAP OP_SUB OP_9 OP_PICK 11 OP_PICK OP_MUL 12 OP_PICK OP_10 OP_PICK OP_MUL OP_ADD OP_9 OP_PICK 12 OP_PICK OP_MUL OP_11 OP_PICK 14 OP_PICK OP_MUL OP_SUB OP_3 OP_ROLL OP_ROT OP_ADD OP_ROT OP_ROT OP_ADD OP_6 OP_PICK 11 OP_PICK 13 OP_PICK OP_10 OP_PICK OP_DUP OP_3 OP_PICK OP_MUL OP_2 OP_PICK OP_5 OP_PICK OP_MUL OP_ADD OP_SWAP OP_ROT OP_MUL OP_3 OP_ROLL OP_3 OP_ROLL OP_MUL OP_SWAP OP_SUB OP_10 OP_PICK 17 OP_PICK 19 OP_PICK OP_14 OP_PICK OP_DUP OP_3 OP_PICK OP_MUL OP_2 OP_PICK OP_5 OP_PICK OP_MUL OP_ADD OP_SWAP OP_ROT OP_MUL OP_3 OP_ROLL OP_3 OP_ROLL OP_MUL OP_SWAP OP_SUB OP_OVER OP_9 OP_MUL OP_OVER OP_ADD OP_9 OP_ROT OP_MUL OP_ROT OP_SUB OP_3 OP_ROLL OP_ROT OP_ADD OP_ROT OP_ROT OP_ADD 11 OP_PICK OP_7 OP_PICK OP_MUL OP_8 OP_PICK 12 OP_PICK OP_MUL OP_ADD 11 OP_PICK OP_8 OP_PICK OP_MUL 13 OP_PICK OP_10 OP_PICK OP_MUL OP_SUB 11 OP_PICK OP_9 OP_PICK OP_MUL OP_10 OP_PICK 12 OP_PICK OP_MUL OP_ADD 11 OP_PICK OP_10 OP_PICK OP_MUL 13 OP_PICK OP_12 OP_PICK OP_MUL OP_SUB 11 OP_PICK OP_11 OP_PICK OP_MUL OP_12 OP_PICK 12 OP_PICK OP_MUL OP_ADD 11 OP_PICK OP_12 OP_PICK OP_MUL 13 OP_PICK OP_14 OP_PICK OP_MUL OP_SUB OP_15 OP_PICK OP_14 OP_PICK OP_ADD OP_15 OP_PICK OP_14 OP_PICK OP_ADD 1f OP_PICK 1a OP_PICK OP_ADD 1f OP_PICK 1a OP_PICK OP_ADD 1f OP_PICK 1a OP_PICK OP_ADD 1f OP_PICK 1a OP_PICK OP_ADD 1f OP_PICK 1a OP_PICK OP_ADD 1f OP_PICK 1a OP_PICK OP_ADD OP_7 OP_PICK OP_5 OP_PICK OP_MUL OP_6 OP_PICK OP_8 OP_PICK OP_MUL OP_ADD OP_7 OP_PICK OP_6 OP_PICK OP_MUL OP_9 OP_PICK OP_8 OP_PICK OP_MUL OP_SUB 1b OP_PICK OP_5 OP_PICK OP_MUL OP_6 OP_PICK 1c OP_PICK OP_MUL OP_ADD 1b OP_PICK OP_6 OP_PICK OP_MUL 1d OP_PICK OP_8 OP_PICK OP_MUL OP_SUB OP_3 OP_ROLL OP_ROT OP_ADD OP_ROT OP_ROT OP_ADD OP_8 OP_PICK OP_5 OP_ROLL OP_6 OP_ROLL OP_10 OP_PICK OP_DUP OP_3 OP_PICK OP_MUL OP_2 OP_PICK OP_5 OP_PICK OP_MUL OP_ADD OP_SWAP OP_ROT OP_MUL OP_3 OP_ROLL OP_3 OP_ROLL OP_MUL OP_SWAP OP_SUB 1b OP_PICK OP_5 OP_PICK OP_MUL OP_6 OP_PICK 1c OP_PICK OP_MUL OP_ADD 1b OP_PICK OP_6 OP_PICK OP_MUL 1d OP_PICK OP_8 OP_PICK OP_MUL OP_SUB OP_3 OP_ROLL OP_ROT OP_ADD OP_ROT OP_ROT OP_ADD OP_8 OP_ROLL OP_5 OP_ROLL OP_6 OP_ROLL OP_9 OP_ROLL OP_DUP OP_3 OP_PICK OP_MUL OP_2 OP_PICK OP_5 OP_PICK OP_MUL OP_ADD OP_SWAP OP_ROT OP_MUL OP_3 OP_ROLL OP_3 OP_ROLL OP_MUL OP_SWAP OP_SUB 18 OP_PICK OP_7 OP_ROLL OP_8 OP_ROLL 1a OP_PICK OP_DUP OP_3 OP_PICK OP_MUL OP_2 OP_PICK OP_5 OP_PICK OP_MUL OP_ADD OP_SWAP OP_ROT OP_MUL OP_3 OP_ROLL OP_3 OP_ROLL OP_MUL OP_SWAP OP_SUB OP_OVER OP_9 OP_MUL OP_OVER OP_ADD OP_9 OP_ROT OP_MUL OP_ROT OP_SUB OP_3 OP_ROLL OP_ROT OP_ADD OP_ROT OP_ROT OP_ADD OP_5 OP_ROLL 11 OP_PICK OP_SUB OP_5 OP_ROLL OP_16 OP_PICK OP_SUB OP_5 OP_ROLL OP_15 OP_PICK OP_SUB OP_5 OP_ROLL OP_14 OP_PICK OP_SUB OP_5 OP_ROLL OP_13 OP_PICK OP_SUB OP_5 OP_ROLL OP_12 OP_PICK OP_SUB OP_5 OP_ROLL OP_11 OP_PICK OP_SUB OP_5 OP_ROLL OP_10 OP_PICK OP_SUB OP_5 OP_ROLL OP_9 OP_PICK OP_SUB OP_5 OP_ROLL OP_8 OP_PICK OP_SUB OP_5 OP_ROLL OP_7 OP_PICK OP_SUB OP_5 OP_ROLL OP_6 OP_PICK OP_SUB OP_15 OP_ROLL OP_15 OP_ROLL OP_15 OP_ROLL OP_15 OP_ROLL 11 OP_ROLL 11 OP_ROLL OP_OVER OP_9 OP_MUL OP_OVER OP_ADD OP_9 OP_ROT OP_MUL OP_ROT OP_SUB 11 OP_ROLL OP_6 OP_ROLL OP_ADD OP_16 OP_ROLL OP_6 OP_ROLL OP_ADD OP_15 OP_ROLL OP_6 OP_ROLL OP_ADD OP_14 OP_ROLL OP_6 OP_ROLL OP_ADD OP_13 OP_ROLL OP_6 OP_ROLL OP_ADD OP_12 OP_ROLL OP_6 OP_ROLL OP_ADD
+        return {
+            a: a,
+            b: b,
+            c: c,
+            rOut: rOut,
         }
     }
 
-    static function OLDmulLine(FQ12 ret, FQ2 a, FQ2 b, FQ2 c) : FQ12 {
-        FQ6 a2 = {BN256.FQ2Zero, a, b};
-        a2 = BN256.mulFQ6(a2, ret.x);
-        FQ6 t3 = BN256.mulScalarFQ6(ret.y, c);
+    @method()
+    static mulLine(ret: FQ12, a: FQ2, b: FQ2, c: FQ2): FQ12 {
+        let a2: FQ6 = {
+            x: BN256.FQ2Zero,
+            y: a,
+            z: b,
+        }
+        a2 = BN256.mulFQ6(a2, ret.x)
+        const t3 = BN256.mulScalarFQ6(ret.y, c)
 
-        FQ2 t = BN256.addFQ2(b, c);
-        FQ6 t2 = {BN256.FQ2Zero, a, t};
+        const t = BN256.addFQ2(b, c)
+        const t2: FQ6 = {
+            x: BN256.FQ2Zero,
+            y: a,
+            z: t,
+        }
 
-        FQ6 resX = BN256.addFQ6(ret.x, ret.y);
-        FQ6 resY = t3;
+        let resX = BN256.addFQ6(ret.x, ret.y)
+        let resY = t3
 
-        resX = BN256.mulFQ6(resX, t2);
-        resX = BN256.subFQ6(resX, a2);
-        resX = BN256.subFQ6(resX, resY);
-        a2 = BN256.mulTauFQ6(a2);
-        resY = BN256.addFQ6(resY, a2);
+        resX = BN256.mulFQ6(resX, t2)
+        resX = BN256.subFQ6(resX, a2)
+        resX = BN256.subFQ6(resX, resY)
+        a2 = BN256.mulTauFQ6(a2)
+        resY = BN256.addFQ6(resY, a2)
 
-        return {resX, resY};
+        return {
+            x: resX,
+            y: resY,
+        }
     }
 
-    static function miller(TwistPoint q, CurvePoint p) : FQ12 {
-        FQ12 ret = BN256.FQ12One;
+    @method()
+    static miller(q: TwistPoint, p: CurvePoint): FQ12 {
+        let ret = BN256.FQ12One
 
-        TwistPoint aAffine = BN256.makeAffineTwistPoint(q);
-        CurvePoint bAffine = BN256.makeAffineCurvePoint(p);
+        const aAffine = BN256.makeAffineTwistPoint(q)
+        const bAffine = BN256.makeAffineCurvePoint(p)
 
-        TwistPoint minusA = BN256.negTwistPoint(aAffine);
+        const minusA = BN256.negTwistPoint(aAffine)
 
-        TwistPoint r = aAffine;
+        let r = aAffine
 
-        FQ2 r2 = BN256.squareFQ2(aAffine.y);
+        let r2 = BN256.squareFQ2(aAffine.y)
 
         // sixuPlus2NAF is 6u+2 in non-adjacent form.
         // Unrolled loop to get rid of in-loop branching. Reference impl.:
@@ -1325,490 +1693,490 @@ OP_3 OP_PICK 11 OP_PICK OP_MUL 12 OP_PICK OP_4 OP_PICK OP_MUL OP_ADD OP_3 OP_PIC
         //                           0, 1, 1, 0, -1, 0, 0, 1, 0, -1, 0, 0, 0, 0, 1, 1,
         //                           1, 0, 0, -1, 0, 0, 1, 0, 0, 0, 0, 0, -1, 0, 0, 1,
         //                           1, 0, 0, -1, 0, 0, 0, 1, 1, 0, -1, 0, 0, 1, 0, 1, 1}
-        
-        //---- 1
-        LineFuncRes lfr = lineFuncDouble(r, bAffine);
-        ret = mulLine(ret, lfr.a, lfr.b, lfr.c);
-        r = lfr.rOut;
 
-        lfr = lineFuncAdd(r, aAffine, bAffine, r2);
-        ret = mulLine(ret, lfr.a, lfr.b, lfr.c);
-        r = lfr.rOut;
-        //---- 0
-        r = BN256.modTwistPoint(r);
-        ret = BN256.modFQ12(ret);
-        lfr = lineFuncDouble(r, bAffine);
-        ret = BN256.squareFQ12(ret);
-        ret = mulLine(ret, lfr.a, lfr.b, lfr.c);
-        r = lfr.rOut;
         //---- 1
-        lfr = lineFuncDouble(r, bAffine);
-        ret = BN256.squareFQ12(ret);
-        ret = mulLine(ret, lfr.a, lfr.b, lfr.c);
-        r = lfr.rOut;
+        let lfr = BN256Pairing.lineFuncDouble(r, bAffine)
+        ret = BN256Pairing.mulLine(ret, lfr.a, lfr.b, lfr.c)
+        r = lfr.rOut
 
-        lfr = lineFuncAdd(r, aAffine, bAffine, r2);
-        ret = mulLine(ret, lfr.a, lfr.b, lfr.c);
-        r = lfr.rOut;
+        lfr = BN256Pairing.lineFuncAdd(r, aAffine, bAffine, r2)
+        ret = BN256Pairing.mulLine(ret, lfr.a, lfr.b, lfr.c)
+        r = lfr.rOut
         //---- 0
-        r = BN256.modTwistPoint(r);
-        ret = BN256.modFQ12(ret);
-        lfr = lineFuncDouble(r, bAffine);
-        ret = BN256.squareFQ12(ret);
-        ret = mulLine(ret, lfr.a, lfr.b, lfr.c);
-        r = lfr.rOut;
+        r = BN256.modTwistPoint(r)
+        ret = BN256.modFQ12(ret)
+        lfr = BN256Pairing.lineFuncDouble(r, bAffine)
+        ret = BN256.squareFQ12(ret)
+        ret = BN256Pairing.mulLine(ret, lfr.a, lfr.b, lfr.c)
+        r = lfr.rOut
+        //---- 1
+        lfr = BN256Pairing.lineFuncDouble(r, bAffine)
+        ret = BN256.squareFQ12(ret)
+        ret = BN256Pairing.mulLine(ret, lfr.a, lfr.b, lfr.c)
+        r = lfr.rOut
+
+        lfr = BN256Pairing.lineFuncAdd(r, aAffine, bAffine, r2)
+        ret = BN256Pairing.mulLine(ret, lfr.a, lfr.b, lfr.c)
+        r = lfr.rOut
         //---- 0
-        lfr = lineFuncDouble(r, bAffine);
-        ret = BN256.squareFQ12(ret);
-        ret = mulLine(ret, lfr.a, lfr.b, lfr.c);
-        r = lfr.rOut;
+        r = BN256.modTwistPoint(r)
+        ret = BN256.modFQ12(ret)
+        lfr = BN256Pairing.lineFuncDouble(r, bAffine)
+        ret = BN256.squareFQ12(ret)
+        ret = BN256Pairing.mulLine(ret, lfr.a, lfr.b, lfr.c)
+        r = lfr.rOut
+        //---- 0
+        lfr = BN256Pairing.lineFuncDouble(r, bAffine)
+        ret = BN256.squareFQ12(ret)
+        ret = BN256Pairing.mulLine(ret, lfr.a, lfr.b, lfr.c)
+        r = lfr.rOut
         //---- -1
-        r = BN256.modTwistPoint(r);
-        ret = BN256.modFQ12(ret);
-        lfr = lineFuncDouble(r, bAffine);
-        ret = BN256.squareFQ12(ret);
-        ret = mulLine(ret, lfr.a, lfr.b, lfr.c);
-        r = lfr.rOut;
+        r = BN256.modTwistPoint(r)
+        ret = BN256.modFQ12(ret)
+        lfr = BN256Pairing.lineFuncDouble(r, bAffine)
+        ret = BN256.squareFQ12(ret)
+        ret = BN256Pairing.mulLine(ret, lfr.a, lfr.b, lfr.c)
+        r = lfr.rOut
 
-        lfr = lineFuncAdd(r, minusA, bAffine, r2);
-        ret = mulLine(ret, lfr.a, lfr.b, lfr.c);
-        r = lfr.rOut;
+        lfr = BN256Pairing.lineFuncAdd(r, minusA, bAffine, r2)
+        ret = BN256Pairing.mulLine(ret, lfr.a, lfr.b, lfr.c)
+        r = lfr.rOut
         //---- 0
-        lfr = lineFuncDouble(r, bAffine);
-        ret = BN256.squareFQ12(ret);
-        ret = mulLine(ret, lfr.a, lfr.b, lfr.c);
-        r = lfr.rOut;
+        lfr = BN256Pairing.lineFuncDouble(r, bAffine)
+        ret = BN256.squareFQ12(ret)
+        ret = BN256Pairing.mulLine(ret, lfr.a, lfr.b, lfr.c)
+        r = lfr.rOut
         //---- 1
-        r = BN256.modTwistPoint(r);
-        ret = BN256.modFQ12(ret);
-        lfr = lineFuncDouble(r, bAffine);
-        ret = BN256.squareFQ12(ret);
-        ret = mulLine(ret, lfr.a, lfr.b, lfr.c);
-        r = lfr.rOut;
+        r = BN256.modTwistPoint(r)
+        ret = BN256.modFQ12(ret)
+        lfr = BN256Pairing.lineFuncDouble(r, bAffine)
+        ret = BN256.squareFQ12(ret)
+        ret = BN256Pairing.mulLine(ret, lfr.a, lfr.b, lfr.c)
+        r = lfr.rOut
 
-        lfr = lineFuncAdd(r, aAffine, bAffine, r2);
-        ret = mulLine(ret, lfr.a, lfr.b, lfr.c);
-        r = lfr.rOut;
+        lfr = BN256Pairing.lineFuncAdd(r, aAffine, bAffine, r2)
+        ret = BN256Pairing.mulLine(ret, lfr.a, lfr.b, lfr.c)
+        r = lfr.rOut
         //---- 1
-        lfr = lineFuncDouble(r, bAffine);
-        ret = BN256.squareFQ12(ret);
-        ret = mulLine(ret, lfr.a, lfr.b, lfr.c);
-        r = lfr.rOut;
+        lfr = BN256Pairing.lineFuncDouble(r, bAffine)
+        ret = BN256.squareFQ12(ret)
+        ret = BN256Pairing.mulLine(ret, lfr.a, lfr.b, lfr.c)
+        r = lfr.rOut
 
-        lfr = lineFuncAdd(r, aAffine, bAffine, r2);
-        ret = mulLine(ret, lfr.a, lfr.b, lfr.c);
-        r = lfr.rOut;
+        lfr = BN256Pairing.lineFuncAdd(r, aAffine, bAffine, r2)
+        ret = BN256Pairing.mulLine(ret, lfr.a, lfr.b, lfr.c)
+        r = lfr.rOut
         //---- 0
-        r = BN256.modTwistPoint(r);
-        ret = BN256.modFQ12(ret);
-        lfr = lineFuncDouble(r, bAffine);
-        ret = BN256.squareFQ12(ret);
-        ret = mulLine(ret, lfr.a, lfr.b, lfr.c);
-        r = lfr.rOut;
+        r = BN256.modTwistPoint(r)
+        ret = BN256.modFQ12(ret)
+        lfr = BN256Pairing.lineFuncDouble(r, bAffine)
+        ret = BN256.squareFQ12(ret)
+        ret = BN256Pairing.mulLine(ret, lfr.a, lfr.b, lfr.c)
+        r = lfr.rOut
         //---- 0
-        lfr = lineFuncDouble(r, bAffine);
-        ret = BN256.squareFQ12(ret);
-        ret = mulLine(ret, lfr.a, lfr.b, lfr.c);
-        r = lfr.rOut;
+        lfr = BN256Pairing.lineFuncDouble(r, bAffine)
+        ret = BN256.squareFQ12(ret)
+        ret = BN256Pairing.mulLine(ret, lfr.a, lfr.b, lfr.c)
+        r = lfr.rOut
         //---- 0
-        r = BN256.modTwistPoint(r);
-        ret = BN256.modFQ12(ret);
-        lfr = lineFuncDouble(r, bAffine);
-        ret = BN256.squareFQ12(ret);
-        ret = mulLine(ret, lfr.a, lfr.b, lfr.c);
-        r = lfr.rOut;
+        r = BN256.modTwistPoint(r)
+        ret = BN256.modFQ12(ret)
+        lfr = BN256Pairing.lineFuncDouble(r, bAffine)
+        ret = BN256.squareFQ12(ret)
+        ret = BN256Pairing.mulLine(ret, lfr.a, lfr.b, lfr.c)
+        r = lfr.rOut
         //---- -1
-        lfr = lineFuncDouble(r, bAffine);
-        ret = BN256.squareFQ12(ret);
-        ret = mulLine(ret, lfr.a, lfr.b, lfr.c);
-        r = lfr.rOut;
+        lfr = BN256Pairing.lineFuncDouble(r, bAffine)
+        ret = BN256.squareFQ12(ret)
+        ret = BN256Pairing.mulLine(ret, lfr.a, lfr.b, lfr.c)
+        r = lfr.rOut
 
-        lfr = lineFuncAdd(r, minusA, bAffine, r2);
-        ret = mulLine(ret, lfr.a, lfr.b, lfr.c);
-        r = lfr.rOut;
+        lfr = BN256Pairing.lineFuncAdd(r, minusA, bAffine, r2)
+        ret = BN256Pairing.mulLine(ret, lfr.a, lfr.b, lfr.c)
+        r = lfr.rOut
         //---- 0
-        r = BN256.modTwistPoint(r);
-        ret = BN256.modFQ12(ret);
-        lfr = lineFuncDouble(r, bAffine);
-        ret = BN256.squareFQ12(ret);
-        ret = mulLine(ret, lfr.a, lfr.b, lfr.c);
-        r = lfr.rOut;
+        r = BN256.modTwistPoint(r)
+        ret = BN256.modFQ12(ret)
+        lfr = BN256Pairing.lineFuncDouble(r, bAffine)
+        ret = BN256.squareFQ12(ret)
+        ret = BN256Pairing.mulLine(ret, lfr.a, lfr.b, lfr.c)
+        r = lfr.rOut
         //---- 0
-        lfr = lineFuncDouble(r, bAffine);
-        ret = BN256.squareFQ12(ret);
-        ret = mulLine(ret, lfr.a, lfr.b, lfr.c);
-        r = lfr.rOut;
+        lfr = BN256Pairing.lineFuncDouble(r, bAffine)
+        ret = BN256.squareFQ12(ret)
+        ret = BN256Pairing.mulLine(ret, lfr.a, lfr.b, lfr.c)
+        r = lfr.rOut
         //---- 1
-        r = BN256.modTwistPoint(r);
-        ret = BN256.modFQ12(ret);
-        lfr = lineFuncDouble(r, bAffine);
-        ret = BN256.squareFQ12(ret);
-        ret = mulLine(ret, lfr.a, lfr.b, lfr.c);
-        r = lfr.rOut;
+        r = BN256.modTwistPoint(r)
+        ret = BN256.modFQ12(ret)
+        lfr = BN256Pairing.lineFuncDouble(r, bAffine)
+        ret = BN256.squareFQ12(ret)
+        ret = BN256Pairing.mulLine(ret, lfr.a, lfr.b, lfr.c)
+        r = lfr.rOut
 
-        lfr = lineFuncAdd(r, aAffine, bAffine, r2);
-        ret = mulLine(ret, lfr.a, lfr.b, lfr.c);
-        r = lfr.rOut;
+        lfr = BN256Pairing.lineFuncAdd(r, aAffine, bAffine, r2)
+        ret = BN256Pairing.mulLine(ret, lfr.a, lfr.b, lfr.c)
+        r = lfr.rOut
         //---- 1
-        lfr = lineFuncDouble(r, bAffine);
-        ret = BN256.squareFQ12(ret);
-        ret = mulLine(ret, lfr.a, lfr.b, lfr.c);
-        r = lfr.rOut;
+        lfr = BN256Pairing.lineFuncDouble(r, bAffine)
+        ret = BN256.squareFQ12(ret)
+        ret = BN256Pairing.mulLine(ret, lfr.a, lfr.b, lfr.c)
+        r = lfr.rOut
 
-        lfr = lineFuncAdd(r, aAffine, bAffine, r2);
-        ret = mulLine(ret, lfr.a, lfr.b, lfr.c);
-        r = lfr.rOut;
+        lfr = BN256Pairing.lineFuncAdd(r, aAffine, bAffine, r2)
+        ret = BN256Pairing.mulLine(ret, lfr.a, lfr.b, lfr.c)
+        r = lfr.rOut
         //---- 0
-        r = BN256.modTwistPoint(r);
-        ret = BN256.modFQ12(ret);
-        lfr = lineFuncDouble(r, bAffine);
-        ret = BN256.squareFQ12(ret);
-        ret = mulLine(ret, lfr.a, lfr.b, lfr.c);
-        r = lfr.rOut;
+        r = BN256.modTwistPoint(r)
+        ret = BN256.modFQ12(ret)
+        lfr = BN256Pairing.lineFuncDouble(r, bAffine)
+        ret = BN256.squareFQ12(ret)
+        ret = BN256Pairing.mulLine(ret, lfr.a, lfr.b, lfr.c)
+        r = lfr.rOut
         //---- 0
-        lfr = lineFuncDouble(r, bAffine);
-        ret = BN256.squareFQ12(ret);
-        ret = mulLine(ret, lfr.a, lfr.b, lfr.c);
-        r = lfr.rOut;
+        lfr = BN256Pairing.lineFuncDouble(r, bAffine)
+        ret = BN256.squareFQ12(ret)
+        ret = BN256Pairing.mulLine(ret, lfr.a, lfr.b, lfr.c)
+        r = lfr.rOut
         //---- -1
-        r = BN256.modTwistPoint(r);
-        ret = BN256.modFQ12(ret);
-        lfr = lineFuncDouble(r, bAffine);
-        ret = BN256.squareFQ12(ret);
-        ret = mulLine(ret, lfr.a, lfr.b, lfr.c);
-        r = lfr.rOut;
+        r = BN256.modTwistPoint(r)
+        ret = BN256.modFQ12(ret)
+        lfr = BN256Pairing.lineFuncDouble(r, bAffine)
+        ret = BN256.squareFQ12(ret)
+        ret = BN256Pairing.mulLine(ret, lfr.a, lfr.b, lfr.c)
+        r = lfr.rOut
 
-        lfr = lineFuncAdd(r, minusA, bAffine, r2);
-        ret = mulLine(ret, lfr.a, lfr.b, lfr.c);
-        r = lfr.rOut;
+        lfr = BN256Pairing.lineFuncAdd(r, minusA, bAffine, r2)
+        ret = BN256Pairing.mulLine(ret, lfr.a, lfr.b, lfr.c)
+        r = lfr.rOut
         //---- 0
-        lfr = lineFuncDouble(r, bAffine);
-        ret = BN256.squareFQ12(ret);
-        ret = mulLine(ret, lfr.a, lfr.b, lfr.c);
-        r = lfr.rOut;
+        lfr = BN256Pairing.lineFuncDouble(r, bAffine)
+        ret = BN256.squareFQ12(ret)
+        ret = BN256Pairing.mulLine(ret, lfr.a, lfr.b, lfr.c)
+        r = lfr.rOut
         //---- 0
-        r = BN256.modTwistPoint(r);
-        ret = BN256.modFQ12(ret);
-        lfr = lineFuncDouble(r, bAffine);
-        ret = BN256.squareFQ12(ret);
-        ret = mulLine(ret, lfr.a, lfr.b, lfr.c);
-        r = lfr.rOut;
+        r = BN256.modTwistPoint(r)
+        ret = BN256.modFQ12(ret)
+        lfr = BN256Pairing.lineFuncDouble(r, bAffine)
+        ret = BN256.squareFQ12(ret)
+        ret = BN256Pairing.mulLine(ret, lfr.a, lfr.b, lfr.c)
+        r = lfr.rOut
         //---- 0
-        lfr = lineFuncDouble(r, bAffine);
-        ret = BN256.squareFQ12(ret);
-        ret = mulLine(ret, lfr.a, lfr.b, lfr.c);
-        r = lfr.rOut;
+        lfr = BN256Pairing.lineFuncDouble(r, bAffine)
+        ret = BN256.squareFQ12(ret)
+        ret = BN256Pairing.mulLine(ret, lfr.a, lfr.b, lfr.c)
+        r = lfr.rOut
         //---- 0
-        r = BN256.modTwistPoint(r);
-        ret = BN256.modFQ12(ret);
-        lfr = lineFuncDouble(r, bAffine);
-        ret = BN256.squareFQ12(ret);
-        ret = mulLine(ret, lfr.a, lfr.b, lfr.c);
-        r = lfr.rOut;
+        r = BN256.modTwistPoint(r)
+        ret = BN256.modFQ12(ret)
+        lfr = BN256Pairing.lineFuncDouble(r, bAffine)
+        ret = BN256.squareFQ12(ret)
+        ret = BN256Pairing.mulLine(ret, lfr.a, lfr.b, lfr.c)
+        r = lfr.rOut
         //---- 0
-        lfr = lineFuncDouble(r, bAffine);
-        ret = BN256.squareFQ12(ret);
-        ret = mulLine(ret, lfr.a, lfr.b, lfr.c);
-        r = lfr.rOut;
+        lfr = BN256Pairing.lineFuncDouble(r, bAffine)
+        ret = BN256.squareFQ12(ret)
+        ret = BN256Pairing.mulLine(ret, lfr.a, lfr.b, lfr.c)
+        r = lfr.rOut
         //---- 1
-        r = BN256.modTwistPoint(r);
-        ret = BN256.modFQ12(ret);
-        lfr = lineFuncDouble(r, bAffine);
-        ret = BN256.squareFQ12(ret);
-        ret = mulLine(ret, lfr.a, lfr.b, lfr.c);
-        r = lfr.rOut;
+        r = BN256.modTwistPoint(r)
+        ret = BN256.modFQ12(ret)
+        lfr = BN256Pairing.lineFuncDouble(r, bAffine)
+        ret = BN256.squareFQ12(ret)
+        ret = BN256Pairing.mulLine(ret, lfr.a, lfr.b, lfr.c)
+        r = lfr.rOut
 
-        lfr = lineFuncAdd(r, aAffine, bAffine, r2);
-        ret = mulLine(ret, lfr.a, lfr.b, lfr.c);
-        r = lfr.rOut;
+        lfr = BN256Pairing.lineFuncAdd(r, aAffine, bAffine, r2)
+        ret = BN256Pairing.mulLine(ret, lfr.a, lfr.b, lfr.c)
+        r = lfr.rOut
         //---- 0
-        lfr = lineFuncDouble(r, bAffine);
-        ret = BN256.squareFQ12(ret);
-        ret = mulLine(ret, lfr.a, lfr.b, lfr.c);
-        r = lfr.rOut;
+        lfr = BN256Pairing.lineFuncDouble(r, bAffine)
+        ret = BN256.squareFQ12(ret)
+        ret = BN256Pairing.mulLine(ret, lfr.a, lfr.b, lfr.c)
+        r = lfr.rOut
         //---- 0
-        r = BN256.modTwistPoint(r);
-        ret = BN256.modFQ12(ret);
-        lfr = lineFuncDouble(r, bAffine);
-        ret = BN256.squareFQ12(ret);
-        ret = mulLine(ret, lfr.a, lfr.b, lfr.c);
-        r = lfr.rOut;
+        r = BN256.modTwistPoint(r)
+        ret = BN256.modFQ12(ret)
+        lfr = BN256Pairing.lineFuncDouble(r, bAffine)
+        ret = BN256.squareFQ12(ret)
+        ret = BN256Pairing.mulLine(ret, lfr.a, lfr.b, lfr.c)
+        r = lfr.rOut
         //---- -1
-        lfr = lineFuncDouble(r, bAffine);
-        ret = BN256.squareFQ12(ret);
-        ret = mulLine(ret, lfr.a, lfr.b, lfr.c);
-        r = lfr.rOut;
+        lfr = BN256Pairing.lineFuncDouble(r, bAffine)
+        ret = BN256.squareFQ12(ret)
+        ret = BN256Pairing.mulLine(ret, lfr.a, lfr.b, lfr.c)
+        r = lfr.rOut
 
-        lfr = lineFuncAdd(r, minusA, bAffine, r2);
-        ret = mulLine(ret, lfr.a, lfr.b, lfr.c);
-        r = lfr.rOut;
+        lfr = BN256Pairing.lineFuncAdd(r, minusA, bAffine, r2)
+        ret = BN256Pairing.mulLine(ret, lfr.a, lfr.b, lfr.c)
+        r = lfr.rOut
         //---- 0
-        r = BN256.modTwistPoint(r);
-        ret = BN256.modFQ12(ret);
-        lfr = lineFuncDouble(r, bAffine);
-        ret = BN256.squareFQ12(ret);
-        ret = mulLine(ret, lfr.a, lfr.b, lfr.c);
-        r = lfr.rOut;
+        r = BN256.modTwistPoint(r)
+        ret = BN256.modFQ12(ret)
+        lfr = BN256Pairing.lineFuncDouble(r, bAffine)
+        ret = BN256.squareFQ12(ret)
+        ret = BN256Pairing.mulLine(ret, lfr.a, lfr.b, lfr.c)
+        r = lfr.rOut
         //---- 0
-        lfr = lineFuncDouble(r, bAffine);
-        ret = BN256.squareFQ12(ret);
-        ret = mulLine(ret, lfr.a, lfr.b, lfr.c);
-        r = lfr.rOut;
+        lfr = BN256Pairing.lineFuncDouble(r, bAffine)
+        ret = BN256.squareFQ12(ret)
+        ret = BN256Pairing.mulLine(ret, lfr.a, lfr.b, lfr.c)
+        r = lfr.rOut
         //---- 1
-        r = BN256.modTwistPoint(r);
-        ret = BN256.modFQ12(ret);
-        lfr = lineFuncDouble(r, bAffine);
-        ret = BN256.squareFQ12(ret);
-        ret = mulLine(ret, lfr.a, lfr.b, lfr.c);
-        r = lfr.rOut;
+        r = BN256.modTwistPoint(r)
+        ret = BN256.modFQ12(ret)
+        lfr = BN256Pairing.lineFuncDouble(r, bAffine)
+        ret = BN256.squareFQ12(ret)
+        ret = BN256Pairing.mulLine(ret, lfr.a, lfr.b, lfr.c)
+        r = lfr.rOut
 
-        lfr = lineFuncAdd(r, aAffine, bAffine, r2);
-        ret = mulLine(ret, lfr.a, lfr.b, lfr.c);
-        r = lfr.rOut;
+        lfr = BN256Pairing.lineFuncAdd(r, aAffine, bAffine, r2)
+        ret = BN256Pairing.mulLine(ret, lfr.a, lfr.b, lfr.c)
+        r = lfr.rOut
         //---- 1
-        lfr = lineFuncDouble(r, bAffine);
-        ret = BN256.squareFQ12(ret);
-        ret = mulLine(ret, lfr.a, lfr.b, lfr.c);
-        r = lfr.rOut;
+        lfr = BN256Pairing.lineFuncDouble(r, bAffine)
+        ret = BN256.squareFQ12(ret)
+        ret = BN256Pairing.mulLine(ret, lfr.a, lfr.b, lfr.c)
+        r = lfr.rOut
 
-        lfr = lineFuncAdd(r, aAffine, bAffine, r2);
-        ret = mulLine(ret, lfr.a, lfr.b, lfr.c);
-        r = lfr.rOut;
+        lfr = BN256Pairing.lineFuncAdd(r, aAffine, bAffine, r2)
+        ret = BN256Pairing.mulLine(ret, lfr.a, lfr.b, lfr.c)
+        r = lfr.rOut
         //---- 1
-        r = BN256.modTwistPoint(r);
-        ret = BN256.modFQ12(ret);
-        lfr = lineFuncDouble(r, bAffine);
-        ret = BN256.squareFQ12(ret);
-        ret = mulLine(ret, lfr.a, lfr.b, lfr.c);
-        r = lfr.rOut;
+        r = BN256.modTwistPoint(r)
+        ret = BN256.modFQ12(ret)
+        lfr = BN256Pairing.lineFuncDouble(r, bAffine)
+        ret = BN256.squareFQ12(ret)
+        ret = BN256Pairing.mulLine(ret, lfr.a, lfr.b, lfr.c)
+        r = lfr.rOut
 
-        lfr = lineFuncAdd(r, aAffine, bAffine, r2);
-        ret = mulLine(ret, lfr.a, lfr.b, lfr.c);
-        r = lfr.rOut;
+        lfr = BN256Pairing.lineFuncAdd(r, aAffine, bAffine, r2)
+        ret = BN256Pairing.mulLine(ret, lfr.a, lfr.b, lfr.c)
+        r = lfr.rOut
         //---- 0
-        lfr = lineFuncDouble(r, bAffine);
-        ret = BN256.squareFQ12(ret);
-        ret = mulLine(ret, lfr.a, lfr.b, lfr.c);
-        r = lfr.rOut;
+        lfr = BN256Pairing.lineFuncDouble(r, bAffine)
+        ret = BN256.squareFQ12(ret)
+        ret = BN256Pairing.mulLine(ret, lfr.a, lfr.b, lfr.c)
+        r = lfr.rOut
         //---- 0
-        r = BN256.modTwistPoint(r);
-        ret = BN256.modFQ12(ret);
-        lfr = lineFuncDouble(r, bAffine);
-        ret = BN256.squareFQ12(ret);
-        ret = mulLine(ret, lfr.a, lfr.b, lfr.c);
-        r = lfr.rOut;
+        r = BN256.modTwistPoint(r)
+        ret = BN256.modFQ12(ret)
+        lfr = BN256Pairing.lineFuncDouble(r, bAffine)
+        ret = BN256.squareFQ12(ret)
+        ret = BN256Pairing.mulLine(ret, lfr.a, lfr.b, lfr.c)
+        r = lfr.rOut
         //---- 0
-        lfr = lineFuncDouble(r, bAffine);
-        ret = BN256.squareFQ12(ret);
-        ret = mulLine(ret, lfr.a, lfr.b, lfr.c);
-        r = lfr.rOut;
+        lfr = BN256Pairing.lineFuncDouble(r, bAffine)
+        ret = BN256.squareFQ12(ret)
+        ret = BN256Pairing.mulLine(ret, lfr.a, lfr.b, lfr.c)
+        r = lfr.rOut
         //---- 0
-        r = BN256.modTwistPoint(r);
-        ret = BN256.modFQ12(ret);
-        lfr = lineFuncDouble(r, bAffine);
-        ret = BN256.squareFQ12(ret);
-        ret = mulLine(ret, lfr.a, lfr.b, lfr.c);
-        r = lfr.rOut;
+        r = BN256.modTwistPoint(r)
+        ret = BN256.modFQ12(ret)
+        lfr = BN256Pairing.lineFuncDouble(r, bAffine)
+        ret = BN256.squareFQ12(ret)
+        ret = BN256Pairing.mulLine(ret, lfr.a, lfr.b, lfr.c)
+        r = lfr.rOut
         //---- -1
-        lfr = lineFuncDouble(r, bAffine);
-        ret = BN256.squareFQ12(ret);
-        ret = mulLine(ret, lfr.a, lfr.b, lfr.c);
-        r = lfr.rOut;
+        lfr = BN256Pairing.lineFuncDouble(r, bAffine)
+        ret = BN256.squareFQ12(ret)
+        ret = BN256Pairing.mulLine(ret, lfr.a, lfr.b, lfr.c)
+        r = lfr.rOut
 
-        lfr = lineFuncAdd(r, minusA, bAffine, r2);
-        ret = mulLine(ret, lfr.a, lfr.b, lfr.c);
-        r = lfr.rOut;
+        lfr = BN256Pairing.lineFuncAdd(r, minusA, bAffine, r2)
+        ret = BN256Pairing.mulLine(ret, lfr.a, lfr.b, lfr.c)
+        r = lfr.rOut
         //---- 0
-        r = BN256.modTwistPoint(r);
-        ret = BN256.modFQ12(ret);
-        lfr = lineFuncDouble(r, bAffine);
-        ret = BN256.squareFQ12(ret);
-        ret = mulLine(ret, lfr.a, lfr.b, lfr.c);
-        r = lfr.rOut;
+        r = BN256.modTwistPoint(r)
+        ret = BN256.modFQ12(ret)
+        lfr = BN256Pairing.lineFuncDouble(r, bAffine)
+        ret = BN256.squareFQ12(ret)
+        ret = BN256Pairing.mulLine(ret, lfr.a, lfr.b, lfr.c)
+        r = lfr.rOut
         //---- 1
-        lfr = lineFuncDouble(r, bAffine);
-        ret = BN256.squareFQ12(ret);
-        ret = mulLine(ret, lfr.a, lfr.b, lfr.c);
-        r = lfr.rOut;
+        lfr = BN256Pairing.lineFuncDouble(r, bAffine)
+        ret = BN256.squareFQ12(ret)
+        ret = BN256Pairing.mulLine(ret, lfr.a, lfr.b, lfr.c)
+        r = lfr.rOut
 
-        lfr = lineFuncAdd(r, aAffine, bAffine, r2);
-        ret = mulLine(ret, lfr.a, lfr.b, lfr.c);
-        r = lfr.rOut;
+        lfr = BN256Pairing.lineFuncAdd(r, aAffine, bAffine, r2)
+        ret = BN256Pairing.mulLine(ret, lfr.a, lfr.b, lfr.c)
+        r = lfr.rOut
         //---- 0
-        r = BN256.modTwistPoint(r);
-        ret = BN256.modFQ12(ret);
-        lfr = lineFuncDouble(r, bAffine);
-        ret = BN256.squareFQ12(ret);
-        ret = mulLine(ret, lfr.a, lfr.b, lfr.c);
-        r = lfr.rOut;
+        r = BN256.modTwistPoint(r)
+        ret = BN256.modFQ12(ret)
+        lfr = BN256Pairing.lineFuncDouble(r, bAffine)
+        ret = BN256.squareFQ12(ret)
+        ret = BN256Pairing.mulLine(ret, lfr.a, lfr.b, lfr.c)
+        r = lfr.rOut
         //---- 0
-        lfr = lineFuncDouble(r, bAffine);
-        ret = BN256.squareFQ12(ret);
-        ret = mulLine(ret, lfr.a, lfr.b, lfr.c);
-        r = lfr.rOut;
+        lfr = BN256Pairing.lineFuncDouble(r, bAffine)
+        ret = BN256.squareFQ12(ret)
+        ret = BN256Pairing.mulLine(ret, lfr.a, lfr.b, lfr.c)
+        r = lfr.rOut
         //---- -1
-        r = BN256.modTwistPoint(r);
-        ret = BN256.modFQ12(ret);
-        lfr = lineFuncDouble(r, bAffine);
-        ret = BN256.squareFQ12(ret);
-        ret = mulLine(ret, lfr.a, lfr.b, lfr.c);
-        r = lfr.rOut;
+        r = BN256.modTwistPoint(r)
+        ret = BN256.modFQ12(ret)
+        lfr = BN256Pairing.lineFuncDouble(r, bAffine)
+        ret = BN256.squareFQ12(ret)
+        ret = BN256Pairing.mulLine(ret, lfr.a, lfr.b, lfr.c)
+        r = lfr.rOut
 
-        lfr = lineFuncAdd(r, minusA, bAffine, r2);
-        ret = mulLine(ret, lfr.a, lfr.b, lfr.c);
-        r = lfr.rOut;
+        lfr = BN256Pairing.lineFuncAdd(r, minusA, bAffine, r2)
+        ret = BN256Pairing.mulLine(ret, lfr.a, lfr.b, lfr.c)
+        r = lfr.rOut
         //---- 0
-        lfr = lineFuncDouble(r, bAffine);
-        ret = BN256.squareFQ12(ret);
-        ret = mulLine(ret, lfr.a, lfr.b, lfr.c);
-        r = lfr.rOut;
+        lfr = BN256Pairing.lineFuncDouble(r, bAffine)
+        ret = BN256.squareFQ12(ret)
+        ret = BN256Pairing.mulLine(ret, lfr.a, lfr.b, lfr.c)
+        r = lfr.rOut
         //---- 1
-        r = BN256.modTwistPoint(r);
-        ret = BN256.modFQ12(ret);
-        lfr = lineFuncDouble(r, bAffine);
-        ret = BN256.squareFQ12(ret);
-        ret = mulLine(ret, lfr.a, lfr.b, lfr.c);
-        r = lfr.rOut;
+        r = BN256.modTwistPoint(r)
+        ret = BN256.modFQ12(ret)
+        lfr = BN256Pairing.lineFuncDouble(r, bAffine)
+        ret = BN256.squareFQ12(ret)
+        ret = BN256Pairing.mulLine(ret, lfr.a, lfr.b, lfr.c)
+        r = lfr.rOut
 
-        lfr = lineFuncAdd(r, aAffine, bAffine, r2);
-        ret = mulLine(ret, lfr.a, lfr.b, lfr.c);
-        r = lfr.rOut;
+        lfr = BN256Pairing.lineFuncAdd(r, aAffine, bAffine, r2)
+        ret = BN256Pairing.mulLine(ret, lfr.a, lfr.b, lfr.c)
+        r = lfr.rOut
         //---- 1
-        lfr = lineFuncDouble(r, bAffine);
-        ret = BN256.squareFQ12(ret);
-        ret = mulLine(ret, lfr.a, lfr.b, lfr.c);
-        r = lfr.rOut;
+        lfr = BN256Pairing.lineFuncDouble(r, bAffine)
+        ret = BN256.squareFQ12(ret)
+        ret = BN256Pairing.mulLine(ret, lfr.a, lfr.b, lfr.c)
+        r = lfr.rOut
 
-        lfr = lineFuncAdd(r, aAffine, bAffine, r2);
-        ret = mulLine(ret, lfr.a, lfr.b, lfr.c);
-        r = lfr.rOut;
+        lfr = BN256Pairing.lineFuncAdd(r, aAffine, bAffine, r2)
+        ret = BN256Pairing.mulLine(ret, lfr.a, lfr.b, lfr.c)
+        r = lfr.rOut
         //---- 0
-        r = BN256.modTwistPoint(r);
-        ret = BN256.modFQ12(ret);
-        lfr = lineFuncDouble(r, bAffine);
-        ret = BN256.squareFQ12(ret);
-        ret = mulLine(ret, lfr.a, lfr.b, lfr.c);
-        r = lfr.rOut;
+        r = BN256.modTwistPoint(r)
+        ret = BN256.modFQ12(ret)
+        lfr = BN256Pairing.lineFuncDouble(r, bAffine)
+        ret = BN256.squareFQ12(ret)
+        ret = BN256Pairing.mulLine(ret, lfr.a, lfr.b, lfr.c)
+        r = lfr.rOut
         //---- 0
-        lfr = lineFuncDouble(r, bAffine);
-        ret = BN256.squareFQ12(ret);
-        ret = mulLine(ret, lfr.a, lfr.b, lfr.c);
-        r = lfr.rOut;
+        lfr = BN256Pairing.lineFuncDouble(r, bAffine)
+        ret = BN256.squareFQ12(ret)
+        ret = BN256Pairing.mulLine(ret, lfr.a, lfr.b, lfr.c)
+        r = lfr.rOut
         //---- 1
-        r = BN256.modTwistPoint(r);
-        ret = BN256.modFQ12(ret);
-        lfr = lineFuncDouble(r, bAffine);
-        ret = BN256.squareFQ12(ret);
-        ret = mulLine(ret, lfr.a, lfr.b, lfr.c);
-        r = lfr.rOut;
+        r = BN256.modTwistPoint(r)
+        ret = BN256.modFQ12(ret)
+        lfr = BN256Pairing.lineFuncDouble(r, bAffine)
+        ret = BN256.squareFQ12(ret)
+        ret = BN256Pairing.mulLine(ret, lfr.a, lfr.b, lfr.c)
+        r = lfr.rOut
 
-        lfr = lineFuncAdd(r, aAffine, bAffine, r2);
-        ret = mulLine(ret, lfr.a, lfr.b, lfr.c);
-        r = lfr.rOut;
+        lfr = BN256Pairing.lineFuncAdd(r, aAffine, bAffine, r2)
+        ret = BN256Pairing.mulLine(ret, lfr.a, lfr.b, lfr.c)
+        r = lfr.rOut
         //---- 0
-        lfr = lineFuncDouble(r, bAffine);
-        ret = BN256.squareFQ12(ret);
-        ret = mulLine(ret, lfr.a, lfr.b, lfr.c);
-        r = lfr.rOut;
+        lfr = BN256Pairing.lineFuncDouble(r, bAffine)
+        ret = BN256.squareFQ12(ret)
+        ret = BN256Pairing.mulLine(ret, lfr.a, lfr.b, lfr.c)
+        r = lfr.rOut
         //---- 0
-        r = BN256.modTwistPoint(r);
-        ret = BN256.modFQ12(ret);
-        lfr = lineFuncDouble(r, bAffine);
-        ret = BN256.squareFQ12(ret);
-        ret = mulLine(ret, lfr.a, lfr.b, lfr.c);
-        r = lfr.rOut;
+        r = BN256.modTwistPoint(r)
+        ret = BN256.modFQ12(ret)
+        lfr = BN256Pairing.lineFuncDouble(r, bAffine)
+        ret = BN256.squareFQ12(ret)
+        ret = BN256Pairing.mulLine(ret, lfr.a, lfr.b, lfr.c)
+        r = lfr.rOut
         //---- -1
-        lfr = lineFuncDouble(r, bAffine);
-        ret = BN256.squareFQ12(ret);
-        ret = mulLine(ret, lfr.a, lfr.b, lfr.c);
-        r = lfr.rOut;
+        lfr = BN256Pairing.lineFuncDouble(r, bAffine)
+        ret = BN256.squareFQ12(ret)
+        ret = BN256Pairing.mulLine(ret, lfr.a, lfr.b, lfr.c)
+        r = lfr.rOut
 
-        lfr = lineFuncAdd(r, minusA, bAffine, r2);
-        ret = mulLine(ret, lfr.a, lfr.b, lfr.c);
-        r = lfr.rOut;
+        lfr = BN256Pairing.lineFuncAdd(r, minusA, bAffine, r2)
+        ret = BN256Pairing.mulLine(ret, lfr.a, lfr.b, lfr.c)
+        r = lfr.rOut
         //---- 1
-        r = BN256.modTwistPoint(r);
-        ret = BN256.modFQ12(ret);
-        lfr = lineFuncDouble(r, bAffine);
-        ret = BN256.squareFQ12(ret);
-        ret = mulLine(ret, lfr.a, lfr.b, lfr.c);
-        r = lfr.rOut;
+        r = BN256.modTwistPoint(r)
+        ret = BN256.modFQ12(ret)
+        lfr = BN256Pairing.lineFuncDouble(r, bAffine)
+        ret = BN256.squareFQ12(ret)
+        ret = BN256Pairing.mulLine(ret, lfr.a, lfr.b, lfr.c)
+        r = lfr.rOut
 
-        lfr = lineFuncAdd(r, aAffine, bAffine, r2);
-        ret = mulLine(ret, lfr.a, lfr.b, lfr.c);
-        r = lfr.rOut;
+        lfr = BN256Pairing.lineFuncAdd(r, aAffine, bAffine, r2)
+        ret = BN256Pairing.mulLine(ret, lfr.a, lfr.b, lfr.c)
+        r = lfr.rOut
         //---- 0
-        lfr = lineFuncDouble(r, bAffine);
-        ret = BN256.squareFQ12(ret);
-        ret = mulLine(ret, lfr.a, lfr.b, lfr.c);
-        r = lfr.rOut;
+        lfr = BN256Pairing.lineFuncDouble(r, bAffine)
+        ret = BN256.squareFQ12(ret)
+        ret = BN256Pairing.mulLine(ret, lfr.a, lfr.b, lfr.c)
+        r = lfr.rOut
         //---- 0
-        r = BN256.modTwistPoint(r);
-        ret = BN256.modFQ12(ret);
-        lfr = lineFuncDouble(r, bAffine);
-        ret = BN256.squareFQ12(ret);
-        ret = mulLine(ret, lfr.a, lfr.b, lfr.c);
-        r = lfr.rOut;
+        r = BN256.modTwistPoint(r)
+        ret = BN256.modFQ12(ret)
+        lfr = BN256Pairing.lineFuncDouble(r, bAffine)
+        ret = BN256.squareFQ12(ret)
+        ret = BN256Pairing.mulLine(ret, lfr.a, lfr.b, lfr.c)
+        r = lfr.rOut
         //---- -1
-        lfr = lineFuncDouble(r, bAffine);
-        ret = BN256.squareFQ12(ret);
-        ret = mulLine(ret, lfr.a, lfr.b, lfr.c);
-        r = lfr.rOut;
+        lfr = BN256Pairing.lineFuncDouble(r, bAffine)
+        ret = BN256.squareFQ12(ret)
+        ret = BN256Pairing.mulLine(ret, lfr.a, lfr.b, lfr.c)
+        r = lfr.rOut
 
-        lfr = lineFuncAdd(r, minusA, bAffine, r2);
-        ret = mulLine(ret, lfr.a, lfr.b, lfr.c);
-        r = lfr.rOut;
+        lfr = BN256Pairing.lineFuncAdd(r, minusA, bAffine, r2)
+        ret = BN256Pairing.mulLine(ret, lfr.a, lfr.b, lfr.c)
+        r = lfr.rOut
         //---- 0
-        r = BN256.modTwistPoint(r);
-        ret = BN256.modFQ12(ret);
-        lfr = lineFuncDouble(r, bAffine);
-        ret = BN256.squareFQ12(ret);
-        ret = mulLine(ret, lfr.a, lfr.b, lfr.c);
-        r = lfr.rOut;
+        r = BN256.modTwistPoint(r)
+        ret = BN256.modFQ12(ret)
+        lfr = BN256Pairing.lineFuncDouble(r, bAffine)
+        ret = BN256.squareFQ12(ret)
+        ret = BN256Pairing.mulLine(ret, lfr.a, lfr.b, lfr.c)
+        r = lfr.rOut
         //---- 1
-        lfr = lineFuncDouble(r, bAffine);
-        ret = BN256.squareFQ12(ret);
-        ret = mulLine(ret, lfr.a, lfr.b, lfr.c);
-        r = lfr.rOut;
+        lfr = BN256Pairing.lineFuncDouble(r, bAffine)
+        ret = BN256.squareFQ12(ret)
+        ret = BN256Pairing.mulLine(ret, lfr.a, lfr.b, lfr.c)
+        r = lfr.rOut
 
-        lfr = lineFuncAdd(r, aAffine, bAffine, r2);
-        ret = mulLine(ret, lfr.a, lfr.b, lfr.c);
-        r = lfr.rOut;
+        lfr = BN256Pairing.lineFuncAdd(r, aAffine, bAffine, r2)
+        ret = BN256Pairing.mulLine(ret, lfr.a, lfr.b, lfr.c)
+        r = lfr.rOut
         //---- 0
-        r = BN256.modTwistPoint(r);
-        ret = BN256.modFQ12(ret);
-        lfr = lineFuncDouble(r, bAffine);
-        ret = BN256.squareFQ12(ret);
-        ret = mulLine(ret, lfr.a, lfr.b, lfr.c);
-        r = lfr.rOut;
+        r = BN256.modTwistPoint(r)
+        ret = BN256.modFQ12(ret)
+        lfr = BN256Pairing.lineFuncDouble(r, bAffine)
+        ret = BN256.squareFQ12(ret)
+        ret = BN256Pairing.mulLine(ret, lfr.a, lfr.b, lfr.c)
+        r = lfr.rOut
         //---- 1
-        lfr = lineFuncDouble(r, bAffine);
-        ret = BN256.squareFQ12(ret);
-        ret = mulLine(ret, lfr.a, lfr.b, lfr.c);
-        r = lfr.rOut;
+        lfr = BN256Pairing.lineFuncDouble(r, bAffine)
+        ret = BN256.squareFQ12(ret)
+        ret = BN256Pairing.mulLine(ret, lfr.a, lfr.b, lfr.c)
+        r = lfr.rOut
 
-        lfr = lineFuncAdd(r, aAffine, bAffine, r2);
-        ret = mulLine(ret, lfr.a, lfr.b, lfr.c);
-        r = lfr.rOut;
+        lfr = BN256Pairing.lineFuncAdd(r, aAffine, bAffine, r2)
+        ret = BN256Pairing.mulLine(ret, lfr.a, lfr.b, lfr.c)
+        r = lfr.rOut
         //---- 0
-        r = BN256.modTwistPoint(r);
-        ret = BN256.modFQ12(ret);
-        lfr = lineFuncDouble(r, bAffine);
-        ret = BN256.squareFQ12(ret);
-        ret = mulLine(ret, lfr.a, lfr.b, lfr.c);
-        r = lfr.rOut;
+        r = BN256.modTwistPoint(r)
+        ret = BN256.modFQ12(ret)
+        lfr = BN256Pairing.lineFuncDouble(r, bAffine)
+        ret = BN256.squareFQ12(ret)
+        ret = BN256Pairing.mulLine(ret, lfr.a, lfr.b, lfr.c)
+        r = lfr.rOut
         //---- 0
-        lfr = lineFuncDouble(r, bAffine);
-        ret = BN256.squareFQ12(ret);
-        ret = mulLine(ret, lfr.a, lfr.b, lfr.c);
-        r = lfr.rOut;
+        lfr = BN256Pairing.lineFuncDouble(r, bAffine)
+        ret = BN256.squareFQ12(ret)
+        ret = BN256Pairing.mulLine(ret, lfr.a, lfr.b, lfr.c)
+        r = lfr.rOut
         //---- 0
-        r = BN256.modTwistPoint(r);
-        ret = BN256.modFQ12(ret);
-        lfr = lineFuncDouble(r, bAffine);
-        ret = BN256.squareFQ12(ret);
-        ret = mulLine(ret, lfr.a, lfr.b, lfr.c);
-        r = lfr.rOut;
+        r = BN256.modTwistPoint(r)
+        ret = BN256.modFQ12(ret)
+        lfr = BN256Pairing.lineFuncDouble(r, bAffine)
+        ret = BN256.squareFQ12(ret)
+        ret = BN256Pairing.mulLine(ret, lfr.a, lfr.b, lfr.c)
+        r = lfr.rOut
 
         // In order to calculate Q1 we have to convert q from the sextic twist
         // to the full GF(p^12) group, apply the Frobenius there, and convert
@@ -1825,14 +2193,17 @@ OP_3 OP_PICK 11 OP_PICK OP_MUL 12 OP_PICK OP_4 OP_PICK OP_MUL OP_ADD OP_3 OP_PIC
         //
         // A similar argument can be made for the y value.
 
-        FQ2 q1x = BN256.conjugateFQ2(aAffine.x);
-        q1x = BN256.mulFQ2(q1x, BN256.xiToPMinus1Over3);
-        FQ2 q1y = BN256.conjugateFQ2(aAffine.y);
-        q1y = BN256.mulFQ2(q1y, BN256.xiToPMinus1Over2);
+        let q1x = BN256.conjugateFQ2(aAffine.x)
+        q1x = BN256.mulFQ2(q1x, BN256.xiToPMinus1Over3)
+        let q1y = BN256.conjugateFQ2(aAffine.y)
+        q1y = BN256.mulFQ2(q1y, BN256.xiToPMinus1Over2)
 
-        TwistPoint q1 = {
-            q1x, q1y, {0, 1}, {0, 1}
-        };
+        const q1: TwistPoint = {
+            x: q1x,
+            y: q1y,
+            z: { x: 0n, y: 1n },
+            t: { x: 0n, y: 1n },
+        }
 
         // For Q2 we are applying the p² Frobenius. The two conjugations cancel
         // out and we are left only with the factors from the isomorphism. In
@@ -1840,176 +2211,201 @@ OP_3 OP_PICK 11 OP_PICK OP_MUL 12 OP_PICK OP_4 OP_PICK OP_MUL OP_ADD OP_3 OP_PIC
         // xiToPSquaredMinus1Over3 is ∈ GF(p). With y we get a factor of -1. We
         // ignore this to end up with -Q2.
 
-        FQ2 minusQ2x = BN256.mulScalarFQ2(aAffine.x, BN256.xiToPSquaredMinus1Over3);
-        TwistPoint minusQ2 = {
-            minusQ2x, aAffine.y, {0, 1}, {0, 1}
-        };
+        const minusQ2x = BN256.mulScalarFQ2(
+            aAffine.x,
+            BN256.xiToPSquaredMinus1Over3
+        )
+        const minusQ2: TwistPoint = {
+            x: minusQ2x,
+            y: aAffine.y,
+            z: { x: 0n, y: 1n },
+            t: { x: 0n, y: 1n },
+        }
 
-        r2 = BN256.squareFQ2(q1.y);
-        lfr = lineFuncAdd(r, q1, bAffine, r2);
-        ret = mulLine(ret, lfr.a, lfr.b, lfr.c);
-        r = lfr.rOut;
+        r2 = BN256.squareFQ2(q1.y)
+        lfr = BN256Pairing.lineFuncAdd(r, q1, bAffine, r2)
+        ret = BN256Pairing.mulLine(ret, lfr.a, lfr.b, lfr.c)
+        r = lfr.rOut
 
-        r2 = BN256.squareFQ2(minusQ2.y);
-        lfr = lineFuncAdd(r, minusQ2, bAffine, r2);
-        return BN256.modFQ12(mulLine(ret, lfr.a, lfr.b, lfr.c));
+        r2 = BN256.squareFQ2(minusQ2.y)
+        lfr = BN256Pairing.lineFuncAdd(r, minusQ2, bAffine, r2)
+        return BN256.modFQ12(BN256Pairing.mulLine(ret, lfr.a, lfr.b, lfr.c))
     }
 
-    static function finalExponentiation(FQ12 in) : FQ12 {
-        FQ12 t1 = {
-            BN256.negFQ6(in.x),
-            in.y
-        }; 
+    @method()
+    static finalExponentiation(a: FQ12): FQ12 {
+        let t1: FQ12 = {
+            x: BN256.negFQ6(a.x),
+            y: a.y,
+        }
 
-        FQ12 inv = BN256.inverseFQ12(in);
-        t1 = BN256.mulFQ12(t1, inv);
+        const inv = BN256.inverseFQ12(a)
+        t1 = BN256.mulFQ12(t1, inv)
 
-        FQ12 t2 = BN256.frobeniusP2FQ12(t1);
-        t1 = BN256.mulFQ12(t1, t2);
+        const t2 = BN256.frobeniusP2FQ12(t1)
+        t1 = BN256.mulFQ12(t1, t2)
 
-        FQ12 fp = BN256.frobeniusFQ12(t1);
-        FQ12 fp2 = BN256.frobeniusP2FQ12(t1);
-        FQ12 fp3 = BN256.frobeniusFQ12(fp2);
-        fp = BN256.modFQ12(fp);
-        fp2 = BN256.modFQ12(fp2);
-        fp3 = BN256.modFQ12(fp3);
+        let fp = BN256.frobeniusFQ12(t1)
+        let fp2 = BN256.frobeniusP2FQ12(t1)
+        let fp3 = BN256.frobeniusFQ12(fp2)
+        fp = BN256.modFQ12(fp)
+        fp2 = BN256.modFQ12(fp2)
+        fp3 = BN256.modFQ12(fp3)
 
-        FQ12 fu = BN256.expFQ12_u(t1);
-        FQ12 fu2 = BN256.expFQ12_u(fu);
-        FQ12 fu3 = BN256.expFQ12_u(fu2);
+        const fu = BN256.expFQ12_u(t1)
+        const fu2 = BN256.expFQ12_u(fu)
+        const fu3 = BN256.expFQ12_u(fu2)
 
-        FQ12 y3 = BN256.frobeniusFQ12(fu);
-        FQ12 fu2p = BN256.frobeniusFQ12(fu2);
-        FQ12 fu3p = BN256.frobeniusFQ12(fu3);
-        FQ12 y2 = BN256.frobeniusP2FQ12(fu2);
+        let y3 = BN256.frobeniusFQ12(fu)
+        const fu2p = BN256.frobeniusFQ12(fu2)
+        const fu3p = BN256.frobeniusFQ12(fu3)
+        const y2 = BN256.frobeniusP2FQ12(fu2)
 
-        FQ12 y0 = BN256.mulFQ12(fp, fp2);
-        y0 = BN256.mulFQ12(y0, fp3);
+        let y0 = BN256.mulFQ12(fp, fp2)
+        y0 = BN256.mulFQ12(y0, fp3)
 
-        FQ12 y1 = BN256.conjugateFQ12(t1);
-        FQ12 y5 = BN256.conjugateFQ12(fu2);
-        y3 = BN256.conjugateFQ12(y3);
-        FQ12 y4 = BN256.mulFQ12(fu ,fu2p);
-        y4 = BN256.conjugateFQ12(y4);
+        const y1 = BN256.conjugateFQ12(t1)
+        const y5 = BN256.conjugateFQ12(fu2)
+        y3 = BN256.conjugateFQ12(y3)
+        let y4 = BN256.mulFQ12(fu, fu2p)
+        y4 = BN256.conjugateFQ12(y4)
 
-        FQ12 y6 = BN256.mulFQ12(fu3, fu3p);
-        y6 = BN256.conjugateFQ12(y6);
+        let y6 = BN256.mulFQ12(fu3, fu3p)
+        y6 = BN256.conjugateFQ12(y6)
 
-        FQ12 t0 = BN256.squareFQ12(y6);
-        t0 = BN256.modFQ12(t0);
-        t0 = BN256.mulFQ12(t0, y4);
-        t0 = BN256.mulFQ12(t0, y5);
-        t1 = BN256.mulFQ12(y3, y5);
-        t1 = BN256.mulFQ12(t1, t0);
-        t0 = BN256.mulFQ12(t0, y2);
-        t1 = BN256.squareFQ12(t1);
-        t1 = BN256.mulFQ12(t1, t0);
-        t1 = BN256.squareFQ12(t1);
-        t0 = BN256.mulFQ12(t1, y1);
-        t1 = BN256.mulFQ12(t1, y0);
-        t0 = BN256.squareFQ12(t0);
-        t0 = BN256.mulFQ12(t0, t1);
-        t0 = BN256.modFQ12(t0);
+        let t0 = BN256.squareFQ12(y6)
+        t0 = BN256.modFQ12(t0)
+        t0 = BN256.mulFQ12(t0, y4)
+        t0 = BN256.mulFQ12(t0, y5)
+        t1 = BN256.mulFQ12(y3, y5)
+        t1 = BN256.mulFQ12(t1, t0)
+        t0 = BN256.mulFQ12(t0, y2)
+        t1 = BN256.squareFQ12(t1)
+        t1 = BN256.mulFQ12(t1, t0)
+        t1 = BN256.squareFQ12(t1)
+        t0 = BN256.mulFQ12(t1, y1)
+        t1 = BN256.mulFQ12(t1, y0)
+        t0 = BN256.squareFQ12(t0)
+        t0 = BN256.mulFQ12(t0, t1)
+        t0 = BN256.modFQ12(t0)
 
-        return t0;
+        return t0
     }
 
-    static function pairInternal(CurvePoint g1, TwistPoint g2) : FQ12 {
-        FQ12 e = miller(g2, g1);
-        FQ12 ret = finalExponentiation(e);
+    @method()
+    static _pair(g1: CurvePoint, g2: TwistPoint): FQ12 {
+        const e = BN256Pairing.miller(g2, g1)
+        let ret = BN256Pairing.finalExponentiation(e)
 
         if (BN256.isInfTwistPoint(g2) || BN256.isInfCurvePoint(g1)) {
-            ret = BN256.FQ12One;
+            ret = BN256.FQ12One
         }
 
-        return ret;
+        return ret
     }
 
-    static function pair(G1Point g1, G2Point g2) : FQ12 {
-        return pairInternal(
-                BN256.createCurvePoint(g1), 
-                BN256.createTwistPoint(g2)
-            );
+    @method()
+    static pair(g1: G1Point, g2: G2Point): FQ12 {
+        return BN256Pairing._pair(
+            BN256.createCurvePoint(g1),
+            BN256.createTwistPoint(g2)
+        )
     }
 
-    static function pairCheckP4PrecalcInternal(
-            CurvePoint a0, TwistPoint b0,
-            FQ12 millerBetaAlpha,
-            CurvePoint a2, TwistPoint b2,
-            CurvePoint a3, TwistPoint b3
-            ) : bool {
+    @method()
+    static _pairCheckP4Precalc(
+        a0: CurvePoint,
+        b0: TwistPoint,
+        millerBetaAlpha: FQ12,
+        a2: CurvePoint,
+        b2: TwistPoint,
+        a3: CurvePoint,
+        b3: TwistPoint
+    ): boolean {
+        a0 = BN256.makeAffineCurvePoint(a0)
+        a2 = BN256.makeAffineCurvePoint(a2)
+        a3 = BN256.makeAffineCurvePoint(a3)
 
-        a0 = BN256.makeAffineCurvePoint(a0);
-        a2 = BN256.makeAffineCurvePoint(a2);
-        a3 = BN256.makeAffineCurvePoint(a3);
-        
-        FQ12 acc = millerBetaAlpha;
+        let acc = millerBetaAlpha
 
         if (!BN256.isInfCurvePoint(a0) && !BN256.isInfTwistPoint(b0)) {
-            acc = BN256.mulFQ12(acc, miller(b0, a0));
+            acc = BN256.mulFQ12(acc, BN256Pairing.miller(b0, a0))
         }
-        acc = BN256.modFQ12(acc);
+        acc = BN256.modFQ12(acc)
         if (!BN256.isInfCurvePoint(a2) && !BN256.isInfTwistPoint(b2)) {
-            acc = BN256.mulFQ12(acc, miller(b2, a2));
+            acc = BN256.mulFQ12(acc, BN256Pairing.miller(b2, a2))
         }
-        acc = BN256.modFQ12(acc);
+        acc = BN256.modFQ12(acc)
         if (!BN256.isInfCurvePoint(a3) && !BN256.isInfTwistPoint(b3)) {
-            acc = BN256.mulFQ12(acc, miller(b3, a3));
+            acc = BN256.mulFQ12(acc, BN256Pairing.miller(b3, a3))
         }
-        acc = BN256.modFQ12(acc);
+        acc = BN256.modFQ12(acc)
 
-        acc = finalExponentiation(acc);
-        acc = BN256.modFQ12(acc);
+        acc = BN256Pairing.finalExponentiation(acc)
 
-        return acc == BN256.FQ12One;
+        return BN256.compareFQ12(acc, BN256.FQ12One)
     }
 
-    // Check four pairs.
-    // A * B + inputs * (-gamma) + C * (-delta) == alpha * beta
-    // where alpha * beta is precalculated.
-    static function pairCheckP4Precalc(
-            G1Point a0, G2Point b0,
-            FQ12 millerBetaAlpha,
-            G1Point a2, G2Point b2,
-            G1Point a3, G2Point b3) : bool {
-        return pairCheckP4PrecalcInternal(
-                BN256.createCurvePoint(a0), BN256.createTwistPoint(b0),
-                millerBetaAlpha,
-                BN256.createCurvePoint(a2), BN256.createTwistPoint(b2),
-                BN256.createCurvePoint(a3), BN256.createTwistPoint(b3)
-            );
+    @method()
+    static pairCheckP4Precalc(
+        a0: G1Point,
+        b0: G2Point,
+        millerBetaAlpha: FQ12,
+        a2: G1Point,
+        b2: G2Point,
+        a3: G1Point,
+        b3: G2Point
+    ): boolean {
+        return BN256Pairing._pairCheckP4Precalc(
+            BN256.createCurvePoint(a0),
+            BN256.createTwistPoint(b0),
+            millerBetaAlpha,
+            BN256.createCurvePoint(a2),
+            BN256.createTwistPoint(b2),
+            BN256.createCurvePoint(a3),
+            BN256.createTwistPoint(b3)
+        )
     }
 
-    static function pairCheckP2PrecalcInternal(
-            CurvePoint a0, TwistPoint b0,
-            CurvePoint a1, TwistPoint b1) : bool {
-        FQ12 acc = BN256.FQ12One;
+    @method()
+    static _pairCheckP2Precalc(
+        a0: CurvePoint,
+        b0: TwistPoint,
+        a1: CurvePoint,
+        b1: TwistPoint
+    ): boolean {
+        let acc = BN256.FQ12One
 
-        a0 = BN256.makeAffineCurvePoint(a0);
-        a1 = BN256.makeAffineCurvePoint(a1);
+        a0 = BN256.makeAffineCurvePoint(a0)
+        a1 = BN256.makeAffineCurvePoint(a1)
 
         if (!BN256.isInfCurvePoint(a0) && !BN256.isInfTwistPoint(b0)) {
-            acc = BN256.mulFQ12(acc, miller(b0, a0));
+            acc = BN256.mulFQ12(acc, BN256Pairing.miller(b0, a0))
         }
 
         if (!BN256.isInfCurvePoint(a1) && !BN256.isInfTwistPoint(b1)) {
-            acc = BN256.mulFQ12(acc, miller(b1, a1));
+            acc = BN256.mulFQ12(acc, BN256Pairing.miller(b1, a1))
         }
 
-        acc = finalExponentiation(acc);
+        acc = BN256Pairing.finalExponentiation(acc)
 
-        return acc == BN256.FQ12One;
+        return acc == BN256.FQ12One
     }
 
-    static function pairCheckP2Precalc(
-            G1Point a0, G2Point b0,
-            G1Point a1, G2Point b1) : bool {
-        return pairCheckP2PrecalcInternal(
-                BN256.createCurvePoint(a0), BN256.createTwistPoint(b0),
-                BN256.createCurvePoint(a1), BN256.createTwistPoint(b1)
-            );
+    @method()
+    static pairCheckP2Precalc(
+        a0: G1Point,
+        b0: G2Point,
+        a1: G1Point,
+        b1: G2Point
+    ): boolean {
+        return BN256Pairing._pairCheckP2Precalc(
+            BN256.createCurvePoint(a0),
+            BN256.createTwistPoint(b0),
+            BN256.createCurvePoint(a1),
+            BN256.createTwistPoint(b1)
+        )
     }
-
 }
  
 "#;

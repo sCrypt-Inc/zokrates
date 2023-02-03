@@ -1,0 +1,7 @@
+src
+tests
+.gitignore
+node_modules
+scrypts/**/*
+!scrypts/**/*.scrypt
+!scrypt.index.json

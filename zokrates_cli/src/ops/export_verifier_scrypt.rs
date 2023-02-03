@@ -2,7 +2,9 @@ use crate::cli_constants;
 use clap::{App, Arg, ArgMatches, SubCommand};
 use std::borrow::Borrow;
 use std::convert::TryFrom;
-use std::fs::File;
+use std::fs::{File, self};
+use std::process;
+use include_dir::{include_dir, Dir};
 use std::io::{BufReader, BufWriter, Write};
 use std::path::Path;
 #[cfg(feature = "ark")]
@@ -26,16 +28,6 @@ pub fn subcommand() -> App<'static, 'static> {
                 .takes_value(true)
                 .required(false)
                 .default_value(cli_constants::VERIFICATION_KEY_DEFAULT_PATH),
-        )
-        .arg(
-            Arg::with_name("output")
-                .short("o")
-                .long("output")
-                .help("Path of the output file")
-                .value_name("FILE")
-                .takes_value(true)
-                .required(false)
-                .default_value(cli_constants::VERIFICATION_SCRYPT_CONTRACT_DEFAULT_PATH),
         )
         .arg(
             Arg::with_name("backend")
@@ -170,19 +162,38 @@ fn cli_export_verifier<T: ScryptCompatibleField, S: ScryptCompatibleScheme<T>>(
     let vk = serde_json::from_value(vk).map_err(|why| format!("{}", why))?;
 
     let verifier = S::export_scrypt_verifier(vk, alpha_g1_beta_g2, curve_parameter);
+    
+    
+    static PROJECT_DIR: Dir<'_> = include_dir!("$CARGO_MANIFEST_DIR");
+    let scrypt_proj_template = PROJECT_DIR.get_dir("scrypt_proj_template/").unwrap();
 
-    //write output file
-    let output_path = Path::new(sub_matches.value_of("output").unwrap());
+    fs::remove_dir_all("scrypt_proj_template");
+    fs::remove_dir_all("verifier");
+    
+    if let Err(e) = fs::create_dir("scrypt_proj_template") {
+        eprintln!("Failed to create empty verifier dir: {e}");
+        process::exit(1);
+    }
+    if let Err(e) = scrypt_proj_template.extract("") {
+        eprintln!("Failed extracting verifier dir: {e}");
+        process::exit(1);
+    }
+    if let Err(e) = fs::rename("scrypt_proj_template", "verifier") {
+        eprintln!("Failed to rename verifier dir: {e}");
+        process::exit(1);
+    }
+
+    // Write output files
+    let output_path = Path::new("verifier/src/contracts/verifier.ts");
     let output_file = File::create(&output_path)
         .map_err(|why| format!("Could not create {}: {}", output_path.display(), why))?;
-
     let mut writer = BufWriter::new(output_file);
-
     writer
         .write_all(verifier.as_bytes())
         .map_err(|_| "Failed writing output to file".to_string())?;
 
-    println!("Verifier exported to '{}'", output_path.display());
+    println!("Verifier code along with scaffolding exported to 'verifier' dir.");
+    println!("Initialize the repo: cd verifier && git init && npm i");
     Ok(())
 }
 

@@ -11,6 +11,7 @@ use zokrates_proof_systems::{Backend, MpcBackend, NonUniversalBackend, Proof, Se
 
 use crate::Bellman;
 use crate::Computation;
+use crate::hex_to_decimal;
 use crate::{parse_g1, parse_g2};
 use phase2::MPCParameters;
 use rand_0_4::Rng;
@@ -114,29 +115,47 @@ impl<T: Field + BellmanFieldExtensions> Backend<T, G16> for Bellman {
 
         return format!(
             r#"{{
-                {{
-                    {{{}, {}}},
-                    {{{}, {}}},
-                    {{{}, {}}}
+                x: {{
+                    x: {{
+                        x: {}n,
+                        y: {}n
+                    }},
+                    y: {{
+                        x: {}n,
+                        y: {}n
+                    }},
+                    z: {{
+                        x: {}n,
+                        y: {}n
+                    }}
                 }},
-                {{
-                    {{{}, {}}},
-                    {{{}, {}}},
-                    {{{}, {}}}
+                y: {{
+                    x: {{
+                        x: {}n,
+                        y: {}n
+                    }},
+                    y: {{
+                        x: {}n,
+                        y: {}n
+                    }},
+                    z: {{
+                        x: {}n,
+                        y: {}n
+                    }}
                 }}
             }}"#,
-            vals[11].get(1).map_or("", |m| m.as_str()),
-            vals[10].get(1).map_or("", |m| m.as_str()),
-            vals[9].get(1).map_or("", |m| m.as_str()),
-            vals[8].get(1).map_or("", |m| m.as_str()),
-            vals[7].get(1).map_or("", |m| m.as_str()),
-            vals[6].get(1).map_or("", |m| m.as_str()),
-            vals[5].get(1).map_or("", |m| m.as_str()),
-            vals[4].get(1).map_or("", |m| m.as_str()),
-            vals[3].get(1).map_or("", |m| m.as_str()),
-            vals[2].get(1).map_or("", |m| m.as_str()),
-            vals[1].get(1).map_or("", |m| m.as_str()),
-            vals[0].get(1).map_or("", |m| m.as_str()),
+            hex_to_decimal(vals[11].get(1).unwrap().as_str()).unwrap(),
+            hex_to_decimal(vals[10].get(1).unwrap().as_str()).unwrap(),
+            hex_to_decimal(vals[9].get(1).unwrap().as_str()).unwrap(),
+            hex_to_decimal(vals[8].get(1).unwrap().as_str()).unwrap(),
+            hex_to_decimal(vals[5].get(1).unwrap().as_str()).unwrap(),
+            hex_to_decimal(vals[6].get(1).unwrap().as_str()).unwrap(),
+            hex_to_decimal(vals[5].get(1).unwrap().as_str()).unwrap(),
+            hex_to_decimal(vals[4].get(1).unwrap().as_str()).unwrap(),
+            hex_to_decimal(vals[3].get(1).unwrap().as_str()).unwrap(),
+            hex_to_decimal(vals[2].get(1).unwrap().as_str()).unwrap(),
+            hex_to_decimal(vals[1].get(1).unwrap().as_str()).unwrap(),
+            hex_to_decimal(vals[0].get(1).unwrap().as_str()).unwrap()
         );
     }
 

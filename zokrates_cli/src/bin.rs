@@ -52,7 +52,7 @@ fn cli() -> Result<(), String> {
             #[cfg(any(feature = "bellman", feature = "ark"))]
             setup::subcommand(),
             export_verifier::subcommand(),
-            export_verifier_scrypt::subcommand(), // add by sCrypt
+            export_verifier_scrypt::subcommand(),
             #[cfg(any(feature = "bellman", feature = "ark"))]
             generate_proof::subcommand(),
             generate_smtlib2::subcommand(),
@@ -73,7 +73,7 @@ fn cli() -> Result<(), String> {
         #[cfg(any(feature = "bellman", feature = "ark"))]
         ("setup", Some(sub_matches)) => setup::exec(sub_matches),
         ("export-verifier", Some(sub_matches)) => export_verifier::exec(sub_matches),
-        ("export-verifier-scrypt", Some(sub_matches)) => export_verifier_scrypt::exec(sub_matches), // add by sCrypt
+        ("export-verifier-scrypt", Some(sub_matches)) => export_verifier_scrypt::exec(sub_matches),
         #[cfg(any(feature = "bellman", feature = "ark"))]
         ("generate-proof", Some(sub_matches)) => generate_proof::exec(sub_matches),
         ("generate-smtlib2", Some(sub_matches)) => generate_smtlib2::exec(sub_matches),

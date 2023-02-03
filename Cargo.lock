@@ -1387,6 +1387,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "include_dir"
+version = "0.7.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "18762faeff7122e89e0857b02f7ce6fcc0d101d5e9ad2ad7846cc01d61b7f19e"
+dependencies = [
+ "include_dir_macros",
+]
+
+[[package]]
+name = "include_dir_macros"
+version = "0.7.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b139284b5cf57ecfa712bcc66950bb635b31aff41c188e8a4cfc758eca374a3f"
+dependencies = [
+ "proc-macro2 1.0.40",
+ "quote 1.0.20",
+]
+
+[[package]]
 name = "indexmap"
 version = "1.6.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2809,6 +2828,8 @@ dependencies = [
  "ark-serialize",
  "digest 0.9.0",
  "hex 0.4.3",
+ "num-bigint 0.4.3",
+ "num-traits 0.2.15",
  "rand 0.8.5",
  "regex 1.6.0",
  "sha3 0.9.1",
@@ -2842,6 +2863,8 @@ dependencies = [
  "bellman_ce",
  "getrandom",
  "hex 0.4.3",
+ "num-bigint 0.4.3",
+ "num-traits 0.2.15",
  "pairing_ce",
  "phase2",
  "rand 0.4.6",
@@ -2880,6 +2903,7 @@ dependencies = [
  "fs_extra",
  "glob 0.2.11",
  "hex 0.3.2",
+ "include_dir",
  "lazy_static",
  "log",
  "pretty_assertions 1.2.1",
@@ -3063,6 +3087,8 @@ dependencies = [
  "ethabi",
  "getrandom",
  "hex 0.4.3",
+ "num-bigint 0.4.3",
+ "num-traits 0.2.15",
  "primitive-types",
  "rand 0.4.6",
  "regex 0.2.11",

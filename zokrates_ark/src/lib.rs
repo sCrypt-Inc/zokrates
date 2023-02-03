@@ -2,6 +2,9 @@ pub mod gm17;
 pub mod groth16;
 pub mod marlin;
 
+use num_bigint::BigUint;
+use num_traits::Num;
+
 use ark_ec::PairingEngine;
 use ark_relations::r1cs::{
     ConstraintSynthesizer, ConstraintSystem, ConstraintSystemRef, LinearCombination,
@@ -20,6 +23,12 @@ pub struct Ark;
 pub struct Computation<T, I: IntoIterator<Item = Statement<T>>> {
     program: ProgIterator<T, I>,
     witness: Option<Witness<T>>,
+}
+
+pub fn hex_to_decimal(hex_string: &str) -> Option<String> {
+    let hex_string_stripped = hex_string.strip_prefix("0x").unwrap();
+    let bigint = BigUint::from_str_radix(hex_string_stripped, 16).ok()?;
+    Some(bigint.to_string())
 }
 
 impl<T, I: IntoIterator<Item = Statement<T>>> Computation<T, I> {
