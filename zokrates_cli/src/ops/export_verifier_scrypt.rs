@@ -136,16 +136,16 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
 
     match (curve_parameter, scheme_parameter) {
         (CurveParameter::Bn128, SchemeParameter::G16) => {
-            cli_export_verifier::<Bn128Field, G16>(sub_matches, vk, alpha_g1_beta_g2.unwrap(), CurveParameter::Bn128)
+            cli_export_verifier::<Bn128Field, G16>(sub_matches, vk, CurveParameter::Bn128)
         }
         (CurveParameter::Bn128, SchemeParameter::GM17) => {
-            cli_export_verifier::<Bn128Field, GM17>(sub_matches, vk, alpha_g1_beta_g2.unwrap(), CurveParameter::Bn128)
+            cli_export_verifier::<Bn128Field, GM17>(sub_matches, vk, CurveParameter::Bn128)
         }
         (CurveParameter::Bn128, SchemeParameter::MARLIN) => {
-            cli_export_verifier::<Bn128Field, Marlin>(sub_matches, vk, alpha_g1_beta_g2.unwrap(), CurveParameter::Bn128)
+            cli_export_verifier::<Bn128Field, Marlin>(sub_matches, vk, CurveParameter::Bn128)
         }
         (CurveParameter::Bls12_381, SchemeParameter::G16) => {
-            cli_export_verifier::<Bls12_381Field, G16>(sub_matches, vk, alpha_g1_beta_g2.unwrap(), CurveParameter::Bls12_381)
+            cli_export_verifier::<Bls12_381Field, G16>(sub_matches, vk, CurveParameter::Bls12_381)
         }
         (curve_parameter, scheme_parameter) => Err(format!("Could not export verifier with given parameters (curve: {}, scheme: {}): not supported", curve_parameter, scheme_parameter))
     }
@@ -154,14 +154,13 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
 fn cli_export_verifier<T: ScryptCompatibleField, S: ScryptCompatibleScheme<T>>(
     sub_matches: &ArgMatches,
     vk: serde_json::Value,
-    alpha_g1_beta_g2: String,
     curve_parameter: CurveParameter
 ) -> Result<(), String> {
     println!("Exporting verifier...");
 
     let vk = serde_json::from_value(vk).map_err(|why| format!("{}", why))?;
 
-    let verifier = S::export_scrypt_verifier(vk, alpha_g1_beta_g2, curve_parameter);
+    let verifier = S::export_scrypt_verifier(vk, curve_parameter);
     
     
     static PROJECT_DIR: Dir<'_> = include_dir!("$CARGO_MANIFEST_DIR");

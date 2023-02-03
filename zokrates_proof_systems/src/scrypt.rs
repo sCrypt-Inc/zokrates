@@ -9,7 +9,7 @@ impl ScryptCompatibleField for Bls12_381Field {}
 pub trait ScryptCompatibleScheme<T: ScryptCompatibleField>: Scheme<T> {
     type Proof: From<Self::ProofPoints> + Serialize + DeserializeOwned + Clone;
 
-    fn export_scrypt_verifier(vk: Self::VerificationKey, alpha_g1_beta_g2: String, curve_parameter: CurveParameter) -> String;
+    fn export_scrypt_verifier(vk: Self::VerificationKey, curve_parameter: CurveParameter) -> String;
 }
 
 

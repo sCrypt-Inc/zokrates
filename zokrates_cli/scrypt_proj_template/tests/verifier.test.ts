@@ -1,13 +1,26 @@
 import { expect } from 'chai'
-import { Verifier, Proof } from '../src/contracts/verifier'
+import { Verifier, G1Point, Proof, VERIFYING_KEY_DATA, BN256, BN256Pairing, VerifyingKey } from '../src/contracts/verifier'
 import { FixedArray } from 'scrypt-ts'
 
 describe('Test G16 on BN256', () => {
+    
     let verifier = undefined
 
     before(async () => {
         await Verifier.compile()
-        verifier = new Verifier()
+        // Construct VerifyingKey struct with pre-calculated miller(beta, alpha)
+        let alpha = BN256.createCurvePoint(VERIFYING_KEY_DATA.alpha)
+        let beta = BN256.createTwistPoint(VERIFYING_KEY_DATA.beta)
+        let millerb1a1 = BN256Pairing.miller(beta, alpha)
+        
+        let vk: VerifyingKey = {
+           millerb1a1: millerb1a1,
+           gamma: VERIFYING_KEY_DATA.gamma,
+           delta: VERIFYING_KEY_DATA.delta,
+           gammaAbc: VERIFYING_KEY_DATA.gammaAbc
+        }
+        
+        verifier = new Verifier(vk)
     })
 
     it('should pass verify proof', () => {
