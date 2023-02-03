@@ -26,8 +26,7 @@ pub struct Computation<T, I: IntoIterator<Item = Statement<T>>> {
 }
 
 pub fn hex_to_decimal(hex_string: &str) -> Option<String> {
-    let hex_string_stripped = hex_string.strip_prefix("0x").unwrap();
-    let bigint = BigUint::from_str_radix(hex_string_stripped, 16).ok()?;
+    let bigint = BigUint::from_str_radix(hex_string, 16).ok()?;
     Some(bigint.to_string())
 }
 
