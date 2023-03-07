@@ -3,7 +3,7 @@ All notable changes to this project will be documented in this file.
 
 ## [1.9.0] - 2023-03-07
 
-sCrypt verifier export is not an scrypt-ts project.
+sCrypt verifier export is now an scrypt-ts project.
 
 ## [1.8.2] - 2022-09-17
 
