@@ -400,7 +400,7 @@ export type Proof = {
 export class G16BN256 extends SmartContractLib {
     
     @prop()
-    static readonly N = <%vk_input_length%>n // Number of public inputs.
+    static readonly N: bigint = <%vk_input_length%>n // Number of public inputs.
 
     @method()
     static verify(

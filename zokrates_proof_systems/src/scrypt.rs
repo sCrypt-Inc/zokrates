@@ -67,19 +67,19 @@ export type G2Point = {
 export class BN256 extends SmartContractLib {
     // Curve bits:
     @prop()
-    static readonly CURVE_BITS = 256n
+    static readonly CURVE_BITS: bigint = 256n
     @prop()
-    static readonly CURVE_BITS_P8 = 264n // +8 bits
+    static readonly CURVE_BITS_P8: bigint = 264n // +8 bits
     @prop()
-    static readonly CURVE_BITS_P8_DIV12 = 88n
+    static readonly CURVE_BITS_P8_DIV12: bigint = 88n
 
     // Key int size:
     @prop()
-    static readonly S = 33n // 32 bytes plus sign byte
+    static readonly S: bigint = 33n // 32 bytes plus sign byte
 
     // Upper bound of the eGCD mod inverse loop:
     @prop()
-    static readonly UB = 368n
+    static readonly UB: bigint = 368n
 
     // Generator of G1:
     @prop()
@@ -151,7 +151,7 @@ export class BN256 extends SmartContractLib {
 
     // Curve field modulus:
     @prop()
-    static readonly P =
+    static readonly P: bigint =
         21888242871839275222246405745257275088696311157297823662689037894645226208583n
 
     // xiToPMinus1Over6 is ξ^((p-1)/6) where ξ = i+9.
