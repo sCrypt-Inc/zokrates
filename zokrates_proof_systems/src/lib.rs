@@ -19,7 +19,6 @@ use serde::{Deserialize, Serialize};
 
 use rand_0_4::Rng;
 use std::io::{Read, Write};
-use std::str::FromStr;
 
 use zokrates_field::Field;
 

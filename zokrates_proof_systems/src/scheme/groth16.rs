@@ -201,12 +201,12 @@ impl<T: ScryptCompatibleField> ScryptCompatibleScheme<T> for G16 {
         //let (mut verifier_template_text, mut zksnark_template_text, scrypt_pairing_bn256) =
         //(String::from(SCRYPT_CONTRACT_TEMPLATE), String::from(ZKSNARK_TEMPLATE_BN128), scrypt_pairing_lib_bn128());
         let mut zksnark_template_text: String;
-        let mut scrypt_pairing: String;
+        let scrypt_pairing: String;
 
-        let mut vk_alpha_str: String;
-        let mut vk_beta_str: String;
-        let mut vk_gamma_str: String;
-        let mut vk_delta_str: String;
+        let vk_alpha_str: String;
+        let vk_beta_str: String;
+        let vk_gamma_str: String;
+        let vk_delta_str: String;
 
         if curve_parameter == CurveParameter::Bn128 {
             zksnark_template_text = String::from(ZKSNARK_TEMPLATE_BN128);
@@ -241,7 +241,7 @@ impl<T: ScryptCompatibleField> ScryptCompatibleScheme<T> for G16 {
         let mut gamma_abc_repeat_text = String::new();
         gamma_abc_repeat_text.push_str("[");
         for (i, g1) in vk.gamma_abc.iter().enumerate() {
-            let mut to_add = g1.to_scrypt_string();
+            let to_add = g1.to_scrypt_string();
             gamma_abc_repeat_text.push_str(
                 format!(
                     "{}",
