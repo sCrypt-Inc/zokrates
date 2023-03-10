@@ -92,13 +92,11 @@ fn cli_export_verifier<T: ScryptCompatibleField, S: ScryptCompatibleScheme<T>>(
     let scrypt_proj_template = PROJECT_DIR.get_dir("scrypt_proj_template/").unwrap();
 
     if let Err(e) = fs::remove_dir_all("scrypt_proj_template") {
-        eprintln!("Failed to remove project tempalte: {e}");
-        process::exit(1);
+        println!("Project template not present.");
     }
 
     if let Err(e) = fs::remove_dir_all("verifier") {
-        eprintln!("Failed to remove verifier dir: {e}");
-        process::exit(1);
+        println!("Verifier dir not present.");
     }
 
     if let Err(e) = fs::create_dir("scrypt_proj_template") {
