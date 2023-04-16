@@ -113,7 +113,7 @@ fn cli_export_verifier<T: ScryptCompatibleField, S: ScryptCompatibleScheme<T>>(
     }
 
     // Write output files
-    let output_path = Path::new("verifier/src/contracts/verifier.ts");
+    let output_path = Path::new("verifier/src/contracts/snark.ts");
     let output_file = File::create(&output_path)
         .map_err(|why| format!("Could not create {}: {}", output_path.display(), why))?;
     let mut writer = BufWriter::new(output_file);

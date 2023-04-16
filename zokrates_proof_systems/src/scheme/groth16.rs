@@ -397,19 +397,20 @@ export type Proof = {
     c: G1Point
 }
 
-export class G16BN256 extends SmartContractLib {
-    
+export const N_PUB_INPUTS = <%vk_input_length%>
+
+export class SNARK extends SmartContractLib {
     @prop()
-    static readonly N: bigint = <%vk_input_length%>n // Number of public inputs.
+    static readonly N: bigint = BigInt(N_PUB_INPUTS) // Number of public inputs.
 
     @method()
     static verify(
         vk: VerifyingKey,
-        inputs: FixedArray<bigint, <%vk_input_length%>>,
+        inputs: FixedArray<bigint, typeof N_PUB_INPUTS>,
         proof: Proof,
     ): boolean {
         let vk_x = vk.gammaAbc[0]
-        for (let i = 0; i < G16BN256.N; i++) {
+        for (let i = 0; i < N_PUB_INPUTS; i++) {
             const p = BN256.mulG1Point(vk.gammaAbc[i + 1], inputs[i])
             vk_x = BN256.addG1Points(vk_x, p)
         }
@@ -430,22 +431,4 @@ export class G16BN256 extends SmartContractLib {
     }
 }
 
-export class Verifier extends SmartContract {
-    
-    @prop()
-    vk: VerifyingKey
-
-    constructor(vk: VerifyingKey) {
-        super(...arguments)
-        this.vk = vk
-    }
-    
-    @method()
-    public verifyProof(
-        inputs: FixedArray<bigint, <%vk_input_length%>>,
-        proof: Proof,
-    ) {
-        assert(G16BN256.verify(this.vk, inputs, proof))
-    }
-}
 "#;

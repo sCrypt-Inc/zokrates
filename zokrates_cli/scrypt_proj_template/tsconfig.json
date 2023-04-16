@@ -19,10 +19,10 @@
     "plugins": [
       {
         "transform": "scrypt-ts/dist/transformation/transformer",
-        "outDir": "./scrypts",
+        "outDir": "./artifacts",
         "transformProgram": true
       }
     ]
   },
-  "include": ["src/**/*.ts", "tests/**/*.ts"]
+  "include": ["src/**/*.ts", "tests/**/*.ts", "deploy.ts"]
 }

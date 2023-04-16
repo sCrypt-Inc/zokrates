@@ -14,8 +14,7 @@ pub trait ScryptCompatibleScheme<T: ScryptCompatibleField>: Scheme<T> {
 
 
 pub fn scrypt_pairing_lib_bn128() -> String {
-    let bn256_lib = r#"
-import { and, assert, SmartContract, SmartContractLib, method, lshift, prop, FixedArray } from 'scrypt-ts'
+    let bn256_lib = r#"import { and, SmartContractLib, method, lshift, prop, FixedArray } from 'scrypt-ts'
 
 export type FQ = bigint
 

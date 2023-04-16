@@ -14,4 +14,4 @@ apply() {
 }
 
 # BN256
-apply scrypts/src/contracts/verifier.scrypt optimizations/ec/bn256
+apply artifacts/src/contracts/snark.scrypt optimizations/ec/bn256
