@@ -2,21 +2,27 @@ import { assert, SmartContract, method, prop, FixedArray } from 'scrypt-ts'
 import { N_PUB_INPUTS, Proof, SNARK, VerifyingKey } from './snark'
 
 export class Verifier extends SmartContract {
-    
+
     @prop()
     vk: VerifyingKey
 
-    constructor(vk: VerifyingKey) {
+    @prop()
+    publicInputs: FixedArray<bigint, typeof N_PUB_INPUTS>
+
+    constructor(
+        vk: VerifyingKey,
+        publicInputs: FixedArray<bigint, typeof N_PUB_INPUTS>,
+    ) {
         super(...arguments)
         this.vk = vk
+        this.publicInputs = publicInputs
     }
-    
+
     @method()
     public verifyProof(
-        inputs: FixedArray<bigint, typeof N_PUB_INPUTS>,
-        proof: Proof,
+        proof: Proof
     ) {
-        assert(SNARK.verify(this.vk, inputs, proof))
+        assert(SNARK.verify(this.vk, this.publicInputs, proof))
     }
 
 }

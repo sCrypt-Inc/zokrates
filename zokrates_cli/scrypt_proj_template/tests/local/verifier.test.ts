@@ -10,8 +10,13 @@ describe('Test G16 on BN256', () => {
 
     before(async () => {
         await Verifier.compile()
+        
+        // TODO: Insert public param values here:
+        const publicInputs: FixedArray<bigint, typeof N_PUB_INPUTS> = [ 0n ]
+
         verifier = new Verifier(
-            prepareVerifyingKey(VERIFYING_KEY_DATA)
+            prepareVerifyingKey(VERIFYING_KEY_DATA),
+            publicInputs
         )
     })
 
@@ -20,11 +25,8 @@ describe('Test G16 on BN256', () => {
         const proofPath = '../proof.json'
         const proof: Proof = parseProofFile(proofPath)
 
-        // TODO: Insert public param values here:
-        const inputs: FixedArray<bigint, typeof N_PUB_INPUTS> = [ 0n ]
-
         const result = verifier.verify((self) => {
-            self.verifyProof(inputs, proof)
+            self.verifyProof(proof)
         })
         expect(result.success, result.error).to.be.true
     })

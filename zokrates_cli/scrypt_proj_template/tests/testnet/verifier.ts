@@ -10,8 +10,12 @@ const contractBalance = 1000
 async function main() {
     await Verifier.compile()
 
+    // TODO: Insert public input values here:
+    const publicInputs: FixedArray<bigint, typeof N_PUB_INPUTS> = [ 0n ]
+
     let verifier = new Verifier(
-        prepareVerifyingKey(VERIFYING_KEY_DATA)
+        prepareVerifyingKey(VERIFYING_KEY_DATA),
+        publicInputs
     )
 
     // Connect to a signer.
@@ -27,11 +31,7 @@ async function main() {
     const proofPath = '../proof.json'
     const proof: Proof = parseProofFile(proofPath)
 
-    // TODO: Insert public param values here (don't forget to adjust arr size):
-    const inputs: FixedArray<bigint, typeof N_PUB_INPUTS> = [ 0n ]
-
     const { tx: callTx } = await verifier.methods.verifyProof(
-        inputs,
         proof
     )
     console.log('Verifier contract unlocked: ', callTx.id)
