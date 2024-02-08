@@ -12,9 +12,7 @@ _This is a proof-of-concept implementation. It has not been tested for productio
 
 ## Getting Started
 
-Load the ZoKrates Plugin on [Remix](https://remix.ethereum.org) to write your first SNARK program!
-
-Alternatively, you can install the ZoKrates CLI:
+Install the ZoKrates CLI:
 
 ```bash
 curl -Ls https://scrypt.io/scripts/setup-zokrates.sh | sh
@@ -70,7 +68,7 @@ zokrates setup
 zokrates compute-witness -a 2 2 4
 # generate a proof of computation
 zokrates generate-proof
-# export a solidity verifier
+# export an sCrypt verifier
 zokrates export-verifier-scrypt
 # or verify natively
 zokrates verify
